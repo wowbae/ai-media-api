@@ -30,19 +30,34 @@ function MediaChatPage() {
     const { chatId } = Route.useParams();
     const chatIdNum = parseInt(chatId);
 
-    // Используем кешированные данные сразу, обновляем в фоне
+    // Первоначальная загрузка только последних 3 сообщений для быстрого показа интерфейса
     const {
         data: chat,
         isLoading: isChatLoading,
         isFetching: isChatFetching,
         error: chatError,
         refetch,
-    } = useGetChatQuery(chatIdNum, {
+    } = useGetChatQuery({ id: chatIdNum, limit: 3 }, {
         // Показывать кешированные данные немедленно
         refetchOnMountOrArgChange: 10, // Обновлять только если данные старше 10 секунд
         // Показывать данные из кеша даже при ошибке сети
         skip: false,
     });
+
+    // Фоновая подгрузка всех requests после первоначальной загрузки
+    const shouldSkipFullLoad =
+        isChatLoading ||
+        !chat ||
+        (chat._count && chat.requests.length >= chat._count.requests); // Пропускаем если уже загружены все requests
+
+    const {
+        data: fullChat,
+        isLoading: isFullChatLoading,
+    } = useGetChatQuery({ id: chatIdNum }, {
+        skip: shouldSkipFullLoad,
+        refetchOnMountOrArgChange: false, // Не обновлять автоматически
+    });
+
     const [updateChat] = useUpdateChatMutation();
     const { isTestMode } = useTestMode();
 
@@ -52,10 +67,11 @@ function MediaChatPage() {
 
     // Синхронизация модели с настройками чата
     useEffect(() => {
-        if (chat) {
-            setCurrentModel(chat.model);
+        const activeChatForSync = fullChat || chat;
+        if (activeChatForSync) {
+            setCurrentModel(activeChatForSync.model);
         }
-    }, [chat]);
+    }, [chat, fullChat]);
 
     // Обработка смены модели
     async function handleModelChange(model: MediaModel) {
@@ -63,9 +79,10 @@ function MediaChatPage() {
         const previousModel = currentModel;
         setCurrentModel(model);
 
-        if (chat) {
+        const activeChatForUpdate = fullChat || chat;
+        if (activeChatForUpdate) {
             try {
-                await updateChat({ id: chat.id, model }).unwrap();
+                await updateChat({ id: activeChatForUpdate.id, model }).unwrap();
             } catch (error) {
                 // Откатываем изменение модели при ошибке
                 setCurrentModel(previousModel);
@@ -179,8 +196,11 @@ function MediaChatPage() {
         return null;
     }
 
+    // Используем полные данные если они загружены, иначе используем ограниченные
+    const activeChat = fullChat || chat;
+
     // Сортируем запросы по дате (старые сверху)
-    const sortedRequests = [...(chat.requests || [])].sort(
+    const sortedRequests = [...(activeChat.requests || [])].sort(
         (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
 
@@ -213,7 +233,7 @@ function MediaChatPage() {
             {/* Основной чат */}
             <div className="flex flex-1 flex-col">
                 {/* Заголовок чата */}
-                <ChatHeader name={chat.name} model={currentModel} showUpdating={showUpdatingIndicator} />
+                <ChatHeader name={activeChat.name} model={currentModel} showUpdating={showUpdatingIndicator} />
 
                 {/* Список сообщений */}
                 <MessageList

@@ -25,34 +25,56 @@ initTelegramNotifier().catch(console.error);
 // Получить все чаты
 mediaRouter.get('/chats', async (_req: Request, res: Response) => {
     try {
+        // Загружаем чаты только с подсчетом запросов (без загрузки самих requests)
         const chats = await prisma.mediaChat.findMany({
             orderBy: { updatedAt: 'desc' },
             include: {
-                requests: {
-                    include: {
-                        _count: {
-                            select: { files: true },
-                        },
+                _count: {
+                    select: {
+                        requests: true,
                     },
                 },
             },
         });
 
-        // Подсчитываем общее количество файлов для каждого чата
-        const chatsWithFileCount = chats.map((chat) => {
-            const totalFiles = chat.requests.reduce(
-                (sum, req) => sum + req._count.files,
-                0
-            );
-            return {
-                ...chat,
-                _count: {
-                    files: totalFiles,
-                    requests: chat.requests.length,
+        // Подсчитываем файлы для каждого чата одним запросом
+        const chatIds = chats.map((chat) => chat.id);
+        const filesByChat = new Map<number, number>();
+
+        if (chatIds.length > 0) {
+            // Получаем все файлы для этих чатов с их requestId
+            const files = await prisma.mediaFile.findMany({
+                where: {
+                    request: {
+                        chatId: { in: chatIds },
+                    },
                 },
-                requests: undefined, // Удаляем requests из ответа, так как они не нужны в списке чатов
-            };
-        });
+                select: {
+                    requestId: true,
+                    request: {
+                        select: {
+                            chatId: true,
+                        },
+                    },
+                },
+            });
+
+            // Группируем по chatId
+            files.forEach((file) => {
+                const chatId = file.request.chatId;
+                const current = filesByChat.get(chatId) || 0;
+                filesByChat.set(chatId, current + 1);
+            });
+        }
+
+        // Объединяем данные
+        const chatsWithFileCount = chats.map((chat) => ({
+            ...chat,
+            _count: {
+                files: filesByChat.get(chat.id) || 0,
+                requests: chat._count.requests,
+            },
+        }));
 
         res.json({ success: true, data: chatsWithFileCount });
     } catch (error) {
@@ -65,14 +87,22 @@ mediaRouter.get('/chats', async (_req: Request, res: Response) => {
 mediaRouter.get('/chats/:id', async (req: Request, res: Response) => {
     try {
         const chatId = parseInt(req.params.id);
+        // Параметр limit для ограничения количества загружаемых запросов (по умолчанию 3 для быстрой загрузки)
+        const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
 
         const chat = await prisma.mediaChat.findUnique({
             where: { id: chatId },
             include: {
                 requests: {
                     orderBy: { createdAt: 'desc' },
+                    ...(limit ? { take: limit } : {}), // Применяем limit только если указан
                     include: {
                         files: true,
+                    },
+                },
+                _count: {
+                    select: {
+                        requests: true, // Общее количество requests для пагинации
                     },
                 },
             },
@@ -84,7 +114,11 @@ mediaRouter.get('/chats/:id', async (req: Request, res: Response) => {
 
         // Логируем информацию о файлах для отладки
         const totalFiles = chat.requests.reduce((sum, req) => sum + req.files.length, 0);
-        console.log(`[API] Запрос /chats/${chatId}: чат найден, запросов=${chat.requests.length}, всего файлов=${totalFiles}`);
+        const loadedRequests = chat.requests.length;
+        const totalRequests = chat._count.requests;
+        console.log(
+            `[API] Запрос /chats/${chatId}: чат найден, загружено запросов=${loadedRequests}${limit ? ` (limit=${limit})` : ''}, всего запросов=${totalRequests}, файлов=${totalFiles}`
+        );
 
         res.json({ success: true, data: chat });
     } catch (error) {

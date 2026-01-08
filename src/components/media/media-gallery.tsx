@@ -1,5 +1,5 @@
 // Компонент галереи всех медиафайлов чата
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Download, X, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -20,9 +20,17 @@ interface MediaGalleryProps {
     requests: MediaRequest[];
 }
 
+// Количество файлов для первоначального отображения
+const INITIAL_FILES_LIMIT = 12;
+// Количество файлов для подгрузки при скролле
+const LOAD_MORE_COUNT = 12;
+
 export function MediaGallery({ requests }: MediaGalleryProps) {
     const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null);
     const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
+    const [visibleFilesCount, setVisibleFilesCount] =
+        useState(INITIAL_FILES_LIMIT);
+    const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
     // Собираем все файлы из всех requests, сортируем по дате (новые сверху)
     const allFiles = useMemo(() => {
@@ -41,6 +49,48 @@ export function MediaGallery({ requests }: MediaGalleryProps) {
                 new Date(a.createdAt).getTime()
         );
     }, [requests]);
+
+    // Отображаемые файлы (с ограничением для быстрой загрузки)
+    const visibleFiles = useMemo(() => {
+        return allFiles.slice(0, visibleFilesCount);
+    }, [allFiles, visibleFilesCount]);
+
+    // Сброс счетчика видимых файлов при изменении requests
+    useEffect(() => {
+        setVisibleFilesCount(INITIAL_FILES_LIMIT);
+    }, [requests.length]);
+
+    // Lazy loading при скролле с помощью Intersection Observer
+    useEffect(() => {
+        if (
+            !loadMoreTriggerRef.current ||
+            visibleFilesCount >= allFiles.length
+        ) {
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    setVisibleFilesCount((prev) =>
+                        Math.min(prev + LOAD_MORE_COUNT, allFiles.length)
+                    );
+                }
+            },
+            {
+                // Используем viewport как root для простоты
+                root: null,
+                rootMargin: '100px', // Начинаем загрузку за 100px до видимости
+                threshold: 0,
+            }
+        );
+
+        observer.observe(loadMoreTriggerRef.current);
+
+        return () => {
+            observer.disconnect();
+        };
+    }, [visibleFilesCount, allFiles.length]);
 
     function handleFileClick(file: MediaFile) {
         setSelectedFile(file);
@@ -81,7 +131,7 @@ export function MediaGallery({ requests }: MediaGalleryProps) {
                 {/* Grid с файлами */}
                 <ScrollArea className='flex-1'>
                     <div className='grid grid-cols-4 gap-2 p-4'>
-                        {allFiles.map((file) => (
+                        {visibleFiles.map((file) => (
                             <div
                                 key={file.id}
                                 className='group relative cursor-pointer transition-transform hover:scale-105'
@@ -119,6 +169,15 @@ export function MediaGallery({ requests }: MediaGalleryProps) {
                                 </Button>
                             </div>
                         ))}
+                        {/* Триггер для lazy loading */}
+                        {visibleFilesCount < allFiles.length && (
+                            <div
+                                ref={loadMoreTriggerRef}
+                                className='col-span-4 flex h-20 items-center justify-center'
+                            >
+                                <div className='h-1 w-1 rounded-full bg-slate-600' />
+                            </div>
+                        )}
                     </div>
                 </ScrollArea>
             </div>

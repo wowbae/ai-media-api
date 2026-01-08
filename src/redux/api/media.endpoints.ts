@@ -35,11 +35,18 @@ export const mediaEndpoints = baseApi.injectEndpoints({
         }),
 
         // Получить чат по ID
-        getChat: build.query<MediaChatWithRequests, number>({
-            query: (id) => `/chats/${id}`,
+        getChat: build.query<
+            MediaChatWithRequests,
+            { id: number; limit?: number }
+        >({
+            query: ({ id, limit }) => {
+                const url = `/chats/${id}`;
+                const params = limit !== undefined ? `?limit=${limit}` : '';
+                return url + params;
+            },
             transformResponse: (response: ApiResponse<MediaChatWithRequests>) =>
                 response.data,
-            providesTags: (result, _error, id) => [
+            providesTags: (result, _error, { id }) => [
                 { type: 'Chat', id },
                 // Добавляем File теги, чтобы при удалении файла чат обновлялся
                 ...(result?.requests.flatMap((req) =>
