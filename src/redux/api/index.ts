@@ -1,10 +1,9 @@
-// RTK Query API для медиа-генерации
-// Реэкспорт из новой структуры для обратной совместимости
+// Реэкспорт всего API и хуков
 
-// Реэкспорт API
-export { baseApi as mediaApi } from './api/base';
+// Базовый API
+export { baseApi } from './base';
 
-// Реэкспорт всех типов
+// Типы
 export type {
     MediaModel,
     MediaType,
@@ -21,9 +20,9 @@ export type {
     GenerateMediaResponse,
     PaginatedResponse,
     ApiResponse,
-} from './api/index';
+} from './base';
 
-// Реэкспорт всех хуков
+// Хуки для медиа (чаты, файлы, запросы)
 export {
     useGetChatsQuery,
     useGetChatQuery,
@@ -35,5 +34,7 @@ export {
     useGetRequestQuery,
     useGetFilesQuery,
     useDeleteFileMutation,
-    useGetModelsQuery,
-} from './api/index';
+} from './media.endpoints';
+
+// Хуки для моделей
+export { useGetModelsQuery } from './models.endpoints';

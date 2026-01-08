@@ -1,47 +1,27 @@
-// GPTunnel провайдер для работы с Veo 3.1 Fast и другими моделями GPTunnel
+// GPTunnel Media провайдер для работы с /v1/media API
+// Используется для Veo 3.1 Fast и других моделей GPTunnel
 import type {
     MediaProvider,
     GenerateParams,
     TaskCreatedResult,
     TaskStatusResult,
+} from '../interfaces';
+import { PROVIDER_STATUS_MAP } from '../interfaces';
+import type { SavedFileInfo } from '../../file.service';
+import { saveFileFromUrl } from '../../file.service';
+import { MEDIA_MODELS } from '../../config';
+import type {
+    GPTunnelConfig,
+    GPTunnelMediaCreateResponse,
+    GPTunnelMediaResultResponse,
 } from './interfaces';
-import { PROVIDER_STATUS_MAP } from './interfaces';
-import type { SavedFileInfo } from '../file.service';
-import { saveFileFromUrl } from '../file.service';
-import { MEDIA_MODELS } from '../config';
 
-interface GPTunnelConfig {
-    apiKey: string;
-    baseURL: string;
-}
-
-interface GPTunnelCreateResponse {
-    code: number;
-    id: string;
-    model: string;
-    prompt: string;
-    created_at: number;
-    status: 'idle' | 'processing' | 'done' | 'failed';
-    url: string | null;
-}
-
-interface GPTunnelResultResponse {
-    code: number;
-    id: string;
-    model: string;
-    prompt: string;
-    created_at: number;
-    status: 'idle' | 'processing' | 'done' | 'failed';
-    url: string | null;
-    error?: string;
-}
-
-export function createGPTunnelProvider(config: GPTunnelConfig): MediaProvider {
+export function createGPTunnelMediaProvider(config: GPTunnelConfig): MediaProvider {
     const { apiKey, baseURL } = config;
 
     async function createTask(
         params: GenerateParams
-    ): Promise<GPTunnelCreateResponse> {
+    ): Promise<GPTunnelMediaCreateResponse> {
         const modelConfig = MEDIA_MODELS[params.model as string];
         if (!modelConfig || modelConfig.provider !== 'gptunnel') {
             throw new Error(`Модель ${params.model} не поддерживается GPTunnel`);
@@ -63,7 +43,7 @@ export function createGPTunnelProvider(config: GPTunnelConfig): MediaProvider {
             body.ar = params.aspectRatio;
         }
 
-        console.log('[GPTunnel] Создание задачи:', {
+        console.log('[GPTunnel Media] Создание задачи:', {
             model: modelId,
             prompt: params.prompt.substring(0, 50),
             hasImages: !!body.images,
@@ -86,13 +66,13 @@ export function createGPTunnelProvider(config: GPTunnelConfig): MediaProvider {
             );
         }
 
-        const data = (await response.json()) as GPTunnelCreateResponse;
+        const data = (await response.json()) as GPTunnelMediaCreateResponse;
 
         if (data.code !== 0) {
             throw new Error(`GPTunnel error code: ${data.code}`);
         }
 
-        console.log('[GPTunnel] Задача создана:', {
+        console.log('[GPTunnel Media] Задача создана:', {
             taskId: data.id,
             status: data.status,
         });
@@ -102,7 +82,7 @@ export function createGPTunnelProvider(config: GPTunnelConfig): MediaProvider {
 
     async function getResult(
         taskId: string
-    ): Promise<GPTunnelResultResponse> {
+    ): Promise<GPTunnelMediaResultResponse> {
         const response = await fetch(`${baseURL}/v1/media/result`, {
             method: 'POST',
             headers: {
@@ -119,7 +99,7 @@ export function createGPTunnelProvider(config: GPTunnelConfig): MediaProvider {
             );
         }
 
-        return (await response.json()) as GPTunnelResultResponse;
+        return (await response.json()) as GPTunnelMediaResultResponse;
     }
 
     return {
@@ -140,7 +120,7 @@ export function createGPTunnelProvider(config: GPTunnelConfig): MediaProvider {
         async checkTaskStatus(taskId: string): Promise<TaskStatusResult> {
             const result = await getResult(taskId);
 
-            console.log('[GPTunnel] Статус задачи:', {
+            console.log('[GPTunnel Media] Статус задачи:', {
                 taskId,
                 status: result.status,
                 hasUrl: !!result.url,
@@ -162,7 +142,7 @@ export function createGPTunnelProvider(config: GPTunnelConfig): MediaProvider {
                 );
             }
 
-            console.log('[GPTunnel] Скачивание результата:', {
+            console.log('[GPTunnel Media] Скачивание результата:', {
                 taskId,
                 url: result.url,
             });
@@ -170,7 +150,7 @@ export function createGPTunnelProvider(config: GPTunnelConfig): MediaProvider {
             // Скачиваем и сохраняем файл
             const savedFile = await saveFileFromUrl(result.url);
 
-            console.log('[GPTunnel] Файл сохранён:', savedFile.filename);
+            console.log('[GPTunnel Media] Файл сохранён:', savedFile.filename);
 
             return [savedFile];
         },

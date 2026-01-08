@@ -1,8 +1,23 @@
 // Экспорт провайдеров и их интерфейсов
+
+// Общие интерфейсы
 export * from './interfaces';
-export { createOpenRouterProvider, getOpenRouterModels } from './openrouter.provider';
-export { createGPTunnelProvider } from './gptunnel.provider';
-export { createMidjourneyProvider } from './midjourney.provider';
+
+// GPTunnel провайдеры (Media API + Midjourney API)
+export {
+    createGPTunnelMediaProvider,
+    createMidjourneyProvider,
+    type GPTunnelConfig,
+} from './gptunnel';
+
+// OpenRouter провайдер
+export {
+    createOpenRouterProvider,
+    getOpenRouterModels,
+    type OpenRouterConfig,
+} from './openrouter';
+
+// Менеджер провайдеров
 export {
     createProviderManager,
     getProviderManager,

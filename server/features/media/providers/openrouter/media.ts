@@ -1,41 +1,23 @@
 // OpenRouter провайдер для работы с моделями через OpenRouter API
-import type { MediaModel } from '@prisma/client';
-import type { MediaProvider, GenerateParams } from './interfaces';
-import type { SavedFileInfo } from '../file.service';
-import { saveBase64File, saveFileFromUrl } from '../file.service';
+// Используется для Nano Banana (Gemini), Kling и других моделей
+import type { MediaProvider, GenerateParams } from '../interfaces';
+import type { SavedFileInfo } from '../../file.service';
+import { saveBase64File, saveFileFromUrl } from '../../file.service';
 import {
     getModelsByProvider,
     getModelConfig,
     type MediaModelConfig,
-} from '../config';
+} from '../../config';
+import type {
+    OpenRouterConfig,
+    OpenRouterMessage,
+    OpenRouterContent,
+    GeminiImagePart,
+    AspectRatio,
+    Quality,
+} from './interfaces';
 
-interface OpenRouterConfig {
-    apiKey: string;
-    baseURL: string;
-    defaultHeaders?: Record<string, string>;
-}
-
-interface OpenRouterMessage {
-    role: 'user' | 'assistant' | 'system';
-    content: string | OpenRouterContent[];
-}
-
-interface OpenRouterContent {
-    type: 'text' | 'image_url';
-    text?: string;
-    image_url?: {
-        url: string;
-    };
-}
-
-interface GeminiImagePart {
-    inlineData?: {
-        mimeType: string;
-        data: string;
-    };
-    text?: string;
-}
-
+// Создание сообщения в формате OpenRouter
 function createOpenRouterMessage(
     prompt: string,
     inputImages?: string[]
@@ -236,6 +218,55 @@ async function parseGenericResponse(data: unknown): Promise<SavedFileInfo[]> {
     return files;
 }
 
+// Вспомогательная функция для расчёта разрешения
+function calculateResolution(
+    aspectRatio?: AspectRatio,
+    quality?: Quality
+): string | null {
+    if (!quality) return null;
+
+    let width: number;
+    let height: number;
+
+    if (aspectRatio === '9:16') {
+        if (quality === '1k') {
+            width = 1024;
+            height = 1820;
+        } else if (quality === '2k') {
+            width = 2048;
+            height = 3640;
+        } else {
+            width = 4096;
+            height = 7280;
+        }
+    } else if (aspectRatio === '16:9') {
+        if (quality === '1k') {
+            width = 1820;
+            height = 1024;
+        } else if (quality === '2k') {
+            width = 3640;
+            height = 2048;
+        } else {
+            width = 7280;
+            height = 4096;
+        }
+    } else {
+        // 1:1 по умолчанию
+        if (quality === '1k') {
+            width = 1024;
+            height = 1024;
+        } else if (quality === '2k') {
+            width = 2048;
+            height = 2048;
+        } else {
+            width = 4096;
+            height = 4096;
+        }
+    }
+
+    return `${width}x${height}`;
+}
+
 export function createOpenRouterProvider(
     config: OpenRouterConfig
 ): MediaProvider {
@@ -287,7 +318,7 @@ export function createOpenRouterProvider(
 
                 if (params.quality) {
                     const resolution = calculateResolution(
-                        params.aspectRatio,
+                        params.aspectRatio as AspectRatio,
                         params.quality
                     );
                     if (resolution) {
@@ -349,55 +380,6 @@ export function createOpenRouterProvider(
             return uniqueFiles;
         },
     };
-}
-
-// Вспомогательная функция для расчёта разрешения
-function calculateResolution(
-    aspectRatio?: '1:1' | '9:16' | '16:9',
-    quality?: '1k' | '2k' | '4k'
-): string | null {
-    if (!quality) return null;
-
-    let width: number;
-    let height: number;
-
-    if (aspectRatio === '9:16') {
-        if (quality === '1k') {
-            width = 1024;
-            height = 1820;
-        } else if (quality === '2k') {
-            width = 2048;
-            height = 3640;
-        } else {
-            width = 4096;
-            height = 7280;
-        }
-    } else if (aspectRatio === '16:9') {
-        if (quality === '1k') {
-            width = 1820;
-            height = 1024;
-        } else if (quality === '2k') {
-            width = 3640;
-            height = 2048;
-        } else {
-            width = 7280;
-            height = 4096;
-        }
-    } else {
-        // 1:1 по умолчанию
-        if (quality === '1k') {
-            width = 1024;
-            height = 1024;
-        } else if (quality === '2k') {
-            width = 2048;
-            height = 2048;
-        } else {
-            width = 4096;
-            height = 4096;
-        }
-    }
-
-    return `${width}x${height}`;
 }
 
 // Экспорт конфигов моделей для использования в getAvailableModels

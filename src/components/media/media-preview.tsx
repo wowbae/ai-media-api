@@ -202,6 +202,7 @@ function ImagePreview({ src, alt, onClick }: ImagePreviewProps) {
                 <img
                     src={src}
                     alt={alt}
+                    loading="lazy"
                     className={cn(
                         'h-full w-full object-cover transition-opacity',
                         isLoaded ? 'opacity-100' : 'opacity-0'
@@ -272,6 +273,7 @@ function VideoPreview({ previewUrl, originalUrl, filename }: VideoPreviewProps) 
             <img
                 src={previewUrl}
                 alt={filename}
+                loading="lazy"
                 className={cn(
                     'h-full w-full object-cover transition-opacity',
                     isPreviewLoaded ? 'opacity-100' : 'opacity-0'

@@ -1,9 +1,8 @@
 // Менеджер провайдеров - фабрика и маппинг моделей на провайдеры
 import type { MediaModel } from '@prisma/client';
 import type { MediaProvider } from './interfaces';
-import { createOpenRouterProvider } from './openrouter.provider';
-import { createGPTunnelProvider } from './gptunnel.provider';
-import { createMidjourneyProvider } from './midjourney.provider';
+import { createOpenRouterProvider } from './openrouter';
+import { createGPTunnelMediaProvider, createMidjourneyProvider } from './gptunnel';
 import { MEDIA_MODELS, type MediaModelConfig } from '../config';
 import 'dotenv/config';
 
@@ -41,19 +40,19 @@ export function createProviderManager(): ProviderManager {
         });
     }
 
-    // GPTunnel провайдер (для Veo 3.1 Fast и других моделей /v1/media API)
+    // GPTunnel провайдеры
     const gptunnelApiKey = process.env.GPTUNNEL_API_KEY || '';
     if (gptunnelApiKey) {
-        providers.gptunnel = createGPTunnelProvider({
+        const gptunnelConfig = {
             apiKey: gptunnelApiKey,
             baseURL: 'https://gptunnel.ru',
-        });
+        };
+
+        // Media провайдер (для Veo 3.1 Fast и других моделей /v1/media API)
+        providers.gptunnel = createGPTunnelMediaProvider(gptunnelConfig);
 
         // Midjourney провайдер (использует /v1/midjourney API GPTunnel)
-        providers.midjourney = createMidjourneyProvider({
-            apiKey: gptunnelApiKey,
-            baseURL: 'https://gptunnel.ru',
-        });
+        providers.midjourney = createMidjourneyProvider(gptunnelConfig);
     }
 
     return {

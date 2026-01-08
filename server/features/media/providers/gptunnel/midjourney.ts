@@ -1,54 +1,28 @@
-// Midjourney провайдер через GPTunnel API
+// Midjourney провайдер через GPTunnel /v1/midjourney API
 // Документация: https://docs.gptunnel.ru/api-midjourney/imagine
 import type {
     MediaProvider,
     GenerateParams,
     TaskCreatedResult,
     TaskStatusResult,
+} from '../interfaces';
+import { PROVIDER_STATUS_MAP } from '../interfaces';
+import type { SavedFileInfo } from '../../file.service';
+import { saveFileFromUrl } from '../../file.service';
+import type {
+    GPTunnelConfig,
+    MidjourneyImagineResponse,
+    MidjourneyResultResponse,
 } from './interfaces';
-import { PROVIDER_STATUS_MAP } from './interfaces';
-import type { SavedFileInfo } from '../file.service';
-import { saveFileFromUrl } from '../file.service';
 
-interface MidjourneyConfig {
-    apiKey: string;
-    baseURL: string;
-}
-
-// Ответ на создание задачи /imagine
-interface MidjourneyImagineResponse {
-    id: string;
-    parentId: string | null;
-    object: 'task';
-    type: 'imagine';
-    actions: string[];
-    percent: number;
-    status: 'idle' | 'processing' | 'done' | 'failed';
-    result: string | null; // URL изображения
-    error: string | null;
-    usage: {
-        prompt_tokens: number;
-        completion_tokens: number;
-        total_tokens: number;
-        prompt_cost: number;
-        completion_cost: number;
-        total_cost: number;
-    };
-}
-
-// Ответ на проверку статуса /result
-interface MidjourneyResultResponse extends MidjourneyImagineResponse {
-    // Та же структура, что и при создании
-}
-
-export function createMidjourneyProvider(config: MidjourneyConfig): MediaProvider {
+export function createMidjourneyProvider(config: GPTunnelConfig): MediaProvider {
     const { apiKey, baseURL } = config;
 
     // Создание задачи на генерацию изображения
     async function createImagineTask(
         prompt: string
     ): Promise<MidjourneyImagineResponse> {
-        console.log('[Midjourney] Создание задачи /imagine:', {
+        console.log('[GPTunnel Midjourney] Создание задачи /imagine:', {
             prompt: prompt.substring(0, 100),
         });
 
@@ -66,7 +40,7 @@ export function createMidjourneyProvider(config: MidjourneyConfig): MediaProvide
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('[Midjourney] Ошибка создания задачи:', {
+            console.error('[GPTunnel Midjourney] Ошибка создания задачи:', {
                 status: response.status,
                 error: errorText,
             });
@@ -86,7 +60,7 @@ export function createMidjourneyProvider(config: MidjourneyConfig): MediaProvide
 
         const data = (await response.json()) as MidjourneyImagineResponse;
 
-        console.log('[Midjourney] Задача создана:', {
+        console.log('[GPTunnel Midjourney] Задача создана:', {
             taskId: data.id,
             status: data.status,
             percent: data.percent,
@@ -96,7 +70,7 @@ export function createMidjourneyProvider(config: MidjourneyConfig): MediaProvide
     }
 
     // Получение результата задачи
-    async function getTaskResult(
+    async function getTaskResultFromAPI(
         taskId: string
     ): Promise<MidjourneyResultResponse> {
         const response = await fetch(`${baseURL}/v1/midjourney/result`, {
@@ -132,9 +106,9 @@ export function createMidjourneyProvider(config: MidjourneyConfig): MediaProvide
         },
 
         async checkTaskStatus(taskId: string): Promise<TaskStatusResult> {
-            const result = await getTaskResult(taskId);
+            const result = await getTaskResultFromAPI(taskId);
 
-            console.log('[Midjourney] Статус задачи:', {
+            console.log('[GPTunnel Midjourney] Статус задачи:', {
                 taskId,
                 status: result.status,
                 percent: result.percent,
@@ -150,7 +124,7 @@ export function createMidjourneyProvider(config: MidjourneyConfig): MediaProvide
         },
 
         async getTaskResult(taskId: string): Promise<SavedFileInfo[]> {
-            const result = await getTaskResult(taskId);
+            const result = await getTaskResultFromAPI(taskId);
 
             if (result.status !== 'done' || !result.result) {
                 throw new Error(
@@ -158,7 +132,7 @@ export function createMidjourneyProvider(config: MidjourneyConfig): MediaProvide
                 );
             }
 
-            console.log('[Midjourney] Скачивание результата:', {
+            console.log('[GPTunnel Midjourney] Скачивание результата:', {
                 taskId,
                 url: result.result,
             });
@@ -166,7 +140,7 @@ export function createMidjourneyProvider(config: MidjourneyConfig): MediaProvide
             // Скачиваем и сохраняем изображение
             const savedFile = await saveFileFromUrl(result.result);
 
-            console.log('[Midjourney] Файл сохранён:', savedFile.filename);
+            console.log('[GPTunnel Midjourney] Файл сохранён:', savedFile.filename);
 
             return [savedFile];
         },

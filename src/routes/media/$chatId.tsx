@@ -13,12 +13,13 @@ import {
     useGetChatQuery,
     useUpdateChatMutation,
     useGetRequestQuery,
+    useGetModelsQuery,
     type MediaModel,
     type MediaRequest,
 } from '@/redux/media-api';
 import { PANEL_HEADER_CLASSES } from '@/lib/panel-styles';
 import { cn } from '@/lib/utils';
-import { getModelIcon, getModelName } from '@/lib/model-utils';
+import { getModelIcon } from '@/lib/model-utils';
 import { useTestMode } from '@/hooks/use-test-mode';
 
 export const Route = createFileRoute('/media/$chatId')({
@@ -225,6 +226,9 @@ interface ChatHeaderProps {
 }
 
 function ChatHeader({ name, model, showUpdating }: ChatHeaderProps) {
+    const { data: models } = useGetModelsQuery();
+    const modelInfo = models?.find((m) => m.key === model);
+
     return (
         <div className={cn(PANEL_HEADER_CLASSES, 'bg-slate-800/50')}>
             <div className="flex items-center gap-3">
@@ -237,7 +241,7 @@ function ChatHeader({ name, model, showUpdating }: ChatHeaderProps) {
                         )}
                     </div>
                     <p className="text-xs text-slate-400">
-                        {getModelName(model)}
+                        {modelInfo?.name || model}
                     </p>
                 </div>
             </div>
