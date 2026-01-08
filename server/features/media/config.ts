@@ -1,4 +1,4 @@
-// Конфигурация моделей для генерации медиа через OpenRouter
+// Конфигурация моделей для генерации медиа
 import 'dotenv/config';
 
 export interface MediaModelConfig {
@@ -7,6 +7,7 @@ export interface MediaModelConfig {
     types: readonly ('IMAGE' | 'VIDEO' | 'AUDIO')[];
     maxPromptLength: number;
     supportsImageInput: boolean;
+    provider: 'openrouter' | 'gptunnel'; // Провайдер для этой модели
     pricing?: {
         input?: number;  // $ за 1M токенов или за изображение
         output?: number;
@@ -20,6 +21,7 @@ export const MEDIA_MODELS = {
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
         supportsImageInput: true,
+        provider: 'openrouter' as const,
         pricing: {
             input: 0.1,
             output: 0.4,
@@ -27,22 +29,35 @@ export const MEDIA_MODELS = {
     },
     KLING: {
         id: 'kling-ai/kling-video',
-        name: 'Kling AI (Video)',
-        types: ['VIDEO', 'IMAGE'] as const,
+        name: 'Kling AI',
+        types: ['VIDEO'] as const,
         maxPromptLength: 2048,
         supportsImageInput: true,
+        provider: 'openrouter' as const,
         pricing: {
-            output: 0.04, // за изображение
+            output: 0.04, // за видео
         },
     },
     MIDJOURNEY: {
-        id: 'midjourney/imagine', // placeholder - будет добавлен позже
+        id: 'midjourney/imagine', // GPTunnel endpoint
         name: 'Midjourney',
         types: ['IMAGE'] as const,
         maxPromptLength: 4000,
-        supportsImageInput: true,
+        supportsImageInput: false, // Midjourney через GPTunnel не поддерживает входные изображения
+        provider: 'gptunnel' as const,
         pricing: {
-            output: 0.05,
+            output: 18, // 18 единиц за генерацию (completion_cost из API)
+        },
+    },
+    VEO_3_1_FAST: {
+        id: 'glabs-veo-3-1-fast',
+        name: 'Veo 3.1 Fast',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 2048,
+        supportsImageInput: true, // Поддерживает image-to-video
+        provider: 'gptunnel' as const,
+        pricing: {
+            output: 50, // примерная стоимость
         },
     },
 } as const;

@@ -1,9 +1,11 @@
 // Компонент выбора модели для генерации
-import { Sparkles, Video, ImageIcon, AudioLines } from 'lucide-react';
+import { Sparkles, Video, ImageIcon } from 'lucide-react';
 import {
     Select,
     SelectContent,
+    SelectGroup,
     SelectItem,
+    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
@@ -23,19 +25,6 @@ export function ModelSelector({
 }: ModelSelectorProps) {
     const { data: models, isLoading } = useGetModelsQuery();
 
-    function getTypeIcon(type: string) {
-        switch (type) {
-            case 'IMAGE':
-                return <ImageIcon className='h-3 w-3' />;
-            case 'VIDEO':
-                return <Video className='h-3 w-3' />;
-            case 'AUDIO':
-                return <AudioLines className='h-3 w-3' />;
-            default:
-                return null;
-        }
-    }
-
     function getModelIcon(key: string) {
         switch (key) {
             case 'NANO_BANANA':
@@ -44,10 +33,20 @@ export function ModelSelector({
                 return '🎬';
             case 'MIDJOURNEY':
                 return '🎨';
+            case 'VEO_3_1_FAST':
+                return '🎥';
             default:
                 return '✨';
         }
     }
+
+    // Разделяем модели по типам
+    const imageModels = models?.filter((model) =>
+        model.types.includes('IMAGE')
+    ) || [];
+    const videoModels = models?.filter((model) =>
+        model.types.includes('VIDEO')
+    ) || [];
 
     return (
         <Select
@@ -67,39 +66,58 @@ export function ModelSelector({
                 </SelectValue>
             </SelectTrigger>
             <SelectContent className='border-slate-700 bg-slate-800'>
-                {models?.map((model) => (
-                    <SelectItem
-                        key={model.key}
-                        value={model.key}
-                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                    >
-                        <div className='flex flex-col gap-1'>
-                            <div className='flex items-center gap-2'>
-                                <span>{getModelIcon(model.key)}</span>
-                                <span>{model.name}</span>
-                            </div>
-                            <div className='flex gap-1'>
-                                {model.types.map((type) => (
-                                    <Badge
-                                        key={type}
-                                        variant='secondary'
-                                        className='h-5 gap-1 bg-slate-600 text-[10px]'
-                                    >
-                                        {getTypeIcon(type)}
-                                        {type}
-                                    </Badge>
-                                ))}
-                            </div>
-                        </div>
-                    </SelectItem>
-                ))}
-
                 {/* Если модели еще загружаются */}
-                {isLoading && (
+                {isLoading ? (
                     <div className='flex items-center gap-2 p-2 text-slate-400'>
                         <Sparkles className='h-4 w-4 animate-pulse' />
                         <span>Загрузка моделей...</span>
                     </div>
+                ) : (
+                    <>
+                        {/* Блок моделей для изображений */}
+                        {imageModels.length > 0 && (
+                            <SelectGroup>
+                                <SelectLabel className='flex items-center gap-2 text-slate-400'>
+                                    <ImageIcon className='h-4 w-4' />
+                                    <span>Изображения</span>
+                                </SelectLabel>
+                                {imageModels.map((model) => (
+                                    <SelectItem
+                                        key={model.key}
+                                        value={model.key}
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        <div className='flex items-center gap-2'>
+                                            <span>{getModelIcon(model.key)}</span>
+                                            <span>{model.name}</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectGroup>
+                        )}
+
+                        {/* Блок моделей для видео */}
+                        {videoModels.length > 0 && (
+                            <SelectGroup>
+                                <SelectLabel className='flex items-center gap-2 text-slate-400'>
+                                    <Video className='h-4 w-4' />
+                                    <span>Видео</span>
+                                </SelectLabel>
+                                {videoModels.map((model) => (
+                                    <SelectItem
+                                        key={model.key}
+                                        value={model.key}
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        <div className='flex items-center gap-2'>
+                                            <span>{getModelIcon(model.key)}</span>
+                                            <span>{model.name}</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectGroup>
+                        )}
+                    </>
                 )}
             </SelectContent>
         </Select>
@@ -123,6 +141,8 @@ export function ModelBadge({ model }: ModelBadgeProps) {
                 return '🎬';
             case 'MIDJOURNEY':
                 return '🎨';
+            case 'VEO_3_1_FAST':
+                return '🎥';
             default:
                 return '✨';
         }

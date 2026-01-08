@@ -198,6 +198,7 @@ function MediaFullscreenView({ file, onClose }: MediaFullscreenViewProps) {
                         src={fileUrl}
                         poster={previewUrl}
                         controls
+                        autoPlay
                         className='max-h-[90vh] max-w-[90vw]'
                     />
                 )}

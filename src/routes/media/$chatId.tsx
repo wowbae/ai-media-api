@@ -28,7 +28,19 @@ function MediaChatPage() {
     const { chatId } = Route.useParams();
     const chatIdNum = parseInt(chatId);
 
-    const { data: chat, isLoading: isChatLoading, refetch } = useGetChatQuery(chatIdNum);
+    // Используем кешированные данные сразу, обновляем в фоне
+    const {
+        data: chat,
+        isLoading: isChatLoading,
+        isFetching: isChatFetching,
+        error: chatError,
+        refetch,
+    } = useGetChatQuery(chatIdNum, {
+        // Показывать кешированные данные немедленно
+        refetchOnMountOrArgChange: 10, // Обновлять только если данные старше 10 секунд
+        // Показывать данные из кеша даже при ошибке сети
+        skip: false,
+    });
     const [updateChat] = useUpdateChatMutation();
 
     const [currentModel, setCurrentModel] = useState<MediaModel>('NANO_BANANA');
@@ -85,32 +97,25 @@ function MediaChatPage() {
         pollingInterval: isTestMode ? 0 : 2000, // Опрос каждые 2 секунды только в обычном режиме
     });
 
-    // Следим за активными запросами для polling (только если не тестовый режим)
-    useEffect(() => {
+    // Обработчик создания нового запроса (вызывается из ChatInput после успешной отправки)
+    function handleRequestCreated(requestId: number) {
         // В тестовом режиме не запускаем polling
         if (isTestMode) {
-            console.log('[Chat] 🧪 Тестовый режим: polling отключен');
-            if (pollingRequestId !== null) {
-                setPollingRequestId(null);
-            }
+            console.log('[Chat] 🧪 Тестовый режим: polling отключен для нового запроса');
             return;
         }
 
-        if (chat?.requests) {
-            const pendingRequest = chat.requests.find(
-                (r) => r.status === 'PENDING' || r.status === 'PROCESSING'
-            );
-            if (pendingRequest) {
-                console.log('[Chat] Найден запрос для polling:', {
-                    id: pendingRequest.id,
-                    status: pendingRequest.status,
-                });
-                setPollingRequestId(pendingRequest.id);
-            } else {
-                setPollingRequestId(null);
-            }
+        console.log('[Chat] Новый запрос создан, запускаем polling:', { requestId });
+        setPollingRequestId(requestId);
+    }
+
+    // Останавливаем polling при включении тестового режима
+    useEffect(() => {
+        if (isTestMode && pollingRequestId !== null) {
+            console.log('[Chat] 🧪 Тестовый режим включен: останавливаем polling');
+            setPollingRequestId(null);
         }
-    }, [chat?.requests, isTestMode, pollingRequestId]);
+    }, [isTestMode, pollingRequestId]);
 
     // Обновляем чат когда статус запроса изменился
     useEffect(() => {
@@ -129,7 +134,8 @@ function MediaChatPage() {
         }
     }, [pollingRequest, refetch]);
 
-    if (isChatLoading) {
+    // Показываем загрузку только если нет кешированных данных и идет первичная загрузка
+    if (isChatLoading && !chat) {
         return (
             <div className="flex h-screen bg-slate-900">
                 <ChatSidebar />
@@ -140,7 +146,23 @@ function MediaChatPage() {
         );
     }
 
-    if (!chat) {
+    // Показываем ошибку только если нет кешированных данных
+    if (chatError && !chat) {
+        return (
+            <div className="flex h-screen bg-slate-900">
+                <ChatSidebar />
+                <div className="flex flex-1 flex-col items-center justify-center text-center">
+                    <p className="text-xl text-red-400">Ошибка загрузки чата</p>
+                    <p className="text-sm text-slate-500 mt-2">
+                        Не удалось загрузить чат. Проверьте соединение с сервером.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    // Показываем "не найден" только если нет кешированных данных и нет ошибки
+    if (!chat && !isChatLoading && !chatError) {
         return (
             <div className="flex h-screen bg-slate-900">
                 <ChatSidebar />
@@ -152,6 +174,14 @@ function MediaChatPage() {
                 </div>
             </div>
         );
+    }
+
+    // Если есть кешированные данные, показываем их даже если идет обновление
+    // Это обеспечивает мгновенное отображение из кеша
+
+    // Если нет чата (не должно происходить после проверок выше, но для TypeScript)
+    if (!chat) {
+        return null;
     }
 
     // Сортируем запросы по дате (старые сверху)
@@ -177,6 +207,9 @@ function MediaChatPage() {
         await chatInputRef.current?.addFileFromUrl(fileUrl, filename);
     }
 
+    // Показываем индикатор обновления только если есть кешированные данные
+    const showUpdatingIndicator = isChatFetching && !isChatLoading;
+
     return (
         <div className="flex h-screen bg-slate-900">
             {/* Сайдбар */}
@@ -185,7 +218,7 @@ function MediaChatPage() {
             {/* Основной чат */}
             <div className="flex flex-1 flex-col">
                 {/* Заголовок чата */}
-                <ChatHeader name={chat.name} model={currentModel} />
+                <ChatHeader name={chat.name} model={currentModel} showUpdating={showUpdatingIndicator} />
 
                 {/* Список сообщений */}
                 <MessageList
@@ -201,6 +234,7 @@ function MediaChatPage() {
                     chatId={chatIdNum}
                     currentModel={currentModel}
                     onModelChange={handleModelChange}
+                    onRequestCreated={handleRequestCreated}
                 />
             </div>
 
@@ -213,9 +247,10 @@ function MediaChatPage() {
 interface ChatHeaderProps {
     name: string;
     model: MediaModel;
+    showUpdating?: boolean;
 }
 
-function ChatHeader({ name, model }: ChatHeaderProps) {
+function ChatHeader({ name, model, showUpdating }: ChatHeaderProps) {
     function getModelEmoji(m: MediaModel) {
         switch (m) {
             case 'NANO_BANANA':
@@ -233,12 +268,18 @@ function ChatHeader({ name, model }: ChatHeaderProps) {
         <div className={cn(PANEL_HEADER_CLASSES, 'bg-slate-800/50')}>
             <div className="flex items-center gap-3">
                 <span className="text-2xl">{getModelEmoji(model)}</span>
-                <div>
-                    <h1 className="font-semibold text-white">{name}</h1>
+                <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                        <h1 className="font-semibold text-white">{name}</h1>
+                        {showUpdating && (
+                            <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                        )}
+                    </div>
                     <p className="text-xs text-slate-400">
                         {model === 'NANO_BANANA' && 'Nano Banana 2 Pro'}
                         {model === 'KLING' && 'Kling AI Video'}
                         {model === 'MIDJOURNEY' && 'Midjourney'}
+                        {model === 'VEO_3_1_FAST' && 'Veo 3.1 Fast'}
                     </p>
                 </div>
             </div>

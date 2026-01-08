@@ -29,6 +29,7 @@ interface ChatInputProps {
     chatId: number;
     currentModel: MediaModel;
     onModelChange: (model: MediaModel) => void;
+    onRequestCreated?: (requestId: number) => void;
     disabled?: boolean;
 }
 
@@ -49,6 +50,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
         chatId,
         currentModel,
         onModelChange,
+        onRequestCreated,
         disabled,
     },
     ref
@@ -352,6 +354,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
                     ...(isNanoBanana && quality && { quality }),
                 }).unwrap();
                 console.log('[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:', result.requestId);
+            }
+
+            // Уведомляем родителя о создании запроса для запуска polling
+            if (onRequestCreated && result.requestId) {
+                onRequestCreated(result.requestId);
             }
 
             // Сохраняем промпт и изображения, если кнопка замочка активна

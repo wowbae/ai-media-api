@@ -83,13 +83,17 @@ export function MediaPreview({ file, showDelete = false, className, onAttach }: 
 
                 {file.type === 'VIDEO' && (
                     <VideoPreview
-                        src={fileUrl}
-                        poster={previewUrl}
+                        previewUrl={previewUrl}
+                        originalUrl={fileUrl}
+                        filename={file.filename}
                     />
                 )}
 
                 {file.type === 'AUDIO' && (
-                    <AudioPreview src={fileUrl} />
+                    <AudioPreview
+                        originalUrl={fileUrl}
+                        filename={file.filename}
+                    />
                 )}
 
                 {/* Overlay с действиями */}
@@ -228,35 +232,121 @@ function ImagePreview({ src, alt, onClick }: ImagePreviewProps) {
     );
 }
 
-// Превью видео
+// Превью видео - показывает только превью, оригинал загружается по требованию
 interface VideoPreviewProps {
-    src: string;
-    poster?: string;
+    previewUrl: string;
+    originalUrl: string;
+    filename: string;
 }
 
-function VideoPreview({ src, poster }: VideoPreviewProps) {
+function VideoPreview({ previewUrl, originalUrl, filename }: VideoPreviewProps) {
+    const [shouldLoadOriginal, setShouldLoadOriginal] = useState(false);
+    const [isPreviewLoaded, setIsPreviewLoaded] = useState(false);
+    const [hasPreviewError, setHasPreviewError] = useState(false);
+
+    function handlePlay() {
+        // Загружаем оригинал только при попытке воспроизведения
+        setShouldLoadOriginal(true);
+    }
+
+    // Если пользователь хочет воспроизвести - показываем оригинал
+    if (shouldLoadOriginal) {
+        return (
+            <div className="relative aspect-video">
+                <video
+                    src={originalUrl}
+                    poster={previewUrl}
+                    controls
+                    autoPlay
+                    className="h-full w-full object-cover"
+                />
+            </div>
+        );
+    }
+
+    // Если нет превью - показываем плейсхолдер с кнопкой воспроизведения
+    if (!previewUrl || hasPreviewError) {
+        return (
+            <div
+                className="relative aspect-video cursor-pointer overflow-hidden bg-slate-800"
+                onClick={handlePlay}
+            >
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                    <div className="rounded-full bg-white/20 p-6 backdrop-blur-sm">
+                        <Video className="h-12 w-12 text-white" />
+                    </div>
+                    <p className="text-sm text-slate-300">Нажмите для воспроизведения</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Показываем только превью (lazy loading оригинала)
     return (
-        <div className="relative aspect-video">
-            <video
-                src={src}
-                poster={poster}
-                controls
-                className="h-full w-full object-cover"
+        <div
+            className="relative aspect-video cursor-pointer overflow-hidden"
+            onClick={handlePlay}
+        >
+            <img
+                src={previewUrl}
+                alt={filename}
+                className={cn(
+                    'h-full w-full object-cover transition-opacity',
+                    isPreviewLoaded ? 'opacity-100' : 'opacity-0'
+                )}
+                onLoad={() => setIsPreviewLoaded(true)}
+                onError={() => {
+                    setHasPreviewError(true);
+                    setShouldLoadOriginal(true);
+                }}
             />
+            {!isPreviewLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+                    <Video className="h-8 w-8 animate-pulse text-slate-600" />
+                </div>
+            )}
+            {/* Overlay с иконкой воспроизведения */}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity hover:bg-black/40">
+                <div className="rounded-full bg-white/20 p-4 backdrop-blur-sm">
+                    <Video className="h-8 w-8 text-white" />
+                </div>
+            </div>
         </div>
     );
 }
 
-// Превью аудио
+// Превью аудио - показывает иконку, оригинал загружается по требованию
 interface AudioPreviewProps {
-    src: string;
+    originalUrl: string;
+    filename: string;
 }
 
-function AudioPreview({ src }: AudioPreviewProps) {
+function AudioPreview({ originalUrl, filename }: AudioPreviewProps) {
+    const [shouldLoadOriginal, setShouldLoadOriginal] = useState(false);
+
+    function handlePlay() {
+        // Загружаем оригинал только при попытке воспроизведения
+        setShouldLoadOriginal(true);
+    }
+
     return (
         <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-slate-800 p-4">
             <AudioLines className="h-12 w-12 text-cyan-400" />
-            <audio src={src} controls className="w-full" />
+            <p className="text-xs text-slate-400 text-center max-w-full truncate">
+                {filename}
+            </p>
+            {shouldLoadOriginal ? (
+                <audio src={originalUrl} controls autoPlay className="w-full" />
+            ) : (
+                <Button
+                    onClick={handlePlay}
+                    variant="secondary"
+                    className="mt-2"
+                >
+                    <AudioLines className="mr-2 h-4 w-4" />
+                    Воспроизвести
+                </Button>
+            )}
         </div>
     );
 }

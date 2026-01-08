@@ -43,7 +43,11 @@ export interface MediaChatWithRequests extends MediaChat {
     requests: MediaRequest[];
 }
 
-export type MediaModel = 'NANO_BANANA' | 'KLING' | 'MIDJOURNEY';
+export type MediaModel =
+    | 'NANO_BANANA'
+    | 'KLING'
+    | 'MIDJOURNEY'
+    | 'VEO_3_1_FAST';
 export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
 export type RequestStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
@@ -106,6 +110,12 @@ export const mediaApi = createApi({
         baseUrl: 'http://localhost:4000/api/media',
     }),
     tagTypes: ['Chat', 'Request', 'File', 'Model'],
+    // Настройки для оптимистичного обновления
+    keepUnusedDataFor: 60, // Хранить неиспользуемые данные 60 секунд
+    // Показывать кешированные данные сразу, обновлять в фоне если старше 10 секунд
+    refetchOnMountOrArgChange: 10,
+    refetchOnFocus: false, // Не обновлять при фокусе окна
+    refetchOnReconnect: true, // Обновлять при восстановлении соединения
 
     endpoints: (build) => ({
         // ==================== Чаты ====================
