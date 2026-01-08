@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================== Media Generation Models ====================
+
+model MediaChat {
+  id        Int            @id @default(autoincrement())
+  name      String
+  model     MediaModel     @default(NANO_BANANA)
+  settings  Json           @default("{}")
+  requests  MediaRequest[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model MediaRequest {
+  id           Int           @id @default(autoincrement())
+  chatId       Int
+  chat         MediaChat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  prompt       String
+  status       RequestStatus @default(PENDING)
+  inputFiles   String[]      @default([])
+  files        MediaFile[]
+  errorMessage String?
+  createdAt    DateTime      @default(now())
+  completedAt  DateTime?
+}
+
+model MediaFile {
+  id          Int          @id @default(autoincrement())
+  requestId   Int
+  request     MediaRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  type        MediaType
+  filename    String
+  path        String
+  previewPath String?
+  size        Int
+  metadata    Json         @default("{}")
+  createdAt   DateTime     @default(now())
+}
+
+enum MediaModel {
+  NANO_BANANA
+  KLING
+  MIDJOURNEY
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+}
+
+enum RequestStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}

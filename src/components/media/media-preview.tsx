@@ -1,0 +1,304 @@
+// Компонент превью медиа-файлов (изображения, видео, аудио)
+import { useState } from 'react';
+import {
+    Download,
+    Maximize2,
+    X,
+    ImageIcon,
+    Video,
+    AudioLines,
+    FileIcon,
+    Trash2,
+    Paperclip,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { type MediaFile, type MediaType, useDeleteFileMutation } from '@/redux/media-api';
+
+interface MediaPreviewProps {
+    file: MediaFile;
+    showDelete?: boolean;
+    className?: string;
+    onAttach?: (fileUrl: string, filename: string) => void;
+}
+
+const API_URL = 'http://localhost:4000';
+
+export function MediaPreview({ file, showDelete = false, className, onAttach }: MediaPreviewProps) {
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
+
+    // Получаем URL файла для отображения
+    // file.path уже относительный от ai-media, например: images/timestamp-random.png
+    const fileUrl = `${API_URL}/media-files/${file.path}`;
+    const previewUrl = file.previewPath
+        ? `${API_URL}/media-files/${file.previewPath}`
+        : fileUrl;
+
+    async function handleDelete() {
+        if (!confirm('Удалить файл?')) return;
+        try {
+            await deleteFile(file.id).unwrap();
+        } catch (error) {
+            console.error('Ошибка удаления:', error);
+        }
+    }
+
+    async function handleDownload() {
+        try {
+            const response = await fetch(fileUrl);
+            if (!response.ok) throw new Error('Ошибка загрузки файла');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = file.filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Ошибка скачивания файла:', error);
+            alert('Не удалось скачать файл');
+        }
+    }
+
+    return (
+        <>
+            <div
+                className={cn(
+                    'group relative overflow-hidden rounded-xl border border-slate-600 bg-slate-800',
+                    className
+                )}
+            >
+                {/* Контент в зависимости от типа */}
+                {file.type === 'IMAGE' && (
+                    <ImagePreview
+                        src={previewUrl}
+                        alt={file.filename}
+                        onClick={() => setIsFullscreen(true)}
+                    />
+                )}
+
+                {file.type === 'VIDEO' && (
+                    <VideoPreview
+                        src={fileUrl}
+                        poster={previewUrl}
+                    />
+                )}
+
+                {file.type === 'AUDIO' && (
+                    <AudioPreview src={fileUrl} />
+                )}
+
+                {/* Overlay с действиями */}
+                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                    {file.type === 'IMAGE' && (
+                        <Button
+                            size="icon"
+                            variant="secondary"
+                            className="h-8 w-8"
+                            onClick={() => setIsFullscreen(true)}
+                        >
+                            <Maximize2 className="h-4 w-4" />
+                        </Button>
+                    )}
+
+
+                    <Button
+                        size="icon"
+                        variant="secondary"
+                        className="h-8 w-8"
+                        onClick={handleDownload}
+                    >
+                        <Download className="h-4 w-4" />
+                    </Button>
+
+                    {showDelete && (
+                        <Button
+                            size="icon"
+                            variant="destructive"
+                            className="h-8 w-8"
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
+
+                {/* Информация о файле */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                    <div className="flex items-center justify-between">
+                        <TypeBadge type={file.type} />
+                        <span className="text-xs text-slate-300">
+                            {formatFileSize(file.size)}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Полноэкранный просмотр для изображений */}
+            {file.type === 'IMAGE' && (
+                <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+                    <DialogContent
+                        showCloseButton={false}
+                        className="max-h-[95vh] max-w-[95vw] overflow-hidden border-slate-700 bg-slate-900 p-0"
+                    >
+                        <DialogTitle className="sr-only">
+                            Просмотр изображения: {file.filename}
+                        </DialogTitle>
+                        <div className="relative">
+                            <img
+                                src={fileUrl}
+                                alt={file.filename}
+                                className="max-h-[90vh] w-full object-contain"
+                            />
+                            <div className="absolute right-2 top-2 flex gap-2">
+                                <Button
+                                    size="icon"
+                                    variant="secondary"
+                                    onClick={handleDownload}
+                                >
+                                    <Download className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    size="icon"
+                                    variant="secondary"
+                                    onClick={() => setIsFullscreen(false)}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                                <div className="flex items-center justify-between text-white">
+                                    <span className="font-medium">{file.filename}</span>
+                                    <span className="text-sm text-slate-300">
+                                        {getImageDimensions(file.metadata)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
+        </>
+    );
+}
+
+// Превью изображения
+interface ImagePreviewProps {
+    src: string;
+    alt: string;
+    onClick?: () => void;
+}
+
+function ImagePreview({ src, alt, onClick }: ImagePreviewProps) {
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [hasError, setHasError] = useState(false);
+
+    return (
+        <div
+            className="relative aspect-square cursor-pointer overflow-hidden"
+            onClick={onClick}
+        >
+            {!isLoaded && !hasError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+                    <ImageIcon className="h-8 w-8 animate-pulse text-slate-600" />
+                </div>
+            )}
+            {hasError ? (
+                <div className="flex h-full items-center justify-center bg-slate-800">
+                    <FileIcon className="h-8 w-8 text-slate-600" />
+                </div>
+            ) : (
+                <img
+                    src={src}
+                    alt={alt}
+                    className={cn(
+                        'h-full w-full object-cover transition-opacity',
+                        isLoaded ? 'opacity-100' : 'opacity-0'
+                    )}
+                    onLoad={() => setIsLoaded(true)}
+                    onError={() => setHasError(true)}
+                />
+            )}
+        </div>
+    );
+}
+
+// Превью видео
+interface VideoPreviewProps {
+    src: string;
+    poster?: string;
+}
+
+function VideoPreview({ src, poster }: VideoPreviewProps) {
+    return (
+        <div className="relative aspect-video">
+            <video
+                src={src}
+                poster={poster}
+                controls
+                className="h-full w-full object-cover"
+            />
+        </div>
+    );
+}
+
+// Превью аудио
+interface AudioPreviewProps {
+    src: string;
+}
+
+function AudioPreview({ src }: AudioPreviewProps) {
+    return (
+        <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-slate-800 p-4">
+            <AudioLines className="h-12 w-12 text-cyan-400" />
+            <audio src={src} controls className="w-full" />
+        </div>
+    );
+}
+
+// Badge с типом файла
+interface TypeBadgeProps {
+    type: MediaType;
+}
+
+function TypeBadge({ type }: TypeBadgeProps) {
+    const config = {
+        IMAGE: { icon: ImageIcon, label: 'Изображение', color: 'bg-purple-600' },
+        VIDEO: { icon: Video, label: 'Видео', color: 'bg-blue-600' },
+        AUDIO: { icon: AudioLines, label: 'Аудио', color: 'bg-green-600' },
+    };
+
+    const { icon: Icon, label, color } = config[type];
+
+    return (
+        <Badge className={cn('gap-1', color)}>
+            <Icon className="h-3 w-3" />
+            {label}
+        </Badge>
+    );
+}
+
+// Форматирование размера файла
+function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Получение размеров изображения из метаданных
+function getImageDimensions(metadata: Record<string, unknown>): string {
+    const width = metadata.width as number | undefined;
+    const height = metadata.height as number | undefined;
+    if (width && height) {
+        return `${width} × ${height}`;
+    }
+    return '';
+}
+
