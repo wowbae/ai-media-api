@@ -262,3 +262,52 @@ export function isValidMimeType(mimeType: string): boolean {
     return allAllowed.includes(mimeType);
 }
 
+// Копирование файла (для тестового режима)
+export async function copyFile(
+    sourcePath: string,
+    sourcePreviewPath: string | null
+): Promise<{ path: string; previewPath: string | null }> {
+    await initMediaStorage();
+
+    const { readFile, copyFile: fsCopyFile } = await import('fs/promises');
+
+    // Получаем абсолютный путь к исходному файлу
+    const absoluteSourcePath = path.isAbsolute(sourcePath)
+        ? sourcePath
+        : path.join(mediaStorageConfig.basePath, sourcePath);
+
+    // Проверяем существование файла
+    if (!existsSync(absoluteSourcePath)) {
+        throw new Error(`Исходный файл не найден: ${absoluteSourcePath}`);
+    }
+
+    // Генерируем новое имя файла
+    const extension = path.extname(absoluteSourcePath);
+    const newFilename = generateFilename(extension.substring(1));
+    const directory = path.dirname(absoluteSourcePath);
+    const newFilePath = path.join(directory, newFilename);
+
+    // Копируем файл
+    await fsCopyFile(absoluteSourcePath, newFilePath);
+
+    // Копируем превью если есть
+    let newPreviewPath: string | null = null;
+    if (sourcePreviewPath) {
+        const absolutePreviewPath = path.isAbsolute(sourcePreviewPath)
+            ? sourcePreviewPath
+            : path.join(mediaStorageConfig.basePath, sourcePreviewPath);
+
+        if (existsSync(absolutePreviewPath)) {
+            const previewFilename = `preview-${newFilename}`;
+            const newPreviewFilePath = path.join(mediaStorageConfig.previewsPath, previewFilename);
+            await fsCopyFile(absolutePreviewPath, newPreviewFilePath);
+            newPreviewPath = path.relative(mediaStorageConfig.basePath, newPreviewFilePath);
+        }
+    }
+
+    // Возвращаем относительные пути
+    return {
+        path: path.relative(mediaStorageConfig.basePath, newFilePath),
+        previewPath: newPreviewPath,
+    };
+}

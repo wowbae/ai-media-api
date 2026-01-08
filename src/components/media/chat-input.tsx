@@ -17,8 +17,13 @@ import {
     saveLockButtonState,
     savePrompt,
 } from '@/lib/saved-prompts';
+import { loadTestMode } from '@/lib/test-mode';
 import { ModelSelector } from './model-selector';
-import { useGenerateMediaMutation, type MediaModel } from '@/redux/media-api';
+import {
+    useGenerateMediaMutation,
+    useGenerateMediaTestMutation,
+    type MediaModel,
+} from '@/redux/media-api';
 
 interface ChatInputProps {
     chatId: number;
@@ -54,13 +59,53 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
     const [quality, setQuality] = useState<'1k' | '2k' | '4k' | undefined>(undefined);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLockEnabled, setIsLockEnabled] = useState(false);
+    const [isTestMode, setIsTestMode] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const submitInProgressRef = useRef(false);
+    const submitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const [generateMedia, { isLoading: isGenerating }] = useGenerateMediaMutation();
+    const [generateMediaTest, { isLoading: isGeneratingTest }] =
+        useGenerateMediaTestMutation();
 
-    const isDisabled = disabled || isGenerating || isSubmitting;
+    const isDisabled = disabled || isGenerating || isGeneratingTest || isSubmitting;
     const isNanoBanana = currentModel === 'NANO_BANANA';
+
+    // Загружаем состояние тестового режима и подписываемся на изменения
+    useEffect(() => {
+        setIsTestMode(loadTestMode());
+
+        // Слушаем изменения в localStorage
+        function handleStorageChange(e: StorageEvent) {
+            if (e.key === 'ai-media-test-mode') {
+                setIsTestMode(loadTestMode());
+            }
+        }
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, []);
+
+    // Проверяем изменения тестового режима каждую секунду (для синхронизации между вкладками)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const currentTestMode = loadTestMode();
+            if (currentTestMode !== isTestMode) {
+                setIsTestMode(currentTestMode);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [isTestMode]);
+
+    // Очистка таймера при размонтировании
+    useEffect(() => {
+        return () => {
+            if (submitTimeoutRef.current) {
+                clearTimeout(submitTimeoutRef.current);
+            }
+        };
+    }, []);
 
     // Загрузка файла по URL и конвертация в File объект
     const urlToFile = useCallback(async (url: string, filename: string): Promise<File> => {
@@ -206,16 +251,31 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
             event.stopPropagation();
         }
 
-        if (!prompt.trim() && attachedFiles.length === 0) return;
-        if (isDisabled || isSubmitting) return;
-
-        // Защита от двойного вызова через useRef (более надежно чем state)
+        // Атомарная проверка и установка флага для защиты от race condition
+        // Проверяем ВСЕ возможные состояния блокировки ПЕРЕД установкой флага
         if (submitInProgressRef.current) {
-            console.warn('[ChatInput] ⚠️ Попытка повторной отправки, игнорируем');
+            console.warn('[ChatInput] ⚠️ Попытка повторной отправки (флаг установлен), игнорируем');
             return;
         }
 
-        // Устанавливаем флаги
+        // Проверяем состояния загрузки из RTK Query
+        if (isGenerating || isGeneratingTest) {
+            console.warn('[ChatInput] ⚠️ Попытка повторной отправки (мутация выполняется), игнорируем');
+            return;
+        }
+
+        // Проверяем локальное состояние отправки
+        if (isSubmitting || isDisabled) {
+            console.warn('[ChatInput] ⚠️ Попытка повторной отправки (локальное состояние блокирует), игнорируем');
+            return;
+        }
+
+        // Проверяем наличие данных для отправки
+        if (!prompt.trim() && attachedFiles.length === 0) {
+            return;
+        }
+
+        // Устанавливаем флаг атомарно (до всех асинхронных операций)
         submitInProgressRef.current = true;
         setIsSubmitting(true);
 
@@ -245,17 +305,48 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
                 model: currentModel,
                 format,
                 quality,
+                testMode: isTestMode,
                 timestamp: new Date().toISOString(),
             });
 
-            const result = await generateMedia({
-                chatId,
-                prompt: finalPrompt,
-                model: currentModel,
-                inputFiles: attachedFiles.map((f) => f.base64),
-                ...(isNanoBanana && format && { format }),
-                ...(isNanoBanana && quality && { quality }),
-            }).unwrap();
+            let result: { requestId: number; status: string; message: string };
+
+            if (isTestMode) {
+                // Тестовый режим: используем последний файл из чата
+                console.log('[ChatInput] 🧪 Тестовый режим: создаем запрос с последним файлом');
+                try {
+                    result = await generateMediaTest({
+                        chatId,
+                        prompt: finalPrompt,
+                    }).unwrap();
+                } catch (error: unknown) {
+                    // Обрабатываем ошибку "нет файлов" в тестовом режиме
+                    if (
+                        error &&
+                        typeof error === 'object' &&
+                        'data' in error &&
+                        error.data &&
+                        typeof error.data === 'object' &&
+                        'error' in error.data &&
+                        typeof error.data.error === 'string' &&
+                        error.data.error.includes('нет файлов')
+                    ) {
+                        alert('В чате нет файлов для тестового режима. Сначала создайте хотя бы один файл.');
+                        return;
+                    }
+                    throw error;
+                }
+            } else {
+                // Обычный режим: отправляем реальный запрос
+                result = await generateMedia({
+                    chatId,
+                    prompt: finalPrompt,
+                    model: currentModel,
+                    inputFiles: attachedFiles.map((f) => f.base64),
+                    ...(isNanoBanana && format && { format }),
+                    ...(isNanoBanana && quality && { quality }),
+                }).unwrap();
+            }
 
             console.log('[ChatInput] ✅ Запрос успешно отправлен, requestId:', result.requestId);
 
@@ -278,18 +369,31 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
         } catch (error) {
             console.error('[ChatInput] ❌ Ошибка генерации:', error);
         } finally {
-            // Сбрасываем флаги в любом случае
-            submitInProgressRef.current = false;
-            setIsSubmitting(false);
+            // Сбрасываем флаги в любом случае с небольшой задержкой для предотвращения мгновенных повторных вызовов
+            if (submitTimeoutRef.current) {
+                clearTimeout(submitTimeoutRef.current);
+            }
+            submitTimeoutRef.current = setTimeout(() => {
+                submitInProgressRef.current = false;
+                setIsSubmitting(false);
+                submitTimeoutRef.current = null;
+            }, 100);
         }
     }
 
     // Обработка Enter для отправки
     function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
         if (event.key === 'Enter' && !event.shiftKey) {
-            // Проверяем, не идет ли уже отправка
-            if (submitInProgressRef.current || isSubmitting) {
+            // Предотвращаем отправку если уже идет процесс
+            if (
+                submitInProgressRef.current ||
+                isSubmitting ||
+                isGenerating ||
+                isGeneratingTest ||
+                isDisabled
+            ) {
                 event.preventDefault();
+                event.stopPropagation();
                 return;
             }
             handleSubmit(event);
@@ -491,7 +595,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
                     className="shrink-0 bg-cyan-600 hover:bg-cyan-700"
                     onClick={(e) => {
                         // Дополнительная проверка перед вызовом
-                        if (submitInProgressRef.current || isSubmitting) {
+                        if (
+                            submitInProgressRef.current ||
+                            isSubmitting ||
+                            isGenerating ||
+                            isGeneratingTest ||
+                            isDisabled
+                        ) {
                             e.preventDefault();
                             e.stopPropagation();
                             return;
@@ -500,7 +610,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
                     }}
                     disabled={isDisabled || (!prompt.trim() && attachedFiles.length === 0)}
                 >
-                    {isGenerating ? (
+                    {isGenerating || isGeneratingTest ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
                         <Send className="h-5 w-5" />

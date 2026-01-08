@@ -6,6 +6,7 @@ import {
     Clock,
     CheckCircle2,
     Paperclip,
+    Trash2,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,6 +18,7 @@ import {
     type MediaRequest,
     type RequestStatus,
     type MediaModel,
+    useDeleteFileMutation,
 } from '@/redux/media-api';
 
 const API_URL = 'http://localhost:4000';
@@ -102,6 +104,17 @@ function MessageItem({
     onEditPrompt,
     onAttachFile,
 }: MessageItemProps) {
+    const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
+
+    async function handleDeleteFile(event: React.MouseEvent, fileId: number) {
+        event.stopPropagation();
+        try {
+            await deleteFile(fileId).unwrap();
+        } catch (error) {
+            console.error('Ошибка удаления файла:', error);
+        }
+    }
+
     return (
         <div className='space-y-3'>
             {/* Промпт пользователя */}
@@ -190,15 +203,15 @@ function MessageItem({
                             <div className='space-y-3'>
                                 <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
                                     {request.files.map((file) => {
-                                        console.log(
-                                            '[MessageList] Отображение файла:',
-                                            {
-                                                id: file.id,
-                                                filename: file.filename,
-                                                path: file.path,
-                                                type: file.type,
-                                            }
-                                        );
+                                        // console.log(
+                                        //     '[MessageList] Отображение файла:',
+                                        //     {
+                                        //         id: file.id,
+                                        //         filename: file.filename,
+                                        //         path: file.path,
+                                        //         type: file.type,
+                                        //     }
+                                        // );
                                         return (
                                             <div
                                                 key={file.id}
@@ -210,26 +223,46 @@ function MessageItem({
                                                         onAttach={onAttachFile}
                                                     />
                                                 </div>
-                                                {/* Кнопка прикрепления справа от превью */}
-                                                {file.type === 'IMAGE' &&
-                                                    onAttachFile && (
-                                                        <Button
-                                                            type='button'
-                                                            size='icon'
-                                                            variant='ghost'
-                                                            className='mt-1 h-8 w-8 shrink-0 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-slate-600/50 group-hover:opacity-100'
-                                                            onClick={() => {
-                                                                const fileUrl = `${API_URL}/media-files/${file.path}`;
-                                                                onAttachFile(
-                                                                    fileUrl,
-                                                                    file.filename
-                                                                );
-                                                            }}
-                                                            title='Прикрепить к промпту'
-                                                        >
-                                                            <Paperclip className='h-4 w-4' />
-                                                        </Button>
-                                                    )}
+                                                {/* Кнопки действий справа от превью в вертикальной колонке */}
+                                                <div className='mt-1 flex flex-col gap-1'>
+                                                    {/* Кнопка прикрепления */}
+                                                    {file.type === 'IMAGE' &&
+                                                        onAttachFile && (
+                                                            <Button
+                                                                type='button'
+                                                                size='icon'
+                                                                variant='ghost'
+                                                                className='h-8 w-8 shrink-0 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-slate-600/50 group-hover:opacity-100'
+                                                                onClick={() => {
+                                                                    const fileUrl = `${API_URL}/media-files/${file.path}`;
+                                                                    onAttachFile(
+                                                                        fileUrl,
+                                                                        file.filename
+                                                                    );
+                                                                }}
+                                                                title='Прикрепить к промпту'
+                                                            >
+                                                                <Paperclip className='h-4 w-4' />
+                                                            </Button>
+                                                        )}
+                                                    {/* Кнопка удаления */}
+                                                    <Button
+                                                        type='button'
+                                                        size='icon'
+                                                        variant='ghost'
+                                                        className='h-8 w-8 shrink-0 text-slate-400 opacity-0 transition-opacity hover:text-red-400 hover:bg-red-600/20 group-hover:opacity-100'
+                                                        onClick={(e) =>
+                                                            handleDeleteFile(
+                                                                e,
+                                                                file.id
+                                                            )
+                                                        }
+                                                        disabled={isDeleting}
+                                                        title='Удалить файл'
+                                                    >
+                                                        <Trash2 className='h-4 w-4' />
+                                                    </Button>
+                                                </div>
                                             </div>
                                         );
                                     })}

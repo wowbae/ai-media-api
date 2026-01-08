@@ -1,10 +1,14 @@
 // Компонент галереи всех медиафайлов чата
 import { useState, useMemo, useEffect } from 'react';
-import { Download, X } from 'lucide-react';
+import { Download, X, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { MediaPreview } from './media-preview';
-import { type MediaFile, type MediaRequest } from '@/redux/media-api';
+import {
+    type MediaFile,
+    type MediaRequest,
+    useDeleteFileMutation,
+} from '@/redux/media-api';
 import {
     PANEL_HEADER_CLASSES,
     PANEL_HEADER_TITLE_CLASSES,
@@ -16,6 +20,7 @@ interface MediaGalleryProps {
 
 export function MediaGallery({ requests }: MediaGalleryProps) {
     const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null);
+    const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
 
     // Собираем все файлы из всех requests, сортируем по дате (новые сверху)
     const allFiles = useMemo(() => {
@@ -37,6 +42,15 @@ export function MediaGallery({ requests }: MediaGalleryProps) {
 
     function handleFileClick(file: MediaFile) {
         setSelectedFile(file);
+    }
+
+    async function handleDeleteFile(event: React.MouseEvent, fileId: number) {
+        event.stopPropagation();
+        try {
+            await deleteFile(fileId).unwrap();
+        } catch (error) {
+            console.error('Ошибка удаления файла:', error);
+        }
     }
 
     if (allFiles.length === 0) {
@@ -68,7 +82,7 @@ export function MediaGallery({ requests }: MediaGalleryProps) {
                         {allFiles.map((file) => (
                             <div
                                 key={file.id}
-                                className='cursor-pointer transition-transform hover:scale-105'
+                                className='group relative cursor-pointer transition-transform hover:scale-105'
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleFileClick(file);
@@ -88,6 +102,19 @@ export function MediaGallery({ requests }: MediaGalleryProps) {
                                         className='h-full w-full'
                                     />
                                 </div>
+                                {/* Кнопка удаления справа вверху в углу */}
+                                <Button
+                                    size='icon'
+                                    variant='ghost'
+                                    className='absolute right-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-400 hover:bg-red-600/20'
+                                    onClick={(e) =>
+                                        handleDeleteFile(e, file.id)
+                                    }
+                                    disabled={isDeleting}
+                                    title='Удалить файл'
+                                >
+                                    <Trash2 className='h-3.5 w-3.5' />
+                                </Button>
                             </div>
                         ))}
                     </div>

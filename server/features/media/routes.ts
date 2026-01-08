@@ -4,8 +4,8 @@ import path from 'path';
 import { prisma } from 'prisma/client';
 import { MediaModel, RequestStatus } from '@prisma/client';
 import { generateMedia, getAvailableModels } from './openrouter.service';
-import { initMediaStorage, deleteFile } from './file.service';
-import { initTelegramNotifier } from './telegram.notifier';
+import { initMediaStorage, deleteFile, copyFile } from './file.service';
+import { initTelegramNotifier, notifyTelegramGroup } from './telegram.notifier';
 import { mediaStorageConfig } from './config';
 import type {
     GenerateMediaRequest,
@@ -269,6 +269,139 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Ошибка создания запроса:', error);
         res.status(500).json({ success: false, error: 'Ошибка создания запроса' });
+    }
+});
+
+// Тестовый режим: создать запрос с последним файлом из чата
+mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
+    try {
+        const { chatId, prompt } = req.body as { chatId: number; prompt: string };
+
+        console.log('[API] 🧪 POST /generate-test - тестовый режим:', {
+            chatId,
+            prompt: prompt?.substring(0, 50),
+            timestamp: new Date().toISOString(),
+        });
+
+        if (!chatId) {
+            return res.status(400).json({ success: false, error: 'chatId обязателен' });
+        }
+
+        if (!prompt || prompt.trim().length === 0) {
+            return res.status(400).json({ success: false, error: 'Промпт обязателен' });
+        }
+
+        // Проверяем существование чата
+        const chat = await prisma.mediaChat.findUnique({
+            where: { id: chatId },
+        });
+
+        if (!chat) {
+            return res.status(404).json({ success: false, error: 'Чат не найден' });
+        }
+
+        // Находим последний файл в чате
+        const lastFile = await prisma.mediaFile.findFirst({
+            where: {
+                request: {
+                    chatId,
+                },
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+
+        if (!lastFile) {
+            console.log('[API] 🧪 Тестовый режим: файлов в чате нет');
+            return res.status(404).json({
+                success: false,
+                error: 'В чате нет файлов для тестового режима',
+            });
+        }
+
+        console.log('[API] 🧪 Тестовый режим: найден последний файл:', {
+            fileId: lastFile.id,
+            filename: lastFile.filename,
+            path: lastFile.path,
+        });
+
+        // Создаем новый запрос со статусом COMPLETED
+        const mediaRequest = await prisma.mediaRequest.create({
+            data: {
+                chatId,
+                prompt: prompt.trim(),
+                inputFiles: [],
+                status: 'COMPLETED',
+                completedAt: new Date(),
+            },
+        });
+
+        // Копируем файл
+        const { path: newFilePath, previewPath: newPreviewPath } = await copyFile(
+            lastFile.path,
+            lastFile.previewPath
+        );
+
+        // Получаем размер исходного файла
+        const { stat } = await import('fs/promises');
+        const absolutePath = path.isAbsolute(newFilePath)
+            ? newFilePath
+            : path.join(mediaStorageConfig.basePath, newFilePath);
+        const fileStat = await stat(absolutePath);
+
+        // Создаем новую запись файла
+        const newMediaFile = await prisma.mediaFile.create({
+            data: {
+                requestId: mediaRequest.id,
+                type: lastFile.type,
+                filename: path.basename(newFilePath),
+                path: newFilePath,
+                previewPath: newPreviewPath,
+                size: fileStat.size,
+                metadata: lastFile.metadata as Record<string, unknown>,
+            },
+        });
+
+        // Обновляем updatedAt чата
+        await prisma.mediaChat.update({
+            where: { id: chatId },
+            data: { updatedAt: new Date() },
+        });
+
+        console.log('[API] 🧪 Тестовый режим: запрос создан:', {
+            requestId: mediaRequest.id,
+            fileId: newMediaFile.id,
+            chatId,
+        });
+
+        // Отправляем уведомление в Telegram сразу
+        try {
+            console.log('[API] 🧪 Тестовый режим: отправка уведомления в Telegram');
+            const telegramResult = await notifyTelegramGroup(
+                newMediaFile,
+                chat.name,
+                prompt.trim()
+            );
+            console.log(
+                `[API] 🧪 Тестовый режим: Telegram уведомление ${telegramResult ? 'отправлено' : 'не отправлено'}`
+            );
+        } catch (telegramError) {
+            console.error('[API] 🧪 Тестовый режим: ошибка отправки в Telegram:', telegramError);
+            // Не прерываем выполнение если Telegram не работает
+        }
+
+        res.status(201).json({
+            success: true,
+            data: {
+                requestId: mediaRequest.id,
+                status: 'COMPLETED' as RequestStatus,
+                message: 'Тестовый запрос создан',
+            },
+        });
+    } catch (error) {
+        console.error('[API] 🧪 Тестовый режим: ошибка создания запроса:', error);
+        res.status(500).json({ success: false, error: 'Ошибка создания тестового запроса' });
     }
 });
 

@@ -112,11 +112,15 @@ export const mediaApi = createApi({
         // Получить все чаты
         getChats: build.query<MediaChat[], void>({
             query: () => '/chats',
-            transformResponse: (response: ApiResponse<MediaChat[]>) => response.data,
+            transformResponse: (response: ApiResponse<MediaChat[]>) =>
+                response.data,
             providesTags: (result) =>
                 result
                     ? [
-                          ...result.map(({ id }) => ({ type: 'Chat' as const, id })),
+                          ...result.map(({ id }) => ({
+                              type: 'Chat' as const,
+                              id,
+                          })),
                           { type: 'Chat', id: 'LIST' },
                       ]
                     : [{ type: 'Chat', id: 'LIST' }],
@@ -125,8 +129,18 @@ export const mediaApi = createApi({
         // Получить чат по ID
         getChat: build.query<MediaChatWithRequests, number>({
             query: (id) => `/chats/${id}`,
-            transformResponse: (response: ApiResponse<MediaChatWithRequests>) => response.data,
-            providesTags: (result, error, id) => [{ type: 'Chat', id }],
+            transformResponse: (response: ApiResponse<MediaChatWithRequests>) =>
+                response.data,
+            providesTags: (result, error, id) => [
+                { type: 'Chat', id },
+                // Добавляем File теги, чтобы при удалении файла чат обновлялся
+                ...(result?.requests.flatMap((req) =>
+                    req.files.map((file) => ({
+                        type: 'File' as const,
+                        id: file.id,
+                    }))
+                ) || []),
+            ],
         }),
 
         // Создать чат
@@ -136,7 +150,8 @@ export const mediaApi = createApi({
                 method: 'POST',
                 body,
             }),
-            transformResponse: (response: ApiResponse<MediaChat>) => response.data,
+            transformResponse: (response: ApiResponse<MediaChat>) =>
+                response.data,
             invalidatesTags: [{ type: 'Chat', id: 'LIST' }],
         }),
 
@@ -147,7 +162,8 @@ export const mediaApi = createApi({
                 method: 'PATCH',
                 body,
             }),
-            transformResponse: (response: ApiResponse<MediaChat>) => response.data,
+            transformResponse: (response: ApiResponse<MediaChat>) =>
+                response.data,
             invalidatesTags: (result, error, { id }) => [
                 { type: 'Chat', id },
                 { type: 'Chat', id: 'LIST' },
@@ -166,7 +182,10 @@ export const mediaApi = createApi({
         // ==================== Генерация ====================
 
         // Отправить запрос на генерацию
-        generateMedia: build.mutation<GenerateMediaResponse, GenerateMediaRequest>({
+        generateMedia: build.mutation<
+            GenerateMediaResponse,
+            GenerateMediaRequest
+        >({
             query: (body) => {
                 console.log('[RTK Query] generateMedia mutation вызван:', {
                     chatId: body.chatId,
@@ -182,8 +201,51 @@ export const mediaApi = createApi({
                     body,
                 };
             },
-            transformResponse: (response: ApiResponse<GenerateMediaResponse>) => {
-                console.log('[RTK Query] generateMedia response получен:', response.data);
+            transformResponse: (
+                response: ApiResponse<GenerateMediaResponse>
+            ) => {
+                console.log(
+                    '[RTK Query] generateMedia response получен:',
+                    response.data
+                );
+                return response.data;
+            },
+            invalidatesTags: (result, error, { chatId }) => [
+                { type: 'Chat', id: chatId },
+                { type: 'Request', id: result?.requestId || 'LIST' },
+            ],
+        }),
+
+        // Тестовый режим генерации (использует последний файл из чата)
+        generateMediaTest: build.mutation<
+            GenerateMediaResponse,
+            { chatId: number; prompt: string }
+        >({
+            query: (body) => {
+                console.log(
+                    '[RTK Query] 🧪 generateMediaTest mutation вызван (тестовый режим):',
+                    {
+                        chatId: body.chatId,
+                        prompt: body.prompt?.substring(0, 50),
+                        timestamp: new Date().toISOString(),
+                    }
+                );
+                return {
+                    url: '/generate-test',
+                    method: 'POST',
+                    body: {
+                        chatId: body.chatId,
+                        prompt: body.prompt,
+                    },
+                };
+            },
+            transformResponse: (
+                response: ApiResponse<GenerateMediaResponse>
+            ) => {
+                console.log(
+                    '[RTK Query] 🧪 generateMediaTest response получен (тестовый режим):',
+                    response.data
+                );
                 return response.data;
             },
             invalidatesTags: (result, error, { chatId }) => [
@@ -202,12 +264,16 @@ export const mediaApi = createApi({
                     id: response.data.id,
                     status: response.data.status,
                     filesCount: response.data.files.length,
+                    timestamp: new Date().toISOString(),
                 });
                 return response.data;
             },
             providesTags: (result, error, id) => [
                 { type: 'Request', id },
-                ...(result?.files.map((f) => ({ type: 'File' as const, id: f.id })) || []),
+                ...(result?.files.map((f) => ({
+                    type: 'File' as const,
+                    id: f.id,
+                })) || []),
             ],
         }),
 
@@ -215,10 +281,15 @@ export const mediaApi = createApi({
 
         // Получить все файлы
         getFiles: build.query<
-            PaginatedResponse<MediaFile & { request: { prompt: string; chat: { name: string } } }>,
+            PaginatedResponse<
+                MediaFile & {
+                    request: { prompt: string; chat: { name: string } };
+                }
+            >,
             { page?: number; limit?: number }
         >({
-            query: ({ page = 1, limit = 20 }) => `/files?page=${page}&limit=${limit}`,
+            query: ({ page = 1, limit = 20 }) =>
+                `/files?page=${page}&limit=${limit}`,
             transformResponse: (
                 response: ApiResponse<MediaFile[]> & {
                     pagination: PaginatedResponse<unknown>['pagination'];
@@ -232,7 +303,10 @@ export const mediaApi = createApi({
             providesTags: (result) =>
                 result
                     ? [
-                          ...result.data.map(({ id }) => ({ type: 'File' as const, id })),
+                          ...result.data.map(({ id }) => ({
+                              type: 'File' as const,
+                              id,
+                          })),
                           { type: 'File', id: 'LIST' },
                       ]
                     : [{ type: 'File', id: 'LIST' }],
@@ -244,7 +318,123 @@ export const mediaApi = createApi({
                 url: `/files/${id}`,
                 method: 'DELETE',
             }),
-            invalidatesTags: [{ type: 'File', id: 'LIST' }],
+            async onQueryStarted(
+                fileId,
+                { dispatch, queryFulfilled, getState }
+            ) {
+                // Оптимистичное обновление: удаляем файл из всех чатов в кеше
+                const state = getState() as {
+                    [key: string]: {
+                        queries: Record<
+                            string,
+                            { data?: MediaChatWithRequests; status: string }
+                        >;
+                    };
+                };
+                const apiState = state[mediaApi.reducerPath];
+                const queries = apiState?.queries || {};
+
+                // Находим все запросы getChat и оптимистично удаляем файл
+                const patches: Array<{
+                    queryCacheKey: string;
+                    chatId: number;
+                }> = [];
+
+                for (const [queryKey, queryData] of Object.entries(queries)) {
+                    if (
+                        queryKey.includes('getChat(') &&
+                        queryData?.data &&
+                        queryData.status === 'fulfilled'
+                    ) {
+                        const chat = queryData.data as MediaChatWithRequests;
+                        // Проверяем, есть ли этот файл в чате
+                        const hasFile = chat.requests.some((req) =>
+                            req.files.some((f) => f.id === fileId)
+                        );
+
+                        if (hasFile) {
+                            patches.push({
+                                queryCacheKey: queryKey,
+                                chatId: chat.id,
+                            });
+
+                            // Оптимистично удаляем файл из кеша
+                            dispatch(
+                                mediaApi.util.updateQueryData(
+                                    'getChat',
+                                    chat.id,
+                                    (draft) => {
+                                        if (draft?.requests) {
+                                            draft.requests = draft.requests.map(
+                                                (req) => ({
+                                                    ...req,
+                                                    files: req.files.filter(
+                                                        (f) => f.id !== fileId
+                                                    ),
+                                                })
+                                            );
+                                        }
+                                    }
+                                )
+                            );
+                        }
+                    }
+
+                    // Также обновляем getRequest, если файл был в запросе
+                    if (
+                        queryKey.includes('getRequest(') &&
+                        queryData?.data &&
+                        queryData.status === 'fulfilled'
+                    ) {
+                        const request =
+                            queryData.data as unknown as MediaRequest;
+                        if (
+                            request &&
+                            'id' in request &&
+                            'files' in request &&
+                            Array.isArray(request.files) &&
+                            request.files.some(
+                                (f: MediaFile) => f.id === fileId
+                            )
+                        ) {
+                            const requestId = request.id as number;
+                            dispatch(
+                                mediaApi.util.updateQueryData(
+                                    'getRequest',
+                                    requestId,
+                                    (draft) => {
+                                        if (draft?.files) {
+                                            draft.files = draft.files.filter(
+                                                (f) => f.id !== fileId
+                                            );
+                                        }
+                                    }
+                                )
+                            );
+                        }
+                    }
+                }
+
+                // Ожидаем завершения запроса и откатываем изменения в случае ошибки
+                try {
+                    await queryFulfilled;
+                } catch {
+                    // В случае ошибки откатываем все оптимистичные обновления
+                    for (const patch of patches) {
+                        dispatch(
+                            mediaApi.util.invalidateTags([
+                                { type: 'Chat', id: patch.chatId },
+                            ])
+                        );
+                    }
+                }
+            },
+            invalidatesTags: (result, error, fileId) => [
+                { type: 'File', id: fileId },
+                { type: 'File', id: 'LIST' },
+                { type: 'Request', id: 'LIST' },
+                { type: 'Chat', id: 'LIST' },
+            ],
         }),
 
         // ==================== Модели ====================
@@ -252,7 +442,8 @@ export const mediaApi = createApi({
         // Получить доступные модели
         getModels: build.query<ModelInfo[], void>({
             query: () => '/models',
-            transformResponse: (response: ApiResponse<ModelInfo[]>) => response.data,
+            transformResponse: (response: ApiResponse<ModelInfo[]>) =>
+                response.data,
             providesTags: [{ type: 'Model', id: 'LIST' }],
         }),
     }),
@@ -266,9 +457,9 @@ export const {
     useUpdateChatMutation,
     useDeleteChatMutation,
     useGenerateMediaMutation,
+    useGenerateMediaTestMutation,
     useGetRequestQuery,
     useGetFilesQuery,
     useDeleteFileMutation,
     useGetModelsQuery,
 } = mediaApi;
-

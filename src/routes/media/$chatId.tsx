@@ -18,6 +18,7 @@ import {
 } from '@/redux/media-api';
 import { PANEL_HEADER_CLASSES } from '@/lib/panel-styles';
 import { cn } from '@/lib/utils';
+import { loadTestMode } from '@/lib/test-mode';
 
 export const Route = createFileRoute('/media/$chatId')({
     component: MediaChatPage,
@@ -32,7 +33,35 @@ function MediaChatPage() {
 
     const [currentModel, setCurrentModel] = useState<MediaModel>('NANO_BANANA');
     const [pollingRequestId, setPollingRequestId] = useState<number | null>(null);
+    const [isTestMode, setIsTestMode] = useState(false);
     const chatInputRef = useRef<ChatInputRef>(null);
+
+    // Загружаем состояние тестового режима и отслеживаем изменения
+    useEffect(() => {
+        setIsTestMode(loadTestMode());
+
+        // Слушаем изменения в localStorage
+        function handleStorageChange(e: StorageEvent) {
+            if (e.key === 'ai-media-test-mode') {
+                setIsTestMode(loadTestMode());
+            }
+        }
+
+        window.addEventListener('storage', handleStorageChange);
+
+        // Проверяем изменения каждую секунду (для синхронизации в той же вкладке)
+        const interval = setInterval(() => {
+            const currentTestMode = loadTestMode();
+            if (currentTestMode !== isTestMode) {
+                setIsTestMode(currentTestMode);
+            }
+        }, 1000);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            clearInterval(interval);
+        };
+    }, [isTestMode]);
 
     // Синхронизация модели с настройками чата
     useEffect(() => {
@@ -49,25 +78,39 @@ function MediaChatPage() {
         }
     }
 
-    // Polling для отслеживания статуса генерации
+    // Polling для отслеживания статуса генерации (только если не тестовый режим)
+    const shouldSkipPolling = !pollingRequestId || isTestMode;
     const { data: pollingRequest } = useGetRequestQuery(pollingRequestId!, {
-        skip: !pollingRequestId,
-        pollingInterval: 2000, // опрос каждые 2 секунды
+        skip: shouldSkipPolling, // Не опрашиваем в тестовом режиме
+        pollingInterval: isTestMode ? 0 : 2000, // Опрос каждые 2 секунды только в обычном режиме
     });
 
-    // Следим за активными запросами для polling
+    // Следим за активными запросами для polling (только если не тестовый режим)
     useEffect(() => {
+        // В тестовом режиме не запускаем polling
+        if (isTestMode) {
+            console.log('[Chat] 🧪 Тестовый режим: polling отключен');
+            if (pollingRequestId !== null) {
+                setPollingRequestId(null);
+            }
+            return;
+        }
+
         if (chat?.requests) {
             const pendingRequest = chat.requests.find(
                 (r) => r.status === 'PENDING' || r.status === 'PROCESSING'
             );
             if (pendingRequest) {
+                console.log('[Chat] Найден запрос для polling:', {
+                    id: pendingRequest.id,
+                    status: pendingRequest.status,
+                });
                 setPollingRequestId(pendingRequest.id);
             } else {
                 setPollingRequestId(null);
             }
         }
-    }, [chat?.requests]);
+    }, [chat?.requests, isTestMode, pollingRequestId]);
 
     // Обновляем чат когда статус запроса изменился
     useEffect(() => {

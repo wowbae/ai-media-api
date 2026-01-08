@@ -37,7 +37,6 @@ export function MediaPreview({ file, showDelete = false, className, onAttach }: 
         : fileUrl;
 
     async function handleDelete() {
-        if (!confirm('Удалить файл?')) return;
         try {
             await deleteFile(file.id).unwrap();
         } catch (error) {

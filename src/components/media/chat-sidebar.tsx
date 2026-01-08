@@ -1,5 +1,5 @@
 // Боковая панель со списком чатов
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from '@tanstack/react-router';
 import {
     Plus,
@@ -7,6 +7,7 @@ import {
     Trash2,
     MoreVertical,
     Pencil,
+    FlaskConical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_HEADER_CLASSES, PANEL_HEADER_TITLE_CLASSES } from '@/lib/panel-styles';
@@ -34,6 +35,7 @@ import {
     useUpdateChatMutation,
     type MediaChat,
 } from '@/redux/media-api';
+import { loadTestMode, saveTestMode } from '@/lib/test-mode';
 
 export function ChatSidebar() {
     const params = useParams({ strict: false });
@@ -51,6 +53,18 @@ export function ChatSidebar() {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editingChat, setEditingChat] = useState<MediaChat | null>(null);
     const [newChatName, setNewChatName] = useState('');
+    const [isTestMode, setIsTestMode] = useState(false);
+
+    // Загружаем состояние тестового режима при монтировании
+    useEffect(() => {
+        setIsTestMode(loadTestMode());
+    }, []);
+
+    function toggleTestMode() {
+        const newState = !isTestMode;
+        setIsTestMode(newState);
+        saveTestMode(newState);
+    }
 
     async function handleCreateChat() {
         if (!newChatName.trim()) return;
@@ -108,14 +122,34 @@ export function ChatSidebar() {
             {/* Header */}
             <div className={PANEL_HEADER_CLASSES}>
                 <h2 className={PANEL_HEADER_TITLE_CLASSES}>AI Media</h2>
-                <Button
-                    size='icon'
-                    variant='ghost'
-                    className='h-8 w-8 text-slate-400 hover:text-cyan-400'
-                    onClick={() => setIsNewChatDialogOpen(true)}
-                >
-                    <Plus className='h-5 w-5' />
-                </Button>
+                <div className='flex gap-1'>
+                    <Button
+                        size='icon'
+                        variant='ghost'
+                        className={cn(
+                            'h-8 w-8',
+                            isTestMode
+                                ? 'text-yellow-400 hover:text-yellow-300'
+                                : 'text-slate-400 hover:text-slate-300'
+                        )}
+                        onClick={toggleTestMode}
+                        title={
+                            isTestMode
+                                ? 'Тестовый режим включен (выключить)'
+                                : 'Тестовый режим выключен (включить)'
+                        }
+                    >
+                        <FlaskConical className='h-5 w-5' />
+                    </Button>
+                    <Button
+                        size='icon'
+                        variant='ghost'
+                        className='h-8 w-8 text-slate-400 hover:text-cyan-400'
+                        onClick={() => setIsNewChatDialogOpen(true)}
+                    >
+                        <Plus className='h-5 w-5' />
+                    </Button>
+                </div>
             </div>
 
             {/* Chat list */}
