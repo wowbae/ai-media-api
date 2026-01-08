@@ -1,6 +1,6 @@
 // Компонент галереи всех медиафайлов чата
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { Download, X, Trash2 } from 'lucide-react';
+import { Download, X, Trash2, Paperclip } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { MediaPreview } from './media-preview';
@@ -18,6 +18,7 @@ import { formatFileSize, downloadFile } from '@/lib/utils';
 
 interface MediaGalleryProps {
     requests: MediaRequest[];
+    onAttachFile?: (fileUrl: string, filename: string) => void;
 }
 
 // Количество файлов для первоначального отображения
@@ -25,7 +26,7 @@ const INITIAL_FILES_LIMIT = 12;
 // Количество файлов для подгрузки при скролле
 const LOAD_MORE_COUNT = 12;
 
-export function MediaGallery({ requests }: MediaGalleryProps) {
+export function MediaGallery({ requests, onAttachFile }: MediaGalleryProps) {
     const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null);
     const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
     const [visibleFilesCount, setVisibleFilesCount] =
@@ -154,11 +155,32 @@ export function MediaGallery({ requests }: MediaGalleryProps) {
                                         className='h-full w-full'
                                     />
                                 </div>
-                                {/* Кнопка удаления справа вверху в углу */}
+                                {/* Кнопка прикрепления слева вверху (только для изображений) */}
+                                {file.type === 'IMAGE' && onAttachFile && (
+                                    <Button
+                                        size='icon'
+                                        variant='ghost'
+                                        className='absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100'
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const fileUrl = getMediaFileUrl(
+                                                file.path
+                                            );
+                                            onAttachFile(
+                                                fileUrl,
+                                                file.filename
+                                            );
+                                        }}
+                                        title='Прикрепить к промпту'
+                                    >
+                                        <Paperclip className='h-3.5 w-3.5' />
+                                    </Button>
+                                )}
+                                {/* Кнопка удаления справа вверху */}
                                 <Button
                                     size='icon'
                                     variant='ghost'
-                                    className='absolute right-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-400 hover:bg-red-600/20'
+                                    className='absolute right-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-red-400 hover:bg-red-600/20 group-hover:opacity-100'
                                     onClick={(e) =>
                                         handleDeleteFile(e, file.id)
                                     }
@@ -187,6 +209,7 @@ export function MediaGallery({ requests }: MediaGalleryProps) {
                 <MediaFullscreenView
                     file={selectedFile}
                     onClose={() => setSelectedFile(null)}
+                    onAttachFile={onAttachFile}
                 />
             )}
         </>
@@ -196,9 +219,14 @@ export function MediaGallery({ requests }: MediaGalleryProps) {
 interface MediaFullscreenViewProps {
     file: MediaFile;
     onClose: () => void;
+    onAttachFile?: (fileUrl: string, filename: string) => void;
 }
 
-function MediaFullscreenView({ file, onClose }: MediaFullscreenViewProps) {
+function MediaFullscreenView({
+    file,
+    onClose,
+    onAttachFile,
+}: MediaFullscreenViewProps) {
     const fileUrl = getMediaFileUrl(file.path);
     const previewUrl = file.previewPath
         ? getMediaFileUrl(file.previewPath)
@@ -256,6 +284,21 @@ function MediaFullscreenView({ file, onClose }: MediaFullscreenViewProps) {
 
                 {/* Кнопки действий */}
                 <div className='absolute right-2 top-2 flex gap-2'>
+                    {/* Кнопка прикрепления (только для изображений) */}
+                    {file.type === 'IMAGE' && onAttachFile && (
+                        <Button
+                            size='icon'
+                            variant='secondary'
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onAttachFile(fileUrl, file.filename);
+                            }}
+                            className='h-8 w-8'
+                            title='Прикрепить к промпту'
+                        >
+                            <Paperclip className='h-4 w-4' />
+                        </Button>
+                    )}
                     <Button
                         size='icon'
                         variant='secondary'
@@ -264,6 +307,7 @@ function MediaFullscreenView({ file, onClose }: MediaFullscreenViewProps) {
                             handleDownload();
                         }}
                         className='h-8 w-8'
+                        title='Скачать файл'
                     >
                         <Download className='h-4 w-4' />
                     </Button>
@@ -275,6 +319,7 @@ function MediaFullscreenView({ file, onClose }: MediaFullscreenViewProps) {
                             onClose();
                         }}
                         className='h-8 w-8'
+                        title='Закрыть'
                     >
                         <X className='h-4 w-4' />
                     </Button>

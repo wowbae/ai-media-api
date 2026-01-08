@@ -254,7 +254,10 @@ function MediaChatPage() {
             </div>
 
             {/* Панель с медиафайлами */}
-            <MediaGallery requests={requestsWithPolling} />
+            <MediaGallery
+                requests={requestsWithPolling}
+                onAttachFile={handleAttachFile}
+            />
         </div>
     );
 }
