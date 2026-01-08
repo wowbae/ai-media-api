@@ -1,49 +1,11 @@
 // Менеджер провайдеров - фабрика и маппинг моделей на провайдеры
 import type { MediaModel } from '@prisma/client';
-import type { MediaProvider, MediaModelConfig } from './interfaces';
-import { createOpenRouterProvider, getOpenRouterModels } from './openrouter.provider';
+import type { MediaProvider } from './interfaces';
+import { createOpenRouterProvider } from './openrouter.provider';
 import { createGPTunnelProvider } from './gptunnel.provider';
 import { createMidjourneyProvider } from './midjourney.provider';
+import { MEDIA_MODELS, type MediaModelConfig } from '../config';
 import 'dotenv/config';
-
-// Конфигурация GPTunnel моделей (кроме Midjourney - у него свой провайдер)
-const GPTUNNEL_MODELS: Record<string, MediaModelConfig> = {
-    VEO_3_1_FAST: {
-        id: 'glabs-veo-3-1-fast',
-        name: 'Veo 3.1 Fast',
-        types: ['VIDEO'] as const,
-        maxPromptLength: 4096,
-        supportsImageInput: true, // Поддерживает первый кадр
-        provider: 'gptunnel',
-        pricing: {
-            output: 0.1, // Примерная цена
-        },
-    },
-};
-
-// Конфигурация Midjourney модели (через GPTunnel /midjourney API)
-const MIDJOURNEY_MODELS: Record<string, MediaModelConfig> = {
-    MIDJOURNEY: {
-        id: 'midjourney/imagine',
-        name: 'Midjourney',
-        types: ['IMAGE'] as const,
-        maxPromptLength: 4000,
-        supportsImageInput: false, // Midjourney через GPTunnel не поддерживает входные изображения
-        provider: 'midjourney', // Отдельный провайдер для Midjourney
-        pricing: {
-            output: 18, // 18 единиц за генерацию (completion_cost из API)
-        },
-    },
-};
-
-// Маппинг модели на провайдер
-// Для добавления новой модели: добавь её в enum MediaModel и укажи провайдер здесь
-const MODEL_PROVIDER_MAP: Record<MediaModel, string> = {
-    NANO_BANANA: 'openrouter',
-    KLING: 'openrouter',
-    MIDJOURNEY: 'midjourney', // Отдельный провайдер через GPTunnel /midjourney API
-    VEO_3_1_FAST: 'gptunnel',
-};
 
 export interface ProviderManager {
     // Получить провайдер для конкретной модели
@@ -94,24 +56,17 @@ export function createProviderManager(): ProviderManager {
         });
     }
 
-    // Объединяем конфиги всех моделей
-    const allModels: Record<string, MediaModelConfig> = {
-        ...getOpenRouterModels(),
-        ...GPTUNNEL_MODELS,
-        ...MIDJOURNEY_MODELS,
-    };
-
     return {
         getProvider(model: MediaModel): MediaProvider {
-            const providerName = MODEL_PROVIDER_MAP[model];
-            if (!providerName) {
+            const modelConfig = MEDIA_MODELS[model];
+            if (!modelConfig) {
                 throw new Error(`Неизвестная модель: ${model}`);
             }
 
-            const provider = providers[providerName];
+            const provider = providers[modelConfig.provider];
             if (!provider) {
                 throw new Error(
-                    `Провайдер ${providerName} не настроен. Проверьте переменные окружения.`
+                    `Провайдер ${modelConfig.provider} не настроен. Проверьте переменные окружения.`
                 );
             }
 
@@ -119,14 +74,13 @@ export function createProviderManager(): ProviderManager {
         },
 
         getModelConfig(model: MediaModel): MediaModelConfig | undefined {
-            return allModels[model];
+            return MEDIA_MODELS[model];
         },
 
         getAvailableModels() {
-            return Object.entries(allModels).map(([key, config]) => ({
+            return Object.entries(MEDIA_MODELS).map(([key, config]) => ({
                 key,
                 name: config.name,
-                // Убеждаемся, что types - это обычный массив без дубликатов
                 types: Array.from(new Set(config.types)),
                 supportsImageInput: config.supportsImageInput,
                 provider: config.provider,

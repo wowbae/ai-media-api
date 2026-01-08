@@ -2,6 +2,9 @@
 import type { MediaModel } from '@prisma/client';
 import type { SavedFileInfo } from '../file.service';
 
+// Реэкспорт MediaModelConfig из config.ts (единственный источник истины)
+export type { MediaModelConfig, MediaProviderType } from '../config';
+
 // Параметры запроса на генерацию
 export interface GenerateParams {
     requestId: number;
@@ -25,38 +28,21 @@ export interface TaskStatusResult {
     error?: string;
 }
 
+// Маппинг статусов провайдеров на внутренние (общий для gptunnel и midjourney)
+export const PROVIDER_STATUS_MAP: Record<string, TaskStatusResult['status']> = {
+    idle: 'pending',
+    processing: 'processing',
+    done: 'done',
+    failed: 'failed',
+};
+
 // Абстрактный интерфейс провайдера медиа-генерации
 export interface MediaProvider {
-    // Уникальный идентификатор провайдера
     readonly name: string;
-
-    // Является ли провайдер асинхронным (требует polling)
     readonly isAsync: boolean;
-
-    // Запуск генерации
-    // Для sync провайдеров - возвращает файлы сразу
-    // Для async провайдеров - создаёт задачу и возвращает taskId
     generate(params: GenerateParams): Promise<SavedFileInfo[] | TaskCreatedResult>;
-
-    // Проверка статуса задачи (только для async провайдеров)
     checkTaskStatus?(taskId: string): Promise<TaskStatusResult>;
-
-    // Получение результата задачи (только для async провайдеров)
     getTaskResult?(taskId: string): Promise<SavedFileInfo[]>;
-}
-
-// Конфигурация модели
-export interface MediaModelConfig {
-    id: string;
-    name: string;
-    types: readonly ('IMAGE' | 'VIDEO' | 'AUDIO')[];
-    maxPromptLength: number;
-    supportsImageInput: boolean;
-    provider: string; // Идентификатор провайдера
-    pricing?: {
-        input?: number;
-        output?: number;
-    };
 }
 
 // Конфигурация провайдера

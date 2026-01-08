@@ -17,13 +17,13 @@ import {
     saveLockButtonState,
     savePrompt,
 } from '@/lib/saved-prompts';
-import { loadTestMode } from '@/lib/test-mode';
 import { ModelSelector } from './model-selector';
 import {
     useGenerateMediaMutation,
     useGenerateMediaTestMutation,
     type MediaModel,
 } from '@/redux/media-api';
+import { useTestMode } from '@/hooks/use-test-mode';
 
 interface ChatInputProps {
     chatId: number;
@@ -61,7 +61,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
     const [quality, setQuality] = useState<'1k' | '2k' | '4k' | undefined>(undefined);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLockEnabled, setIsLockEnabled] = useState(false);
-    const [isTestMode, setIsTestMode] = useState(false);
+    const { isTestMode } = useTestMode();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const submitInProgressRef = useRef(false);
     const submitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -72,33 +72,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
 
     const isDisabled = disabled || isGenerating || isGeneratingTest || isSubmitting;
     const isNanoBanana = currentModel === 'NANO_BANANA';
-
-    // Загружаем состояние тестового режима и подписываемся на изменения
-    useEffect(() => {
-        setIsTestMode(loadTestMode());
-
-        // Слушаем изменения в localStorage
-        function handleStorageChange(e: StorageEvent) {
-            if (e.key === 'ai-media-test-mode') {
-                setIsTestMode(loadTestMode());
-            }
-        }
-
-        window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
-    }, []);
-
-    // Проверяем изменения тестового режима каждую секунду (для синхронизации между вкладками)
-    useEffect(() => {
-        const interval = setInterval(() => {
-            const currentTestMode = loadTestMode();
-            if (currentTestMode !== isTestMode) {
-                setIsTestMode(currentTestMode);
-            }
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [isTestMode]);
 
     // Очистка таймера при размонтировании
     useEffect(() => {

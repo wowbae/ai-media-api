@@ -1,5 +1,8 @@
 // Конфигурация моделей для генерации медиа
+// Единственный источник истины для всех провайдеров
 import 'dotenv/config';
+
+export type MediaProviderType = 'openrouter' | 'gptunnel' | 'midjourney';
 
 export interface MediaModelConfig {
     id: string;
@@ -7,21 +10,21 @@ export interface MediaModelConfig {
     types: readonly ('IMAGE' | 'VIDEO' | 'AUDIO')[];
     maxPromptLength: number;
     supportsImageInput: boolean;
-    provider: 'openrouter' | 'gptunnel'; // Провайдер для этой модели
+    provider: MediaProviderType;
     pricing?: {
-        input?: number;  // $ за 1M токенов или за изображение
+        input?: number; // $ за 1M токенов или за изображение
         output?: number;
     };
 }
 
-export const MEDIA_MODELS = {
+export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
     NANO_BANANA: {
         id: 'google/gemini-3-pro-image-preview',
         name: 'Nano Banana 2 Pro',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
         supportsImageInput: true,
-        provider: 'openrouter' as const,
+        provider: 'openrouter',
         pricing: {
             input: 0.1,
             output: 0.4,
@@ -33,36 +36,52 @@ export const MEDIA_MODELS = {
         types: ['VIDEO'] as const,
         maxPromptLength: 2048,
         supportsImageInput: true,
-        provider: 'openrouter' as const,
+        provider: 'openrouter',
         pricing: {
-            output: 0.04, // за видео
+            output: 0.04,
         },
     },
     MIDJOURNEY: {
-        id: 'midjourney/imagine', // GPTunnel endpoint
+        id: 'midjourney/imagine',
         name: 'Midjourney',
         types: ['IMAGE'] as const,
         maxPromptLength: 4000,
-        supportsImageInput: false, // Midjourney через GPTunnel не поддерживает входные изображения
-        provider: 'gptunnel' as const,
+        supportsImageInput: false,
+        provider: 'midjourney', // Отдельный провайдер через GPTunnel /midjourney API
         pricing: {
-            output: 18, // 18 единиц за генерацию (completion_cost из API)
+            output: 18,
         },
     },
     VEO_3_1_FAST: {
         id: 'glabs-veo-3-1-fast',
         name: 'Veo 3.1 Fast',
         types: ['VIDEO'] as const,
-        maxPromptLength: 2048,
-        supportsImageInput: true, // Поддерживает image-to-video
-        provider: 'gptunnel' as const,
+        maxPromptLength: 4096,
+        supportsImageInput: true,
+        provider: 'gptunnel',
         pricing: {
-            output: 50, // примерная стоимость
+            output: 0.1,
         },
     },
-} as const;
+};
 
 export type MediaModelKey = keyof typeof MEDIA_MODELS;
+
+// Получить модели по провайдеру
+export function getModelsByProvider(
+    provider: MediaProviderType
+): Record<string, MediaModelConfig> {
+    return Object.fromEntries(
+        Object.entries(MEDIA_MODELS).filter(
+            ([_, config]) => config.provider === provider
+        )
+    );
+}
+
+// Получить конфиг модели по ключу
+export function getModelConfig(modelKey: string): MediaModelConfig | undefined {
+    return MEDIA_MODELS[modelKey];
+}
 
 // Конфигурация OpenRouter API
 export const openRouterConfig = {
@@ -92,4 +111,3 @@ export const mediaStorageConfig = {
 export const telegramConfig = {
     notificationGroupId: process.env.TELEGRAM_MEDIA_GROUP_ID || '',
 };
-

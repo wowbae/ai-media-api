@@ -13,6 +13,8 @@ import {
     PANEL_HEADER_CLASSES,
     PANEL_HEADER_TITLE_CLASSES,
 } from '@/lib/panel-styles';
+import { getMediaFileUrl } from '@/lib/constants';
+import { formatFileSize, downloadFile } from '@/lib/utils';
 
 interface MediaGalleryProps {
     requests: MediaRequest[];
@@ -138,10 +140,9 @@ interface MediaFullscreenViewProps {
 }
 
 function MediaFullscreenView({ file, onClose }: MediaFullscreenViewProps) {
-    const API_URL = 'http://localhost:4000';
-    const fileUrl = `${API_URL}/media-files/${file.path}`;
+    const fileUrl = getMediaFileUrl(file.path);
     const previewUrl = file.previewPath
-        ? `${API_URL}/media-files/${file.previewPath}`
+        ? getMediaFileUrl(file.previewPath)
         : fileUrl;
 
     // Обработка клавиши Escape для закрытия
@@ -156,24 +157,8 @@ function MediaFullscreenView({ file, onClose }: MediaFullscreenViewProps) {
         return () => document.removeEventListener('keydown', handleEscape);
     }, [onClose]);
 
-    async function handleDownload() {
-        try {
-            const response = await fetch(fileUrl);
-            if (!response.ok) throw new Error('Ошибка загрузки файла');
-
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = file.filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Ошибка скачивания файла:', error);
-            alert('Не удалось скачать файл');
-        }
+    function handleDownload() {
+        downloadFile(fileUrl, file.filename);
     }
 
     return (
@@ -248,11 +233,4 @@ function MediaFullscreenView({ file, onClose }: MediaFullscreenViewProps) {
             </div>
         </div>
     );
-}
-
-// Форматирование размера файла
-function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

@@ -13,7 +13,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import { cn, formatFileSize, downloadFile } from '@/lib/utils';
+import { getMediaFileUrl } from '@/lib/constants';
 import { type MediaFile, type MediaType, useDeleteFileMutation } from '@/redux/media-api';
 
 interface MediaPreviewProps {
@@ -23,17 +24,14 @@ interface MediaPreviewProps {
     onAttach?: (fileUrl: string, filename: string) => void;
 }
 
-const API_URL = 'http://localhost:4000';
-
 export function MediaPreview({ file, showDelete = false, className, onAttach }: MediaPreviewProps) {
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
 
     // Получаем URL файла для отображения
-    // file.path уже относительный от ai-media, например: images/timestamp-random.png
-    const fileUrl = `${API_URL}/media-files/${file.path}`;
+    const fileUrl = getMediaFileUrl(file.path);
     const previewUrl = file.previewPath
-        ? `${API_URL}/media-files/${file.previewPath}`
+        ? getMediaFileUrl(file.previewPath)
         : fileUrl;
 
     async function handleDelete() {
@@ -44,24 +42,8 @@ export function MediaPreview({ file, showDelete = false, className, onAttach }: 
         }
     }
 
-    async function handleDownload() {
-        try {
-            const response = await fetch(fileUrl);
-            if (!response.ok) throw new Error('Ошибка загрузки файла');
-
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = file.filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Ошибка скачивания файла:', error);
-            alert('Не удалось скачать файл');
-        }
+    function handleDownload() {
+        downloadFile(fileUrl, file.filename);
     }
 
     return (
@@ -368,13 +350,6 @@ function TypeIcon({ type }: TypeIconProps) {
     return (
         <Icon className="h-4 w-4 text-slate-300" />
     );
-}
-
-// Форматирование размера файла
-function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 // Получение размеров изображения из метаданных

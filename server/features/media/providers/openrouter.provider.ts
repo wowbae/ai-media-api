@@ -1,12 +1,13 @@
 // OpenRouter провайдер для работы с моделями через OpenRouter API
 import type { MediaModel } from '@prisma/client';
-import type {
-    MediaProvider,
-    GenerateParams,
-    MediaModelConfig,
-} from './interfaces';
+import type { MediaProvider, GenerateParams } from './interfaces';
 import type { SavedFileInfo } from '../file.service';
 import { saveBase64File, saveFileFromUrl } from '../file.service';
+import {
+    getModelsByProvider,
+    getModelConfig,
+    type MediaModelConfig,
+} from '../config';
 
 interface OpenRouterConfig {
     apiKey: string;
@@ -33,32 +34,6 @@ interface GeminiImagePart {
         data: string;
     };
     text?: string;
-}
-
-// Конфиги моделей OpenRouter
-const OPENROUTER_MODELS: Record<string, MediaModelConfig> = {
-    NANO_BANANA: {
-        id: 'google/gemini-3-pro-image-preview',
-        name: 'Nano Banana 2 Pro',
-        types: ['IMAGE'] as const,
-        maxPromptLength: 8192,
-        supportsImageInput: true,
-        provider: 'openrouter',
-        pricing: { input: 0.1, output: 0.4 },
-    },
-    KLING: {
-        id: 'kling-ai/kling-video',
-        name: 'Kling AI',
-        types: ['VIDEO'] as const,
-        maxPromptLength: 2048,
-        supportsImageInput: true,
-        provider: 'openrouter',
-        pricing: { output: 0.04 },
-    },
-};
-
-function getModelConfig(model: MediaModel): MediaModelConfig | undefined {
-    return OPENROUTER_MODELS[model];
 }
 
 function createOpenRouterMessage(
@@ -271,7 +246,7 @@ export function createOpenRouterProvider(
         isAsync: false,
 
         async generate(params: GenerateParams): Promise<SavedFileInfo[]> {
-            const modelConfig = getModelConfig(params.model);
+            const modelConfig = getModelConfig(params.model as string);
             if (!modelConfig) {
                 throw new Error(
                     `Модель ${params.model} не поддерживается OpenRouter`
@@ -427,5 +402,5 @@ function calculateResolution(
 
 // Экспорт конфигов моделей для использования в getAvailableModels
 export function getOpenRouterModels(): Record<string, MediaModelConfig> {
-    return OPENROUTER_MODELS;
+    return getModelsByProvider('openrouter');
 }

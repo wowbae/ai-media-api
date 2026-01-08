@@ -20,8 +20,7 @@ import {
     type MediaModel,
     useDeleteFileMutation,
 } from '@/redux/media-api';
-
-const API_URL = 'http://localhost:4000';
+import { getMediaFileUrl } from '@/lib/constants';
 
 interface MessageListProps {
     requests: MediaRequest[];
@@ -234,7 +233,7 @@ function MessageItem({
                                                                 variant='ghost'
                                                                 className='h-8 w-8 shrink-0 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-slate-600/50 group-hover:opacity-100'
                                                                 onClick={() => {
-                                                                    const fileUrl = `${API_URL}/media-files/${file.path}`;
+                                                                    const fileUrl = getMediaFileUrl(file.path);
                                                                     onAttachFile(
                                                                         fileUrl,
                                                                         file.filename

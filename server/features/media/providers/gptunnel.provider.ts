@@ -5,8 +5,10 @@ import type {
     TaskCreatedResult,
     TaskStatusResult,
 } from './interfaces';
+import { PROVIDER_STATUS_MAP } from './interfaces';
 import type { SavedFileInfo } from '../file.service';
 import { saveFileFromUrl } from '../file.service';
+import { MEDIA_MODELS } from '../config';
 
 interface GPTunnelConfig {
     apiKey: string;
@@ -34,22 +36,17 @@ interface GPTunnelResultResponse {
     error?: string;
 }
 
-// Маппинг моделей на ID GPTunnel API
-const MODEL_IDS: Record<string, string> = {
-    VEO_3_1_FAST: 'glabs-veo-3-1-fast',
-    // Можно добавить другие модели GPTunnel в будущем
-};
-
 export function createGPTunnelProvider(config: GPTunnelConfig): MediaProvider {
     const { apiKey, baseURL } = config;
 
     async function createTask(
         params: GenerateParams
     ): Promise<GPTunnelCreateResponse> {
-        const modelId = MODEL_IDS[params.model];
-        if (!modelId) {
+        const modelConfig = MEDIA_MODELS[params.model as string];
+        if (!modelConfig || modelConfig.provider !== 'gptunnel') {
             throw new Error(`Модель ${params.model} не поддерживается GPTunnel`);
         }
+        const modelId = modelConfig.id;
 
         const body: Record<string, unknown> = {
             model: modelId,
@@ -149,16 +146,8 @@ export function createGPTunnelProvider(config: GPTunnelConfig): MediaProvider {
                 hasUrl: !!result.url,
             });
 
-            // Маппим статусы GPTunnel на наши
-            const statusMap: Record<string, TaskStatusResult['status']> = {
-                idle: 'pending',
-                processing: 'processing',
-                done: 'done',
-                failed: 'failed',
-            };
-
             return {
-                status: statusMap[result.status] || 'pending',
+                status: PROVIDER_STATUS_MAP[result.status] || 'pending',
                 url: result.url || undefined,
                 error: result.error,
             };

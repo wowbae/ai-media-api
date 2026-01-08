@@ -2,8 +2,12 @@
 import { mkdir, writeFile, unlink, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { MediaType } from '@prisma/client';
 import { mediaStorageConfig } from './config';
+
+const execAsync = promisify(exec);
 
 // Проверяем наличие sharp (опционально)
 let sharp: typeof import('sharp') | null = null;
@@ -11,6 +15,24 @@ try {
     sharp = (await import('sharp')).default;
 } catch {
     console.warn('Sharp не установлен - превью изображений будут недоступны');
+}
+
+// Проверяем наличие ffmpeg (для превью видео)
+let hasFFmpeg: boolean | null = null;
+
+async function checkFFmpeg(): Promise<boolean> {
+    if (hasFFmpeg !== null) return hasFFmpeg;
+
+    try {
+        await execAsync('ffmpeg -version');
+        hasFFmpeg = true;
+        console.log('FFmpeg найден - превью видео будут доступны');
+        return true;
+    } catch {
+        hasFFmpeg = false;
+        console.warn('FFmpeg не найден - превью видео будут недоступны. Установите FFmpeg для создания превью видео.');
+        return false;
+    }
 }
 
 export interface SavedFileInfo {
@@ -100,48 +122,123 @@ async function createImagePreview(
             .toFile(previewPath);
         return true;
     } catch (error) {
-        console.error('Ошибка создания превью:', error);
+        console.error('Ошибка создания превью изображения:', error);
         return false;
     }
 }
 
-// Сохранение файла из base64
-export async function saveBase64File(
-    base64Data: string,
+// Создание превью для видео (извлечение первого кадра)
+async function createVideoPreview(
+    sourcePath: string,
+    previewPath: string
+): Promise<boolean> {
+    const ffmpegAvailable = await checkFFmpeg();
+    if (!ffmpegAvailable) return false;
+
+    if (!sharp) {
+        console.warn('Sharp не доступен - не удастся обработать извлеченный кадр');
+        return false;
+    }
+
+    try {
+        // Создаем временный файл для извлеченного кадра
+        const tempFramePath = `${previewPath}.temp.jpg`;
+
+        // Извлекаем первый кадр через ffmpeg
+        await execAsync(
+            `ffmpeg -i "${sourcePath}" -ss 00:00:00 -vframes 1 -q:v 2 "${tempFramePath}" -y`
+        );
+
+        // Проверяем, что временный файл создан
+        if (!existsSync(tempFramePath)) {
+            console.error('Не удалось извлечь кадр из видео');
+            return false;
+        }
+
+        // Обрабатываем извлеченный кадр через sharp
+        const { width, height } = mediaStorageConfig.previewSize;
+        await sharp(tempFramePath)
+            .resize(width, height, {
+                fit: 'cover',
+                position: 'center',
+            })
+            .jpeg({ quality: 80 })
+            .toFile(previewPath);
+
+        // Удаляем временный файл
+        try {
+            await unlink(tempFramePath);
+        } catch {
+            // Игнорируем ошибки удаления временного файла
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Ошибка создания превью видео:', error);
+
+        // Удаляем временный файл если он был создан
+        try {
+            const tempFramePath = `${previewPath}.temp.jpg`;
+            if (existsSync(tempFramePath)) {
+                await unlink(tempFramePath);
+            }
+        } catch {
+            // Игнорируем ошибки
+        }
+
+        return false;
+    }
+}
+
+// Создание превью для файла в зависимости от типа
+async function createPreview(
+    filePath: string,
+    filename: string,
+    mediaType: MediaType
+): Promise<string | null> {
+    const previewFilename = `preview-${filename.replace(/\.[^.]+$/, '.jpg')}`;
+    const fullPreviewPath = path.join(mediaStorageConfig.previewsPath, previewFilename);
+
+    let isPreviewCreated = false;
+
+    if (mediaType === 'IMAGE' && sharp) {
+        isPreviewCreated = await createImagePreview(filePath, fullPreviewPath);
+    } else if (mediaType === 'VIDEO') {
+        isPreviewCreated = await createVideoPreview(filePath, fullPreviewPath);
+    }
+
+    return isPreviewCreated ? fullPreviewPath : null;
+}
+
+// Общая функция сохранения буфера в файл с превью и метаданными
+async function saveBufferToFile(
+    buffer: Buffer,
     mimeType: string
 ): Promise<SavedFileInfo> {
     await initMediaStorage();
 
+    // Валидация размера
+    if (buffer.length > mediaStorageConfig.maxFileSize) {
+        throw new Error(`Файл превышает максимальный размер ${mediaStorageConfig.maxFileSize / 1024 / 1024}MB`);
+    }
+
+    // Определяем тип и путь
     const mediaType = getMediaTypeFromMime(mimeType);
     const extension = getExtensionFromMime(mimeType);
     const filename = generateFilename(extension);
     const directory = getMediaDirectory(mediaType);
     const filePath = path.join(directory, filename);
 
-    // Декодируем base64 и сохраняем
-    const buffer = Buffer.from(base64Data, 'base64');
-
-    if (buffer.length > mediaStorageConfig.maxFileSize) {
-        throw new Error(`Файл превышает максимальный размер ${mediaStorageConfig.maxFileSize / 1024 / 1024}MB`);
-    }
-
+    // Сохраняем файл
     await writeFile(filePath, buffer);
 
-    // Создаем превью для изображений
-    let previewPath: string | null = null;
-    if (mediaType === 'IMAGE' && sharp) {
-        const previewFilename = `preview-${filename}`;
-        const fullPreviewPath = path.join(mediaStorageConfig.previewsPath, previewFilename);
-        const isPreviewCreated = await createImagePreview(filePath, fullPreviewPath);
-        if (isPreviewCreated) {
-            previewPath = fullPreviewPath;
-        }
-    }
+    // Создаем превью
+    const previewPath = await createPreview(filePath, filename, mediaType);
 
     // Получаем метаданные
     const metadata = await getFileMetadata(filePath, mediaType);
 
-    // Сохраняем относительный путь от ai-media для правильной работы со статикой
+    // Формируем относительные пути
     const relativePath = path.relative(mediaStorageConfig.basePath, filePath);
     const relativePreviewPath = previewPath
         ? path.relative(mediaStorageConfig.basePath, previewPath)
@@ -157,10 +254,17 @@ export async function saveBase64File(
     };
 }
 
+// Сохранение файла из base64
+export async function saveBase64File(
+    base64Data: string,
+    mimeType: string
+): Promise<SavedFileInfo> {
+    const buffer = Buffer.from(base64Data, 'base64');
+    return saveBufferToFile(buffer, mimeType);
+}
+
 // Сохранение файла из URL (скачивание)
 export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
-    await initMediaStorage();
-
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error(`Не удалось скачать файл: ${response.statusText}`);
@@ -169,45 +273,7 @@ export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
     const contentType = response.headers.get('content-type') || 'image/png';
     const buffer = Buffer.from(await response.arrayBuffer());
 
-    const mediaType = getMediaTypeFromMime(contentType);
-    const extension = getExtensionFromMime(contentType);
-    const filename = generateFilename(extension);
-    const directory = getMediaDirectory(mediaType);
-    const filePath = path.join(directory, filename);
-
-    if (buffer.length > mediaStorageConfig.maxFileSize) {
-        throw new Error(`Файл превышает максимальный размер ${mediaStorageConfig.maxFileSize / 1024 / 1024}MB`);
-    }
-
-    await writeFile(filePath, buffer);
-
-    // Создаем превью для изображений
-    let previewPath: string | null = null;
-    if (mediaType === 'IMAGE' && sharp) {
-        const previewFilename = `preview-${filename}`;
-        const fullPreviewPath = path.join(mediaStorageConfig.previewsPath, previewFilename);
-        const isPreviewCreated = await createImagePreview(filePath, fullPreviewPath);
-        if (isPreviewCreated) {
-            previewPath = fullPreviewPath;
-        }
-    }
-
-    const metadata = await getFileMetadata(filePath, mediaType);
-
-    // Сохраняем относительный путь от ai-media для правильной работы со статикой
-    const relativePath = path.relative(mediaStorageConfig.basePath, filePath);
-    const relativePreviewPath = previewPath
-        ? path.relative(mediaStorageConfig.basePath, previewPath)
-        : null;
-
-    return {
-        filename,
-        path: relativePath,
-        previewPath: relativePreviewPath,
-        size: buffer.length,
-        type: mediaType,
-        metadata,
-    };
+    return saveBufferToFile(buffer, contentType);
 }
 
 // Получение метаданных файла

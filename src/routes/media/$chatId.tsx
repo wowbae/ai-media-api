@@ -18,7 +18,8 @@ import {
 } from '@/redux/media-api';
 import { PANEL_HEADER_CLASSES } from '@/lib/panel-styles';
 import { cn } from '@/lib/utils';
-import { loadTestMode } from '@/lib/test-mode';
+import { getModelIcon, getModelName } from '@/lib/model-utils';
+import { useTestMode } from '@/hooks/use-test-mode';
 
 export const Route = createFileRoute('/media/$chatId')({
     component: MediaChatPage,
@@ -42,38 +43,11 @@ function MediaChatPage() {
         skip: false,
     });
     const [updateChat] = useUpdateChatMutation();
+    const { isTestMode } = useTestMode();
 
     const [currentModel, setCurrentModel] = useState<MediaModel>('NANO_BANANA');
     const [pollingRequestId, setPollingRequestId] = useState<number | null>(null);
-    const [isTestMode, setIsTestMode] = useState(false);
     const chatInputRef = useRef<ChatInputRef>(null);
-
-    // Загружаем состояние тестового режима и отслеживаем изменения
-    useEffect(() => {
-        setIsTestMode(loadTestMode());
-
-        // Слушаем изменения в localStorage
-        function handleStorageChange(e: StorageEvent) {
-            if (e.key === 'ai-media-test-mode') {
-                setIsTestMode(loadTestMode());
-            }
-        }
-
-        window.addEventListener('storage', handleStorageChange);
-
-        // Проверяем изменения каждую секунду (для синхронизации в той же вкладке)
-        const interval = setInterval(() => {
-            const currentTestMode = loadTestMode();
-            if (currentTestMode !== isTestMode) {
-                setIsTestMode(currentTestMode);
-            }
-        }, 1000);
-
-        return () => {
-            window.removeEventListener('storage', handleStorageChange);
-            clearInterval(interval);
-        };
-    }, [isTestMode]);
 
     // Синхронизация модели с настройками чата
     useEffect(() => {
@@ -251,23 +225,10 @@ interface ChatHeaderProps {
 }
 
 function ChatHeader({ name, model, showUpdating }: ChatHeaderProps) {
-    function getModelEmoji(m: MediaModel) {
-        switch (m) {
-            case 'NANO_BANANA':
-                return '🍌';
-            case 'KLING':
-                return '🎬';
-            case 'MIDJOURNEY':
-                return '🎨';
-            default:
-                return '✨';
-        }
-    }
-
     return (
         <div className={cn(PANEL_HEADER_CLASSES, 'bg-slate-800/50')}>
             <div className="flex items-center gap-3">
-                <span className="text-2xl">{getModelEmoji(model)}</span>
+                <span className="text-2xl">{getModelIcon(model)}</span>
                 <div className="flex-1">
                     <div className="flex items-center gap-2">
                         <h1 className="font-semibold text-white">{name}</h1>
@@ -276,10 +237,7 @@ function ChatHeader({ name, model, showUpdating }: ChatHeaderProps) {
                         )}
                     </div>
                     <p className="text-xs text-slate-400">
-                        {model === 'NANO_BANANA' && 'Nano Banana 2 Pro'}
-                        {model === 'KLING' && 'Kling AI Video'}
-                        {model === 'MIDJOURNEY' && 'Midjourney'}
-                        {model === 'VEO_3_1_FAST' && 'Veo 3.1 Fast'}
+                        {getModelName(model)}
                     </p>
                 </div>
             </div>

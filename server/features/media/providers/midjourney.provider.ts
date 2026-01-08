@@ -6,6 +6,7 @@ import type {
     TaskCreatedResult,
     TaskStatusResult,
 } from './interfaces';
+import { PROVIDER_STATUS_MAP } from './interfaces';
 import type { SavedFileInfo } from '../file.service';
 import { saveFileFromUrl } from '../file.service';
 
@@ -141,16 +142,8 @@ export function createMidjourneyProvider(config: MidjourneyConfig): MediaProvide
                 error: result.error,
             });
 
-            // Маппим статусы Midjourney на наши
-            const statusMap: Record<string, TaskStatusResult['status']> = {
-                idle: 'pending',
-                processing: 'processing',
-                done: 'done',
-                failed: 'failed',
-            };
-
             return {
-                status: statusMap[result.status] || 'pending',
+                status: PROVIDER_STATUS_MAP[result.status] || 'pending',
                 url: result.result || undefined,
                 error: result.error || undefined,
             };

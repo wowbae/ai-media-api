@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useGetModelsQuery, type MediaModel } from '@/redux/media-api';
+import { getModelIcon } from '@/lib/model-utils';
 
 interface ModelSelectorProps {
     value: MediaModel;
@@ -24,21 +25,6 @@ export function ModelSelector({
     disabled,
 }: ModelSelectorProps) {
     const { data: models, isLoading } = useGetModelsQuery();
-
-    function getModelIcon(key: string) {
-        switch (key) {
-            case 'NANO_BANANA':
-                return '🍌';
-            case 'KLING':
-                return '🎬';
-            case 'MIDJOURNEY':
-                return '🎨';
-            case 'VEO_3_1_FAST':
-                return '🎥';
-            default:
-                return '✨';
-        }
-    }
 
     // Разделяем модели по типам
     const imageModels = models?.filter((model) =>
@@ -132,21 +118,6 @@ interface ModelBadgeProps {
 export function ModelBadge({ model }: ModelBadgeProps) {
     const { data: models } = useGetModelsQuery();
     const modelInfo = models?.find((m) => m.key === model);
-
-    function getModelIcon(key: string) {
-        switch (key) {
-            case 'NANO_BANANA':
-                return '🍌';
-            case 'KLING':
-                return '🎬';
-            case 'MIDJOURNEY':
-                return '🎨';
-            case 'VEO_3_1_FAST':
-                return '🎥';
-            default:
-                return '✨';
-        }
-    }
 
     return (
         <Badge variant='secondary' className='bg-slate-700 text-slate-300'>
