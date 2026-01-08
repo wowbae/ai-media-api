@@ -59,9 +59,29 @@ function MediaChatPage() {
 
     // Обработка смены модели
     async function handleModelChange(model: MediaModel) {
+        // Оптимистичное обновление UI
+        const previousModel = currentModel;
         setCurrentModel(model);
+
         if (chat) {
-            await updateChat({ id: chat.id, model });
+            try {
+                await updateChat({ id: chat.id, model }).unwrap();
+            } catch (error) {
+                // Откатываем изменение модели при ошибке
+                setCurrentModel(previousModel);
+                const errorMessage =
+                    error &&
+                    typeof error === 'object' &&
+                    'data' in error &&
+                    error.data &&
+                    typeof error.data === 'object' &&
+                    'error' in error.data &&
+                    typeof error.data.error === 'string'
+                        ? error.data.error
+                        : 'Не удалось обновить модель. Попробуйте еще раз.';
+                alert(`Ошибка переключения модели: ${errorMessage}`);
+                console.error('[Chat] Ошибка обновления модели:', error);
+            }
         }
     }
 

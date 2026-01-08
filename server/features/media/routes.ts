@@ -123,6 +123,15 @@ mediaRouter.patch('/chats/:id', async (req: Request, res: Response) => {
         const chatId = parseInt(req.params.id);
         const { name, model, settings } = req.body as UpdateChatRequest;
 
+        // Проверяем существование чата
+        const existingChat = await prisma.mediaChat.findUnique({
+            where: { id: chatId },
+        });
+
+        if (!existingChat) {
+            return res.status(404).json({ success: false, error: 'Чат не найден' });
+        }
+
         const chat = await prisma.mediaChat.update({
             where: { id: chatId },
             data: {
@@ -135,7 +144,30 @@ mediaRouter.patch('/chats/:id', async (req: Request, res: Response) => {
         res.json({ success: true, data: chat });
     } catch (error) {
         console.error('Ошибка обновления чата:', error);
-        res.status(500).json({ success: false, error: 'Ошибка обновления чата' });
+
+        // Обработка ошибок Prisma
+        if (error && typeof error === 'object' && 'code' in error) {
+            const prismaError = error as { code: string; meta?: { target?: string[] } };
+
+            // Ошибка невалидного значения enum
+            if (prismaError.code === 'P2007') {
+                return res.status(400).json({
+                    success: false,
+                    error: `Недопустимая модель. Проверьте, что база данных синхронизирована со схемой Prisma. Выполните: bunx prisma db push`,
+                });
+            }
+
+            // Ошибка записи не найдена
+            if (prismaError.code === 'P2025') {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Чат не найден',
+                });
+            }
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'Ошибка обновления чата';
+        res.status(500).json({ success: false, error: errorMessage });
     }
 });
 

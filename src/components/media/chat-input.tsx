@@ -352,6 +352,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
             }
         } catch (error) {
             console.error('[ChatInput] ❌ Ошибка генерации:', error);
+            const errorMessage =
+                error &&
+                typeof error === 'object' &&
+                'data' in error &&
+                error.data &&
+                typeof error.data === 'object' &&
+                'error' in error.data &&
+                typeof error.data.error === 'string'
+                    ? error.data.error
+                    : 'Не удалось отправить запрос. Попробуйте еще раз.';
+            alert(`Ошибка генерации: ${errorMessage}`);
         } finally {
             // Сбрасываем флаги в любом случае с небольшой задержкой для предотвращения мгновенных повторных вызовов
             if (submitTimeoutRef.current) {

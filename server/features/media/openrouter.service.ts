@@ -165,7 +165,7 @@ async function pollTaskResult(
 
             if (!provider.checkTaskStatus) {
                 throw new Error(
-                    `Провайдер ${providerName} не поддерживает checkTaskStatus`
+                    `Провайдер ${provider.name} не поддерживает checkTaskStatus`
                 );
             }
 
@@ -180,7 +180,7 @@ async function pollTaskResult(
             if (status.status === 'done') {
                 if (!provider.getTaskResult) {
                     throw new Error(
-                        `Провайдер ${providerName} не поддерживает getTaskResult`
+                        `Провайдер ${provider.name} не поддерживает getTaskResult`
                     );
                 }
 
