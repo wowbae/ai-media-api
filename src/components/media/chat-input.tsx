@@ -299,21 +299,16 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
                 }
             }
 
-            console.log('[ChatInput] ✅ Отправка запроса на генерацию:', {
-                chatId,
-                prompt: finalPrompt.substring(0, 50),
-                model: currentModel,
-                format,
-                quality,
-                testMode: isTestMode,
-                timestamp: new Date().toISOString(),
-            });
-
             let result: { requestId: number; status: string; message: string };
 
             if (isTestMode) {
                 // Тестовый режим: используем последний файл из чата
-                console.log('[ChatInput] 🧪 Тестовый режим: создаем запрос с последним файлом');
+                console.log('[ChatInput] 🧪 ТЕСТОВЫЙ РЕЖИМ: отправка запроса БЕЗ вызова нейронки', {
+                    chatId,
+                    prompt: finalPrompt.substring(0, 50),
+                    note: 'Используется последний файл из чата, запрос в API нейронки НЕ отправляется',
+                    timestamp: new Date().toISOString(),
+                });
                 try {
                     result = await generateMediaTest({
                         chatId,
@@ -336,8 +331,18 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
                     }
                     throw error;
                 }
+                console.log('[ChatInput] 🧪 ТЕСТОВЫЙ РЕЖИМ: заглушка создана, файл скопирован БЕЗ вызова нейронки, requestId:', result.requestId);
             } else {
                 // Обычный режим: отправляем реальный запрос
+                console.log('[ChatInput] ✅ Обычный режим: отправка запроса на генерацию в нейронку:', {
+                    chatId,
+                    prompt: finalPrompt.substring(0, 50),
+                    model: currentModel,
+                    format,
+                    quality,
+                    inputFilesCount: attachedFiles.length,
+                    timestamp: new Date().toISOString(),
+                });
                 result = await generateMedia({
                     chatId,
                     prompt: finalPrompt,
@@ -346,9 +351,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
                     ...(isNanoBanana && format && { format }),
                     ...(isNanoBanana && quality && { quality }),
                 }).unwrap();
+                console.log('[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:', result.requestId);
             }
-
-            console.log('[ChatInput] ✅ Запрос успешно отправлен, requestId:', result.requestId);
 
             // Сохраняем промпт и изображения, если кнопка замочка активна
             if (isLockEnabled) {

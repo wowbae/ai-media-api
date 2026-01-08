@@ -10,6 +10,7 @@ export interface MediaChat {
     createdAt: string;
     updatedAt: string;
     _count?: {
+        files: number;
         requests: number;
     };
 }

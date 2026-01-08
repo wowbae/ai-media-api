@@ -28,13 +28,33 @@ mediaRouter.get('/chats', async (_req: Request, res: Response) => {
         const chats = await prisma.mediaChat.findMany({
             orderBy: { updatedAt: 'desc' },
             include: {
-                _count: {
-                    select: { requests: true },
+                requests: {
+                    include: {
+                        _count: {
+                            select: { files: true },
+                        },
+                    },
                 },
             },
         });
 
-        res.json({ success: true, data: chats });
+        // Подсчитываем общее количество файлов для каждого чата
+        const chatsWithFileCount = chats.map((chat) => {
+            const totalFiles = chat.requests.reduce(
+                (sum, req) => sum + req._count.files,
+                0
+            );
+            return {
+                ...chat,
+                _count: {
+                    files: totalFiles,
+                    requests: chat.requests.length,
+                },
+                requests: undefined, // Удаляем requests из ответа, так как они не нужны в списке чатов
+            };
+        });
+
+        res.json({ success: true, data: chatsWithFileCount });
     } catch (error) {
         console.error('Ошибка получения чатов:', error);
         res.status(500).json({ success: false, error: 'Ошибка получения чатов' });
@@ -272,14 +292,16 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
     }
 });
 
-// Тестовый режим: создать запрос с последним файлом из чата
+// Тестовый режим: создать запрос с последним файлом из чата (ЗАГЛУШКА - НЕ вызывает нейронку!)
+// ВАЖНО: Этот эндпоинт НЕ вызывает generateMedia() и НЕ отправляет запросы в API нейронки
 mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
     try {
         const { chatId, prompt } = req.body as { chatId: number; prompt: string };
 
-        console.log('[API] 🧪 POST /generate-test - тестовый режим:', {
+        console.log('[API] 🧪 POST /generate-test - ТЕСТОВЫЙ РЕЖИМ (заглушка, БЕЗ вызова нейронки):', {
             chatId,
             prompt: prompt?.substring(0, 50),
+            note: 'Используется последний файл из чата, запрос в API нейронки НЕ отправляется',
             timestamp: new Date().toISOString(),
         });
 
@@ -375,22 +397,7 @@ mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
             chatId,
         });
 
-        // Отправляем уведомление в Telegram сразу
-        try {
-            console.log('[API] 🧪 Тестовый режим: отправка уведомления в Telegram');
-            const telegramResult = await notifyTelegramGroup(
-                newMediaFile,
-                chat.name,
-                prompt.trim()
-            );
-            console.log(
-                `[API] 🧪 Тестовый режим: Telegram уведомление ${telegramResult ? 'отправлено' : 'не отправлено'}`
-            );
-        } catch (telegramError) {
-            console.error('[API] 🧪 Тестовый режим: ошибка отправки в Telegram:', telegramError);
-            // Не прерываем выполнение если Telegram не работает
-        }
-
+        // Возвращаем ответ фронтенду сразу, чтобы файл появился в чате без задержки
         res.status(201).json({
             success: true,
             data: {
@@ -399,6 +406,19 @@ mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
                 message: 'Тестовый запрос создан',
             },
         });
+
+        // Отправляем уведомление в Telegram асинхронно (не ждем, чтобы не блокировать ответ)
+        console.log('[API] 🧪 Тестовый режим: отправка уведомления в Telegram (асинхронно)');
+        notifyTelegramGroup(newMediaFile, chat.name, prompt.trim())
+            .then((telegramResult) => {
+                console.log(
+                    `[API] 🧪 Тестовый режим: Telegram уведомление ${telegramResult ? 'отправлено' : 'не отправлено'}`
+                );
+            })
+            .catch((telegramError) => {
+                console.error('[API] 🧪 Тестовый режим: ошибка отправки в Telegram:', telegramError);
+                // Не прерываем выполнение если Telegram не работает
+            });
     } catch (error) {
         console.error('[API] 🧪 Тестовый режим: ошибка создания запроса:', error);
         res.status(500).json({ success: false, error: 'Ошибка создания тестового запроса' });

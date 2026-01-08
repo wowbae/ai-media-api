@@ -51,6 +51,16 @@ export async function generateMedia(
     format?: '9:16' | '16:9',
     quality?: '1k' | '2k' | '4k'
 ): Promise<SavedFileInfo[]> {
+    console.log('[OpenRouter] 🚀 generateMedia вызвана - отправка запроса в API нейронки:', {
+        requestId,
+        model,
+        prompt: prompt.substring(0, 50),
+        format,
+        quality,
+        inputFilesCount: inputFiles.length,
+        timestamp: new Date().toISOString(),
+    });
+
     const modelConfig = getModelConfig(model);
 
     // Обновляем статус на PROCESSING

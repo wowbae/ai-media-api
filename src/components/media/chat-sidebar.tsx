@@ -286,9 +286,9 @@ function ChatItem({ chat, isActive, onDelete, onEdit }: ChatItemProps) {
             >
                 <MessageSquare className='h-4 w-4 shrink-0' />
                 <span className='truncate text-sm'>{chat.name}</span>
-                {chat._count && (
+                {chat._count && chat._count.files > 0 && (
                     <span className='ml-auto text-xs text-slate-500'>
-                        {chat._count.requests}
+                        {chat._count.files}
                     </span>
                 )}
             </Link>
