@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { type MediaFile, type MediaType, useDeleteFileMutation } from '@/redux/media-api';
 
@@ -131,9 +130,9 @@ export function MediaPreview({ file, showDelete = false, className, onAttach }: 
                 </div>
 
                 {/* Информация о файле */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-2">
                     <div className="flex items-center justify-between">
-                        <TypeBadge type={file.type} />
+                        <TypeIcon type={file.type} />
                         <span className="text-xs text-slate-300">
                             {formatFileSize(file.size)}
                         </span>
@@ -263,25 +262,22 @@ function AudioPreview({ src }: AudioPreviewProps) {
     );
 }
 
-// Badge с типом файла
-interface TypeBadgeProps {
+// Иконка типа файла
+interface TypeIconProps {
     type: MediaType;
 }
 
-function TypeBadge({ type }: TypeBadgeProps) {
+function TypeIcon({ type }: TypeIconProps) {
     const config = {
-        IMAGE: { icon: ImageIcon, label: 'Изображение', color: 'bg-purple-600' },
-        VIDEO: { icon: Video, label: 'Видео', color: 'bg-blue-600' },
-        AUDIO: { icon: AudioLines, label: 'Аудио', color: 'bg-green-600' },
+        IMAGE: { icon: ImageIcon },
+        VIDEO: { icon: Video },
+        AUDIO: { icon: AudioLines },
     };
 
-    const { icon: Icon, label, color } = config[type];
+    const { icon: Icon } = config[type];
 
     return (
-        <Badge className={cn('gap-1', color)}>
-            <Icon className="h-3 w-3" />
-            {label}
-        </Badge>
+        <Icon className="h-4 w-4 text-slate-300" />
     );
 }
 

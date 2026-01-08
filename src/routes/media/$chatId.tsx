@@ -6,6 +6,7 @@ import {
     ChatSidebar,
     ChatInput,
     MessageList,
+    MediaGallery,
     type ChatInputRef,
 } from '@/components/media';
 import {
@@ -15,6 +16,8 @@ import {
     type MediaModel,
     type MediaRequest,
 } from '@/redux/media-api';
+import { PANEL_HEADER_CLASSES } from '@/lib/panel-styles';
+import { cn } from '@/lib/utils';
 
 export const Route = createFileRoute('/media/$chatId')({
     component: MediaChatPage,
@@ -85,7 +88,7 @@ function MediaChatPage() {
 
     if (isChatLoading) {
         return (
-            <div className="flex h-[calc(100vh-64px)] bg-slate-900">
+            <div className="flex h-screen bg-slate-900">
                 <ChatSidebar />
                 <div className="flex flex-1 items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
@@ -96,7 +99,7 @@ function MediaChatPage() {
 
     if (!chat) {
         return (
-            <div className="flex h-[calc(100vh-64px)] bg-slate-900">
+            <div className="flex h-screen bg-slate-900">
                 <ChatSidebar />
                 <div className="flex flex-1 flex-col items-center justify-center text-center">
                     <p className="text-xl text-slate-400">Чат не найден</p>
@@ -132,7 +135,7 @@ function MediaChatPage() {
     }
 
     return (
-        <div className="flex h-[calc(100vh-64px)] bg-slate-900">
+        <div className="flex h-screen bg-slate-900">
             {/* Сайдбар */}
             <ChatSidebar />
 
@@ -157,6 +160,9 @@ function MediaChatPage() {
                     onModelChange={handleModelChange}
                 />
             </div>
+
+            {/* Панель с медиафайлами */}
+            <MediaGallery requests={requestsWithPolling} />
         </div>
     );
 }
@@ -181,7 +187,7 @@ function ChatHeader({ name, model }: ChatHeaderProps) {
     }
 
     return (
-        <div className="flex items-center justify-between border-b border-slate-700 bg-slate-800/50 px-4 py-3">
+        <div className={cn(PANEL_HEADER_CLASSES, 'bg-slate-800/50')}>
             <div className="flex items-center gap-3">
                 <span className="text-2xl">{getModelEmoji(model)}</span>
                 <div>

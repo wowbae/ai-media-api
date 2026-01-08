@@ -9,6 +9,7 @@ import {
     Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PANEL_HEADER_CLASSES, PANEL_HEADER_TITLE_CLASSES } from '@/lib/panel-styles';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -105,8 +106,8 @@ export function ChatSidebar() {
     return (
         <div className='flex h-full w-64 flex-col border-r border-slate-700 bg-slate-900/50'>
             {/* Header */}
-            <div className='flex items-center justify-between border-b border-slate-700 p-4'>
-                <h2 className='text-lg font-semibold text-white'>AI Media</h2>
+            <div className={PANEL_HEADER_CLASSES}>
+                <h2 className={PANEL_HEADER_TITLE_CLASSES}>AI Media</h2>
                 <Button
                     size='icon'
                     variant='ghost'

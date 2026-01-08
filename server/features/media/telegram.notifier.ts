@@ -5,6 +5,8 @@ import { InputFile, Bot } from 'grammy';
 import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
 import path from 'path';
+import { prisma } from 'prisma/client';
+import { deleteFile as deleteLocalFile } from './file.service';
 
 // Бот будет получен лениво при первом использовании
 let botInstance: Bot | null = null;
@@ -166,10 +168,19 @@ export async function notifyTelegramGroup(
         const fileBuffer = await readFile(absolutePath);
         const inputFile = new InputFile(fileBuffer, file.filename);
 
+        // Создаем inline кнопку "Удалить" с callback_data
+        const deleteButton = {
+            text: '🗑️ Удалить',
+            callback_data: `delete_file:${file.id}`,
+        };
+
         // Отправляем все файлы как документы (без сжатия)
         await bot.api.sendDocument(groupId, inputFile, {
             caption,
             parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: [[deleteButton]],
+            },
         });
 
         console.log(`[Telegram] ✅ Уведомление отправлено в Telegram: ${file.filename}, группа: ${groupId}`);
@@ -258,3 +269,63 @@ export async function sendTextNotification(message: string): Promise<boolean> {
     }
 }
 
+// Удаление файла из БД, Telegram и локально
+export async function deleteMediaFileFromTelegram(
+    fileId: number,
+    chatId: string | number,
+    messageId: number
+): Promise<boolean> {
+    try {
+        console.log(`[Telegram] Начало удаления файла ${fileId}`);
+
+        // Получаем файл из БД
+        const file = await prisma.mediaFile.findUnique({
+            where: { id: fileId },
+        });
+
+        if (!file) {
+            console.error(`[Telegram] Файл ${fileId} не найден в БД`);
+            return false;
+        }
+
+        const bot = await getBot();
+        if (!bot) {
+            console.error('[Telegram] Бот не инициализирован для удаления');
+            return false;
+        }
+
+        // Удаляем сообщение из Telegram
+        try {
+            await bot.api.deleteMessage(chatId, messageId);
+            console.log(`[Telegram] Сообщение ${messageId} удалено из чата ${chatId}`);
+        } catch (telegramError: unknown) {
+            const error = telegramError as { error_code?: number; description?: string };
+            console.warn(
+                `[Telegram] Не удалось удалить сообщение ${messageId} из Telegram:`,
+                error.description || telegramError
+            );
+            // Продолжаем удаление, даже если сообщение не удалось удалить
+        }
+
+        // Преобразуем относительные пути в абсолютные
+        const absolutePath = path.join(process.cwd(), mediaStorageConfig.basePath, file.path);
+        const absolutePreviewPath = file.previewPath
+            ? path.join(process.cwd(), mediaStorageConfig.basePath, file.previewPath)
+            : null;
+
+        // Удаляем локальные файлы
+        await deleteLocalFile(absolutePath, absolutePreviewPath);
+        console.log(`[Telegram] Локальные файлы удалены: ${file.path}`);
+
+        // Удаляем запись из БД
+        await prisma.mediaFile.delete({
+            where: { id: fileId },
+        });
+        console.log(`[Telegram] Файл ${fileId} удален из БД`);
+
+        return true;
+    } catch (error: unknown) {
+        console.error(`[Telegram] Ошибка удаления файла ${fileId}:`, error);
+        return false;
+    }
+}

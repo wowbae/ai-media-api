@@ -8,6 +8,7 @@ import {
     buildKeyboard_NewTask,
     buildKeyboard_ProjectList,
 } from '../service/keyboards/build.keyboards';
+import { deleteMediaFileFromTelegram } from '../../../media/telegram.notifier';
 
 export enum Actions_NewTask {
     select_project = 'selected_project',
@@ -25,9 +26,78 @@ export const callbackComposer = new Composer();
 callbackComposer.on('callback_query:data', async (ctx, next) => {
     const telegramId = ctx.from!.id.toString();
     const chatId = ctx.chat?.id;
+    const callbackDataString = ctx.callbackQuery.data || '';
+
+    // Обработка удаления файла
+    if (callbackDataString.startsWith('delete_file:')) {
+        const fileIdStr = callbackDataString.replace('delete_file:', '');
+        const fileId = parseInt(fileIdStr, 10);
+
+        if (isNaN(fileId)) {
+            await ctx.answerCallbackQuery({
+                text: '❌ Ошибка: неверный ID файла',
+                show_alert: false,
+            });
+            return;
+        }
+
+        if (!ctx.callbackQuery.message) {
+            await ctx.answerCallbackQuery({
+                text: '❌ Ошибка: сообщение не найдено',
+                show_alert: false,
+            });
+            return;
+        }
+
+        const messageChatId = ctx.callbackQuery.message.chat.id;
+        const messageId = ctx.callbackQuery.message.message_id;
+
+        // Отвечаем на callback, чтобы убрать индикатор загрузки
+        await ctx.answerCallbackQuery({
+            text: '🗑️ Удаление файла...',
+            show_alert: false,
+        });
+
+        try {
+            const success = await deleteMediaFileFromTelegram(
+                fileId,
+                messageChatId,
+                messageId
+            );
+
+            if (success) {
+                // Сообщение уже удалено из Telegram функцией deleteMediaFileFromTelegram
+                console.log(`[Callback] Файл ${fileId} успешно удален`);
+            } else {
+                // Если удаление не удалось, отправляем уведомление
+                try {
+                    await ctx.api.sendMessage(
+                        messageChatId,
+                        '❌ Не удалось удалить файл. Проверьте логи.',
+                        { reply_to_message_id: messageId }
+                    );
+                } catch (sendError) {
+                    console.error('[Callback] Ошибка отправки сообщения об ошибке:', sendError);
+                }
+            }
+        } catch (error) {
+            console.error(`[Callback] Ошибка при удалении файла ${fileId}:`, error);
+            try {
+                await ctx.api.sendMessage(
+                    messageChatId,
+                    '❌ Произошла ошибка при удалении файла.',
+                    { reply_to_message_id: messageId }
+                );
+            } catch (sendError) {
+                console.error('[Callback] Ошибка отправки сообщения об ошибке:', sendError);
+            }
+        }
+
+        return;
+    }
 
     const callbackData: IMapCallbackDataNewTask | undefined =
-        callbackDataNewTaskMap.get(ctx.callbackQuery.data || '');
+        callbackDataNewTaskMap.get(callbackDataString);
     if (!callbackData) return next();
 
     switch (callbackData.action) {
