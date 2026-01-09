@@ -299,7 +299,7 @@ function MediaFullscreenView({
                         src={fileUrl}
                         poster={previewUrl}
                         controls
-                        autoPlay
+                        // autoPlay
                         className='max-h-[90vh] max-w-[90vw]'
                     />
                 )}
