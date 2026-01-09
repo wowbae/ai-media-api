@@ -54,7 +54,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
     },
     // LaoZhang провайдер - модели для генерации изображений и видео
     NANO_BANANA_PRO: {
-        id: 'gemini/gemini-2.0-flash-exp-image-generation',
+        id: 'gemini-3-pro-image-preview',
         name: 'Nano Banana Pro',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,

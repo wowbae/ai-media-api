@@ -19,6 +19,9 @@ import type {
     LaoZhangVideoCreateResponse,
     AspectRatio,
     Quality,
+    LaoZhangGoogleNativeRequest,
+    LaoZhangGoogleNativeResponse,
+    GoogleNativePart,
 } from './interfaces';
 
 // Создание сообщения в формате LaoZhang (OpenAI-совместимый)
@@ -40,7 +43,111 @@ function createLaoZhangMessage(
     return [{ role: 'user', content }];
 }
 
-// Парсинг ответа от Nano Banana Pro (изображения)
+// Создание запроса в формате Google Native Format для Nano Banana Pro
+function createGoogleNativeRequest(
+    prompt: string,
+    inputImages?: string[],
+    aspectRatio?: '16:9' | '9:16',
+    quality?: '2k' | '4k'
+): LaoZhangGoogleNativeRequest {
+    const parts: GoogleNativePart[] = [{ text: prompt }];
+
+    // Добавляем изображения для multi-image reference
+    if (inputImages && inputImages.length > 0) {
+        for (const imageData of inputImages) {
+            let base64Data: string;
+            let mimeType = 'image/jpeg';
+
+            // Если это data URL, извлекаем base64 и mime type
+            if (imageData.startsWith('data:')) {
+                const [header, data] = imageData.split(',');
+                base64Data = data;
+                const mimeMatch = header.match(/data:([^;]+)/);
+                if (mimeMatch) {
+                    mimeType = mimeMatch[1];
+                }
+            } else if (imageData.startsWith('http')) {
+                // Для URL-изображений нужно будет загрузить и конвертировать
+                // Пока пропускаем, но можно добавить загрузку
+                console.warn(
+                    '[LaoZhang] URL изображения для multi-image reference не поддерживаются напрямую'
+                );
+                continue;
+            } else {
+                // Уже base64 без префикса
+                base64Data = imageData;
+            }
+
+            parts.push({
+                inlineData: {
+                    mimeType,
+                    data: base64Data,
+                },
+            });
+        }
+    }
+
+    const request: LaoZhangGoogleNativeRequest = {
+        contents: [{ parts }],
+        generationConfig: {
+            responseModalities: ['IMAGE'],
+            imageConfig: {},
+        },
+    };
+
+    // Добавляем aspect ratio если указан
+    if (aspectRatio) {
+        request.generationConfig!.imageConfig!.aspectRatio = aspectRatio;
+    }
+
+    // Добавляем image size если указано качество (2K или 4K с большой буквы)
+    if (quality) {
+        request.generationConfig!.imageConfig!.imageSize =
+            quality.toUpperCase() as '2K' | '4K';
+    }
+
+    return request;
+}
+
+// Парсинг ответа от Google Native Format API
+async function parseGoogleNativeResponse(
+    data: LaoZhangGoogleNativeResponse
+): Promise<SavedFileInfo[]> {
+    const files: SavedFileInfo[] = [];
+
+    try {
+        console.log('[LaoZhang] Парсинг Google Native Format ответа');
+
+        const candidates = data.candidates || [];
+
+        for (const candidate of candidates) {
+            const parts = candidate.content?.parts || [];
+
+            for (const part of parts) {
+                // Изображение в inlineData
+                if (part.inlineData?.data) {
+                    const mimeType = part.inlineData.mimeType || 'image/png';
+                    const base64 = part.inlineData.data;
+                    const savedFile = await saveBase64File(base64, mimeType);
+                    files.push(savedFile);
+                }
+            }
+        }
+
+        console.log(
+            `[LaoZhang] ✅ Найдено ${files.length} изображений в Google Native Format`
+        );
+    } catch (error) {
+        console.error(
+            '[LaoZhang] ❌ Ошибка парсинга Google Native Format ответа:',
+            error
+        );
+    }
+
+    return files;
+}
+
+// Парсинг ответа от Nano Banana Pro (OpenAI-совместимый формат)
 async function parseImageResponse(
     data: LaoZhangImageResponse
 ): Promise<SavedFileInfo[]> {
@@ -265,10 +372,14 @@ export function createLaoZhangImageProvider(
                 );
             }
 
+            // Определяем, используем ли Google Native Format для NANO_BANANA_PRO
+            const isNanoBananaPro = params.model === 'NANO_BANANA_PRO';
+
             console.log('[LaoZhang Image] 🚀 Генерация:', {
                 requestId: params.requestId,
                 model: params.model,
                 prompt: params.prompt.substring(0, 50),
+                format: isNanoBananaPro ? 'Google Native' : 'OpenAI Compatible',
             });
 
             // Валидация промпта
@@ -278,6 +389,76 @@ export function createLaoZhangImageProvider(
                 );
             }
 
+            // Для NANO_BANANA_PRO используем Google Native Format
+            if (isNanoBananaPro) {
+                // Преобразуем quality: 2k -> 2K, 4k -> 4K
+                const quality = params.quality
+                    ? (params.quality.toUpperCase() as '2K' | '4K')
+                    : undefined;
+
+                // Преобразуем aspect ratio для Google Native Format
+                const aspectRatio = params.aspectRatio as
+                    | '16:9'
+                    | '9:16'
+                    | undefined;
+
+                const requestBody = createGoogleNativeRequest(
+                    params.prompt,
+                    params.inputFiles,
+                    aspectRatio,
+                    quality
+                );
+
+                console.log('[LaoZhang Image] Отправка Google Native Format запроса:', {
+                    model: modelConfig.id,
+                    aspectRatio,
+                    imageSize: quality,
+                    hasInputImages: !!(params.inputFiles && params.inputFiles.length > 0),
+                });
+
+                const endpoint = `${baseURL}/v1beta/models/${modelConfig.id}:generateContent`;
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${apiKey}`,
+                    },
+                    body: JSON.stringify(requestBody),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.text();
+                    const errorMessage = parseLaoZhangError(
+                        errorData,
+                        modelConfig,
+                        response.status
+                    );
+                    throw new Error(errorMessage);
+                }
+
+                const data = (await response.json()) as LaoZhangGoogleNativeResponse;
+                const savedFiles = await parseGoogleNativeResponse(data);
+
+                // Удаляем дубликаты
+                const uniqueFiles = savedFiles.filter(
+                    (file, index, self) =>
+                        index === self.findIndex((f) => f.path === file.path)
+                );
+
+                if (uniqueFiles.length === 0) {
+                    throw new Error(
+                        'Не удалось извлечь файлы из ответа API. Проверьте структуру ответа.'
+                    );
+                }
+
+                console.log(
+                    `[LaoZhang Image] ✅ Генерация завершена: ${uniqueFiles.length} файлов`
+                );
+
+                return uniqueFiles;
+            }
+
+            // Для других моделей используем OpenAI-совместимый формат
             const messages = createLaoZhangMessage(
                 params.prompt,
                 params.inputFiles

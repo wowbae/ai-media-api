@@ -107,6 +107,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const isDisabled =
             disabled || isGenerating || isGeneratingTest || isSubmitting;
         const isNanoBanana = currentModel === 'NANO_BANANA';
+        const isNanoBananaPro = currentModel === 'NANO_BANANA_PRO';
         const isVeo =
             currentModel === 'VEO_3_1_FAST' || currentModel === 'VEO_3_1';
 
@@ -194,11 +195,19 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         // Загружаем настройки из localStorage при монтировании компонента
         useEffect(() => {
             const settings = loadMediaSettings();
+            const isNanoBananaProModel = currentModel === 'NANO_BANANA_PRO';
+
             if (settings.format) {
                 setFormat(settings.format);
+            } else if (isNanoBananaProModel) {
+                // Значение по умолчанию для NANO_BANANA_PRO
+                setFormat('16:9');
             }
             if (settings.quality) {
                 setQuality(settings.quality);
+            } else if (isNanoBananaProModel) {
+                // Значение по умолчанию для NANO_BANANA_PRO
+                setQuality('2k');
             }
             const videoFormatValue = (
                 settings as { videoFormat?: '16:9' | '9:16' }
@@ -210,7 +219,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             // Загружаем состояние кнопки замочка
             const lockState = loadLockButtonState();
             setIsLockEnabled(lockState);
-        }, []);
+        }, [currentModel]);
 
         // Конвертация файла в base64
         const fileToBase64 = useCallback((file: File): Promise<string> => {
@@ -320,9 +329,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
             // Формируем финальный промпт с добавлением формата и качества для NANO_BANANA
             // ВАЖНО: делаем это ДО pending-сообщения чтобы prompt совпадал
+            // Для NANO_BANANA_PRO параметры передаются через API, не в промпт
             let finalPrompt = prompt.trim();
 
-            if (isNanoBanana) {
+            if (isNanoBanana && !isNanoBananaPro) {
                 const promptParts: string[] = [];
 
                 if (format) {
@@ -410,8 +420,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         prompt: finalPrompt,
                         model: currentModel,
                         inputFiles: attachedFiles.map((f) => f.base64),
-                        ...(isNanoBanana && format && { format }),
-                        ...(isNanoBanana && quality && { quality }),
+                        ...((isNanoBanana || isNanoBananaPro) && format && { format }),
+                        ...((isNanoBanana || isNanoBananaPro) && quality && { quality }),
                         ...(isVeo && videoFormat && { ar: videoFormat }),
                     }).unwrap();
                     console.log(
@@ -626,6 +636,77 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                     >
                                         1K
                                     </SelectItem>
+                                    <SelectItem
+                                        value='2k'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        2K
+                                    </SelectItem>
+                                    <SelectItem
+                                        value='4k'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        4K
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </>
+                    )}
+
+                    {/* Настройки для NANO_BANANA_PRO (Google Native Format) */}
+                    {isNanoBananaPro && (
+                        <>
+                            <Select
+                                value={format || '16:9'}
+                                onValueChange={(value) => {
+                                    const newFormat = value as '16:9' | '9:16';
+                                    setFormat(newFormat);
+                                    saveMediaSettings({
+                                        format: newFormat,
+                                        quality,
+                                    });
+                                }}
+                                disabled={isDisabled}
+                            >
+                                <SelectTrigger className='w-[120px] border-slate-600 bg-slate-700 text-white'>
+                                    <SelectValue placeholder='Формат'>
+                                        {format || '16:9'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className='border-slate-700 bg-slate-800'>
+                                    <SelectItem
+                                        value='16:9'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        16:9 (Горизонтальный)
+                                    </SelectItem>
+                                    <SelectItem
+                                        value='9:16'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        9:16 (Вертикальный)
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            <Select
+                                value={quality || '2k'}
+                                onValueChange={(value) => {
+                                    const newQuality = value as '2k' | '4k';
+                                    setQuality(newQuality);
+                                    saveMediaSettings({
+                                        format,
+                                        quality: newQuality,
+                                    });
+                                }}
+                                disabled={isDisabled}
+                            >
+                                <SelectTrigger className='w-[100px] border-slate-600 bg-slate-700 text-white'>
+                                    <SelectValue placeholder='Качество'>
+                                        {quality ? quality.toUpperCase() : '2K'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className='border-slate-700 bg-slate-800'>
                                     <SelectItem
                                         value='2k'
                                         className='text-slate-300 focus:bg-slate-700 focus:text-white'

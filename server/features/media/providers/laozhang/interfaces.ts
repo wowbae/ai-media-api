@@ -95,3 +95,64 @@ export interface LaoZhangVideoStatusResponse {
 // Типы разрешений для генерации
 export type AspectRatio = '1:1' | '9:16' | '16:9';
 export type Quality = '1k' | '2k' | '4k';
+
+// ==================== Google Native Format API (Nano Banana Pro) ====================
+
+// Часть контента для Google Native Format
+export interface GoogleNativePart {
+    text?: string;
+    inlineData?: {
+        mimeType: string;
+        data: string; // base64
+    };
+}
+
+// Контент для Google Native Format
+export interface GoogleNativeContent {
+    parts: GoogleNativePart[];
+}
+
+// Конфигурация генерации изображения
+export interface GoogleNativeImageConfig {
+    aspectRatio?: '1:1' | '4:3' | '3:2' | '16:9' | '9:16' | '21:9' | '2:3' | '3:4';
+    imageSize?: '1K' | '2K' | '4K'; // Важно: с большой буквы K
+}
+
+// Конфигурация генерации
+export interface GoogleNativeGenerationConfig {
+    responseModalities?: ('TEXT' | 'IMAGE')[];
+    imageConfig?: GoogleNativeImageConfig;
+}
+
+// Запрос в формате Google Native Format
+export interface LaoZhangGoogleNativeRequest {
+    contents: GoogleNativeContent[];
+    generationConfig?: GoogleNativeGenerationConfig;
+    tools?: Array<{ google_search?: Record<string, never> }>;
+}
+
+// Кандидат ответа от Google Native Format API
+export interface GoogleNativeCandidate {
+    content: {
+        parts: Array<{
+            text?: string;
+            inlineData?: {
+                mimeType: string;
+                data: string; // base64
+            };
+        }>;
+    };
+    finishReason?: string;
+}
+
+// Ответ от Google Native Format API
+export interface LaoZhangGoogleNativeResponse {
+    candidates?: GoogleNativeCandidate[];
+    promptFeedback?: {
+        blockReason?: string;
+        safetyRatings?: Array<{
+            category: string;
+            probability: string;
+        }>;
+    };
+}
