@@ -1,6 +1,5 @@
 GPTtunnel
 - veo 3.1 fast - 49₽
-- sora - цена уточняется
 
 OpenRouter
 - banana pro - 11₽

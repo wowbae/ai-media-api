@@ -36,7 +36,12 @@ interface MediaPreviewProps {
     onAttach?: (fileUrl: string, filename: string) => void;
 }
 
-export function MediaPreview({ file, showDelete = false, className, onAttach }: MediaPreviewProps) {
+export function MediaPreview({
+    file,
+    showDelete = false,
+    className,
+    onAttach,
+}: MediaPreviewProps) {
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
 
@@ -94,36 +99,36 @@ export function MediaPreview({ file, showDelete = false, className, onAttach }: 
 
                 {/* Overlay с действиями (не показываем для видео, чтобы не перекрывать нативные контролы) */}
                 {file.type !== 'VIDEO' && (
-                    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className='absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100'>
                         {file.type === 'IMAGE' && (
                             <Button
-                                size="icon"
-                                variant="secondary"
-                                className="h-8 w-8"
+                                size='icon'
+                                variant='secondary'
+                                className='h-8 w-8'
                                 onClick={() => setIsFullscreen(true)}
                             >
-                                <Maximize2 className="h-4 w-4" />
+                                <Maximize2 className='h-4 w-4' />
                             </Button>
                         )}
 
                         <Button
-                            size="icon"
-                            variant="secondary"
-                            className="h-8 w-8"
+                            size='icon'
+                            variant='secondary'
+                            className='h-8 w-8'
                             onClick={handleDownload}
                         >
-                            <Download className="h-4 w-4" />
+                            <Download className='h-4 w-4' />
                         </Button>
 
                         {showDelete && (
                             <Button
-                                size="icon"
-                                variant="destructive"
-                                className="h-8 w-8"
+                                size='icon'
+                                variant='destructive'
+                                className='h-8 w-8'
                                 onClick={handleDelete}
                                 disabled={isDeleting}
                             >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className='h-4 w-4' />
                             </Button>
                         )}
                     </div>
@@ -131,24 +136,24 @@ export function MediaPreview({ file, showDelete = false, className, onAttach }: 
 
                 {/* Кнопка удаления для видео (не перекрывает нативные контролы) */}
                 {file.type === 'VIDEO' && showDelete && (
-                    <div className="absolute right-2 top-2 z-10">
+                    <div className='absolute right-2 top-2 z-10'>
                         <Button
-                            size="icon"
-                            variant="destructive"
-                            className="h-8 w-8 bg-black/70 hover:bg-red-600/80"
+                            size='icon'
+                            variant='destructive'
+                            className='h-8 w-8 bg-black/70 hover:bg-red-600/80'
                             onClick={handleDelete}
                             disabled={isDeleting}
                         >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className='h-4 w-4' />
                         </Button>
                     </div>
                 )}
 
                 {/* Информация о файле */}
-                <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-2">
-                    <div className="flex items-center justify-between">
+                <div className='absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-2'>
+                    <div className='flex items-center justify-between'>
                         <TypeIcon type={file.type} />
-                        <span className="text-xs text-slate-300">
+                        <span className='text-xs text-slate-300'>
                             {formatFileSize(file.size)}
                         </span>
                     </div>
@@ -160,37 +165,39 @@ export function MediaPreview({ file, showDelete = false, className, onAttach }: 
                 <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
                     <DialogContent
                         showCloseButton={false}
-                        className="max-h-[95vh] max-w-[95vw] overflow-hidden border-slate-700 bg-slate-900 p-0"
+                        className='max-h-[95vh] max-w-[95vw] overflow-hidden border-slate-700 bg-slate-900 p-0'
                     >
-                        <DialogTitle className="sr-only">
+                        <DialogTitle className='sr-only'>
                             Просмотр изображения: {file.filename}
                         </DialogTitle>
-                        <div className="relative">
+                        <div className='relative'>
                             <img
                                 src={fileUrl}
                                 alt={file.filename}
-                                className="max-h-[90vh] w-full object-contain"
+                                className='max-h-[90vh] w-full object-contain'
                             />
-                            <div className="absolute right-2 top-2 flex gap-2">
+                            <div className='absolute right-2 top-2 flex gap-2'>
                                 <Button
-                                    size="icon"
-                                    variant="secondary"
+                                    size='icon'
+                                    variant='secondary'
                                     onClick={handleDownload}
                                 >
-                                    <Download className="h-4 w-4" />
+                                    <Download className='h-4 w-4' />
                                 </Button>
                                 <Button
-                                    size="icon"
-                                    variant="secondary"
+                                    size='icon'
+                                    variant='secondary'
                                     onClick={() => setIsFullscreen(false)}
                                 >
-                                    <X className="h-4 w-4" />
+                                    <X className='h-4 w-4' />
                                 </Button>
                             </div>
-                            <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-4">
-                                <div className="flex items-center justify-between text-white">
-                                    <span className="font-medium">{file.filename}</span>
-                                    <span className="text-sm text-slate-300">
+                            <div className='absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-4'>
+                                <div className='flex items-center justify-between text-white'>
+                                    <span className='font-medium'>
+                                        {file.filename}
+                                    </span>
+                                    <span className='text-sm text-slate-300'>
                                         {getImageDimensions(file.metadata)}
                                     </span>
                                 </div>
@@ -216,23 +223,23 @@ function ImagePreview({ src, alt, onClick }: ImagePreviewProps) {
 
     return (
         <div
-            className="relative aspect-square cursor-pointer overflow-hidden"
+            className='relative aspect-square cursor-pointer overflow-hidden'
             onClick={onClick}
         >
             {!isLoaded && !hasError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-                    <ImageIcon className="h-8 w-8 animate-pulse text-slate-600" />
+                <div className='absolute inset-0 flex items-center justify-center bg-slate-800'>
+                    <ImageIcon className='h-8 w-8 animate-pulse text-slate-600' />
                 </div>
             )}
             {hasError ? (
-                <div className="flex h-full items-center justify-center bg-slate-800">
-                    <FileIcon className="h-8 w-8 text-slate-600" />
+                <div className='flex h-full items-center justify-center bg-slate-800'>
+                    <FileIcon className='h-8 w-8 text-slate-600' />
                 </div>
             ) : (
                 <img
                     src={src}
                     alt={alt}
-                    loading="lazy"
+                    loading='lazy'
                     className={cn(
                         'h-full w-full object-cover transition-opacity',
                         isLoaded ? 'opacity-100' : 'opacity-0'
@@ -271,9 +278,10 @@ function VideoPreview({
 
     // Проверяем, является ли previewUrl временным (оптимистичное обновление)
     const isPendingPreview = previewUrl?.startsWith('__pending__') ?? false;
-    const actualPreviewUrl = isPendingPreview && previewUrl
-        ? previewUrl.replace('__pending__', '')
-        : previewUrl;
+    const actualPreviewUrl =
+        isPendingPreview && previewUrl
+            ? previewUrl.replace('__pending__', '')
+            : previewUrl;
 
     // Автоматическая генерация thumbnail если его нет
     useEffect(() => {
@@ -312,7 +320,10 @@ function VideoPreview({
                     });
                 }
             } catch (error) {
-                console.warn('[VideoPreview] Ошибка генерации thumbnail:', error);
+                console.warn(
+                    '[VideoPreview] Ошибка генерации thumbnail:',
+                    error
+                );
             } finally {
                 setIsGeneratingThumbnail(false);
                 unmarkThumbnailPending(fileId);
@@ -320,7 +331,13 @@ function VideoPreview({
         }
 
         generateThumbnail();
-    }, [fileId, previewUrl, originalUrl, isGeneratingThumbnail, uploadThumbnail]);
+    }, [
+        fileId,
+        previewUrl,
+        originalUrl,
+        isGeneratingThumbnail,
+        uploadThumbnail,
+    ]);
 
     function handlePlay() {
         // Загружаем оригинал только при попытке воспроизведения
@@ -338,12 +355,12 @@ function VideoPreview({
     // Если пользователь хочет воспроизвести - показываем оригинал
     if (shouldLoadOriginal) {
         return (
-            <div className="group/video relative aspect-square">
+            <div className='group/video relative aspect-square'>
                 <video
                     src={originalUrl}
                     poster={displayPreviewUrl || undefined}
                     controls
-                    className="h-full w-full object-cover video-controls-on-hover"
+                    className='h-full w-full object-cover video-controls-on-hover'
                 />
             </div>
         );
@@ -353,13 +370,13 @@ function VideoPreview({
     if (isGeneratingThumbnail && !localThumbnail) {
         return (
             <div
-                className="relative aspect-square cursor-pointer overflow-hidden"
+                className='relative aspect-square cursor-pointer overflow-hidden'
                 onClick={handlePlay}
             >
-                <Skeleton className="h-full w-full rounded-none" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="rounded-full bg-white/20 p-4 backdrop-blur-sm animate-pulse">
-                        <Video className="h-8 w-8 text-white" />
+                <Skeleton className='h-full w-full rounded-none' />
+                <div className='absolute inset-0 flex items-center justify-center'>
+                    <div className='rounded-full bg-white/20 p-4 backdrop-blur-sm animate-pulse'>
+                        <Video className='h-8 w-8 text-white' />
                     </div>
                 </div>
             </div>
@@ -370,14 +387,16 @@ function VideoPreview({
     if (!displayPreviewUrl || hasPreviewError) {
         return (
             <div
-                className="relative aspect-square cursor-pointer overflow-hidden bg-slate-800"
+                className='relative aspect-square cursor-pointer overflow-hidden bg-slate-800'
                 onClick={handlePlay}
             >
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                    <div className="rounded-full bg-white/20 p-6 backdrop-blur-sm">
-                        <Video className="h-12 w-12 text-white" />
+                <div className='absolute inset-0 flex flex-col items-center justify-center gap-3'>
+                    <div className='rounded-full bg-white/20 p-6 backdrop-blur-sm'>
+                        <Video className='h-12 w-12 text-white' />
                     </div>
-                    <p className="text-sm text-slate-300">Нажмите для воспроизведения</p>
+                    <p className='text-sm text-slate-300'>
+                        Нажмите для воспроизведения
+                    </p>
                 </div>
             </div>
         );
@@ -386,13 +405,13 @@ function VideoPreview({
     // Показываем превью (серверное или локальное)
     return (
         <div
-            className="relative aspect-square cursor-pointer overflow-hidden"
+            className='relative aspect-square cursor-pointer overflow-hidden'
             onClick={handlePlay}
         >
             <img
                 src={displayPreviewUrl}
                 alt={filename}
-                loading="lazy"
+                loading='lazy'
                 className={cn(
                     'h-full w-full object-cover transition-opacity',
                     isPreviewLoaded ? 'opacity-100' : 'opacity-0'
@@ -403,12 +422,12 @@ function VideoPreview({
                 }}
             />
             {!isPreviewLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-                    <Video className="h-8 w-8 animate-pulse text-slate-600" />
+                <div className='absolute inset-0 flex items-center justify-center bg-slate-800'>
+                    <Video className='h-8 w-8 animate-pulse text-slate-600' />
                 </div>
             )}
             {/* Тонкий hover эффект для индикации кликабельности */}
-            <div className="absolute inset-0 bg-black/0 transition-colors hover:bg-black/10" />
+            <div className='absolute inset-0 bg-black/0 transition-colors hover:bg-black/10' />
         </div>
     );
 }
@@ -428,20 +447,26 @@ function AudioPreview({ originalUrl, filename }: AudioPreviewProps) {
     }
 
     return (
-        <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-slate-800 p-4">
-            <AudioLines className="h-12 w-12 text-cyan-400" />
-            <p className="text-xs text-slate-400 text-center max-w-full truncate">
+        <div className='flex aspect-video flex-col items-center justify-center gap-3 bg-slate-800 p-4'>
+            <AudioLines className='h-12 w-12 text-cyan-400' />
+            <p className='text-xs text-slate-400 text-center max-w-full truncate'>
                 {filename}
             </p>
             {shouldLoadOriginal ? (
-                <audio src={originalUrl} controls autoPlay className="w-full" />
+                <audio
+                    src={originalUrl}
+                    controls
+                    // autoPlay
+                    // muted
+                    className='w-full'
+                />
             ) : (
                 <Button
                     onClick={handlePlay}
-                    variant="secondary"
-                    className="mt-2"
+                    variant='secondary'
+                    className='mt-2'
                 >
-                    <AudioLines className="mr-2 h-4 w-4" />
+                    <AudioLines className='mr-2 h-4 w-4' />
                     Воспроизвести
                 </Button>
             )}
@@ -463,9 +488,7 @@ function TypeIcon({ type }: TypeIconProps) {
 
     const { icon: Icon } = config[type];
 
-    return (
-        <Icon className="h-4 w-4 text-slate-300" />
-    );
+    return <Icon className='h-4 w-4 text-slate-300' />;
 }
 
 // Получение размеров изображения из метаданных
@@ -477,4 +500,3 @@ function getImageDimensions(metadata: Record<string, unknown>): string {
     }
     return '';
 }
-

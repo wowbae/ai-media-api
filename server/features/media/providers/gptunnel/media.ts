@@ -61,22 +61,6 @@ export function createGPTunnelMediaProvider(config: GPTunnelConfig): MediaProvid
             body.ar = params.aspectRatio;
         }
 
-        // Для модели Sora добавляем специальные параметры
-        if (modelId === 'sora') {
-            if (params.videoQuality) {
-                body.quality = params.videoQuality;
-            }
-            if (params.duration !== undefined) {
-                // Валидация duration (1-20 секунд)
-                if (params.duration < 1 || params.duration > 20) {
-                    throw new Error(
-                        'Длительность видео должна быть от 1 до 20 секунд'
-                    );
-                }
-                body.duration = params.duration;
-            }
-        }
-
         // Логируем детали для отладки
         const imageInfo = body.images
             ? {

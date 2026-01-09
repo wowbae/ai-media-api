@@ -89,10 +89,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const [quality, setQuality] = useState<'1k' | '2k' | '4k' | undefined>(
             undefined
         );
-        const [videoQuality, setVideoQuality] = useState<
-            '480p' | '720p' | '1080p' | undefined
-        >(undefined);
-        const [duration, setDuration] = useState<number | undefined>(undefined);
         const [videoFormat, setVideoFormat] = useState<
             '16:9' | '9:16' | undefined
         >(undefined);
@@ -111,7 +107,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const isDisabled =
             disabled || isGenerating || isGeneratingTest || isSubmitting;
         const isNanoBanana = currentModel === 'NANO_BANANA';
-        const isSora = currentModel === 'SORA';
         const isVeo =
             currentModel === 'VEO_3_1_FAST' || currentModel === 'VEO_3_1';
 
@@ -417,8 +412,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         inputFiles: attachedFiles.map((f) => f.base64),
                         ...(isNanoBanana && format && { format }),
                         ...(isNanoBanana && quality && { quality }),
-                        ...(isSora && videoQuality && { videoQuality }),
-                        ...(isSora && duration && { duration }),
                         ...(isVeo && videoFormat && { ar: videoFormat }),
                     }).unwrap();
                     console.log(

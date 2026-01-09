@@ -52,17 +52,6 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.1,
         },
     },
-    SORA: {
-        id: 'sora',
-        name: 'Sora',
-        types: ['VIDEO'] as const,
-        maxPromptLength: 4096,
-        supportsImageInput: false,
-        provider: 'gptunnel',
-        pricing: {
-            output: 0.1,
-        },
-    },
     // LaoZhang провайдер - модели для генерации изображений и видео
     NANO_BANANA_PRO: {
         id: 'gemini/gemini-2.0-flash-exp-image-generation',

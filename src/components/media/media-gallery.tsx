@@ -304,6 +304,7 @@ function MediaFullscreenView({
                         poster={previewUrl}
                         controls
                         // autoPlay
+                        muted
                         className='max-h-[90vh] max-w-[90vw]'
                     />
                 )}

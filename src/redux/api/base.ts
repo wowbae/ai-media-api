@@ -10,7 +10,6 @@ export type MediaModel =
     | 'NANO_BANANA'
     | 'MIDJOURNEY'
     | 'VEO_3_1_FAST'
-    | 'SORA'
     | 'NANO_BANANA_PRO'
     | 'SORA_2'
     | 'VEO_3_1';
