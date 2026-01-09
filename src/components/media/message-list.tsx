@@ -228,8 +228,8 @@ function MessageItem({
                                         <Loader2 className='h-4 w-4 animate-spin' />
                                         <span className='text-sm'>
                                             {request.status === 'PENDING'
-                                                ? 'В очереди...'
-                                                : 'Креативим...'}
+                                                ? 'Подготовка'
+                                                : 'Генерация'}
                                         </span>
                                     </div>
                                 </div>
@@ -352,9 +352,9 @@ interface StatusBadgeProps {
 function StatusBadge({ status }: StatusBadgeProps) {
     const config = {
         PENDING: {
-            icon: Clock,
-            label: 'В очереди',
-            className: 'bg-yellow-900/30 text-yellow-400',
+            icon: Loader2,
+            label: 'Подготовка',
+            className: 'bg-blue-900/30 text-blue-400',
         },
         PROCESSING: {
             icon: Loader2,
@@ -374,11 +374,12 @@ function StatusBadge({ status }: StatusBadgeProps) {
     };
 
     const { icon: Icon, label, className } = config[status];
+    const shouldSpin = status === 'PROCESSING' || status === 'PENDING';
 
     return (
         <Badge variant='secondary' className={className}>
             <Icon
-                className={`mr-1 h-3 w-3 ${status === 'PROCESSING' ? 'animate-spin' : ''}`}
+                className={`mr-1 h-3 w-3 ${shouldSpin ? 'animate-spin' : ''}`}
             />
             {label}
         </Badge>

@@ -15,7 +15,9 @@ import type {
     MidjourneyResultResponse,
 } from './interfaces';
 
-export function createMidjourneyProvider(config: GPTunnelConfig): MediaProvider {
+export function createMidjourneyProvider(
+    config: GPTunnelConfig
+): MediaProvider {
     const { apiKey, baseURL } = config;
 
     // Создание задачи на генерацию изображения
@@ -33,7 +35,6 @@ export function createMidjourneyProvider(config: GPTunnelConfig): MediaProvider 
                 Authorization: apiKey,
             },
             body: JSON.stringify({
-                model: 'midjourney',
                 prompt,
                 useWalletBalance: true,
             }),
@@ -41,9 +42,15 @@ export function createMidjourneyProvider(config: GPTunnelConfig): MediaProvider 
 
         if (!response.ok) {
             const errorText = await response.text();
+            let parsed: unknown;
+            try {
+                parsed = JSON.parse(errorText);
+            } catch {
+                parsed = errorText;
+            }
             console.error('[GPTunnel Midjourney] Ошибка создания задачи:', {
                 status: response.status,
-                error: errorText,
+                error: parsed,
             });
 
             // Обрабатываем типичные ошибки GPTunnel
@@ -85,6 +92,17 @@ export function createMidjourneyProvider(config: GPTunnelConfig): MediaProvider 
 
         if (!response.ok) {
             const errorText = await response.text();
+            let parsed: unknown;
+            try {
+                parsed = JSON.parse(errorText);
+            } catch {
+                parsed = errorText;
+            }
+            console.error('[GPTunnel Midjourney] Ошибка получения статуса:', {
+                taskId,
+                status: response.status,
+                error: parsed,
+            });
             throw new Error(
                 `Midjourney API error: ${response.status} - ${errorText}`
             );
@@ -109,17 +127,21 @@ export function createMidjourneyProvider(config: GPTunnelConfig): MediaProvider 
         async checkTaskStatus(taskId: string): Promise<TaskStatusResult> {
             const result = await getTaskResultFromAPI(taskId);
 
-            const mappedStatus = PROVIDER_STATUS_MAP[result.status] || 'pending';
+            const mappedStatus =
+                PROVIDER_STATUS_MAP[result.status] || 'pending';
 
             // Логируем ошибки при статусе failed
             if (result.status === 'failed') {
-                console.warn('[GPTunnel Midjourney] Задача завершилась с ошибкой:', {
-                    taskId,
-                    status: result.status,
-                    mappedStatus,
-                    percent: result.percent,
-                    error: result.error,
-                });
+                console.warn(
+                    '[GPTunnel Midjourney] Задача завершилась с ошибкой:',
+                    {
+                        taskId,
+                        status: result.status,
+                        mappedStatus,
+                        percent: result.percent,
+                        error: result.error,
+                    }
+                );
             } else {
                 console.log('[GPTunnel Midjourney] Статус задачи:', {
                     taskId,
@@ -155,7 +177,10 @@ export function createMidjourneyProvider(config: GPTunnelConfig): MediaProvider 
             // Скачиваем и сохраняем изображение
             const savedFile = await saveFileFromUrl(result.result);
 
-            console.log('[GPTunnel Midjourney] Файл сохранён:', savedFile.filename);
+            console.log(
+                '[GPTunnel Midjourney] Файл сохранён:',
+                savedFile.filename
+            );
 
             return [savedFile];
         },

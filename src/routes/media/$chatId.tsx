@@ -327,17 +327,26 @@ function MediaChatPage() {
     // ВАЖНО: Этот useEffect должен быть ДО early returns для соблюдения правил хуков
     const activeRequests = fullChat?.requests || chat?.requests || [];
     useEffect(() => {
-        // Если есть requestId и реальный запрос с таким ID появился - убираем pending
-        if (
-            pendingMessage?.requestId &&
-            activeRequests.some((r) => r.id === pendingMessage.requestId)
-        ) {
+        if (!pendingMessage?.requestId) return;
+
+        const requestAppeared = activeRequests.some(
+            (r) => r.id === pendingMessage.requestId
+        );
+
+        const pollingMatched =
+            pollingRequest && pollingRequest.id === pendingMessage.requestId;
+        const pollingCompleted =
+            pollingMatched &&
+            (pollingRequest.status === 'COMPLETED' ||
+                pollingRequest.status === 'FAILED');
+
+        if (requestAppeared || pollingCompleted) {
             console.log(
-                '[Chat] 🔄 Реальный запрос появился, убираем pending-сообщение'
+                '[Chat] 🔄 Запрос найден или завершен, убираем pending-сообщение'
             );
             setPendingMessage(null);
         }
-    }, [activeRequests, pendingMessage]);
+    }, [activeRequests, pendingMessage, pollingRequest]);
 
     // Показываем загрузку только если нет кешированных данных и идет первичная загрузка
     if (isChatLoading && !chat) {

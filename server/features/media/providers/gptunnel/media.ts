@@ -79,6 +79,16 @@ export function createGPTunnelMediaProvider(config: GPTunnelConfig): MediaProvid
 
         if (!response.ok) {
             const errorText = await response.text();
+            let parsed: unknown;
+            try {
+                parsed = JSON.parse(errorText);
+            } catch {
+                parsed = errorText;
+            }
+            console.error('[GPTunnel Media] Ошибка создания задачи:', {
+                status: response.status,
+                error: parsed,
+            });
             throw new Error(
                 `GPTunnel API error: ${response.status} - ${errorText}`
             );
@@ -87,6 +97,12 @@ export function createGPTunnelMediaProvider(config: GPTunnelConfig): MediaProvid
         const data = (await response.json()) as GPTunnelMediaCreateResponse;
 
         if (data.code !== 0) {
+            console.error('[GPTunnel Media] Неверный код ответа:', {
+                taskId: data.id,
+                code: data.code,
+                status: data.status,
+                error: data.error,
+            });
             throw new Error(`GPTunnel error code: ${data.code}`);
         }
 
@@ -112,6 +128,17 @@ export function createGPTunnelMediaProvider(config: GPTunnelConfig): MediaProvid
 
         if (!response.ok) {
             const errorText = await response.text();
+            let parsed: unknown;
+            try {
+                parsed = JSON.parse(errorText);
+            } catch {
+                parsed = errorText;
+            }
+            console.error('[GPTunnel Media] Ошибка получения статуса:', {
+                taskId,
+                status: response.status,
+                error: parsed,
+            });
             throw new Error(
                 `GPTunnel API error: ${response.status} - ${errorText}`
             );
