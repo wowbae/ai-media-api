@@ -692,7 +692,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         <Button
                             type='button'
                             size='icon-sm'
-                            className='absolute bottom-1.5 right-1.5 bg-cyan-600 hover:bg-cyan-700'
+                            className='absolute bottom-1.5 right-1.5 bg-cyan-600 hover:bg-cyan-700 hover:text-cyan-400'
                             onClick={(e) => {
                                 // Дополнительная проверка перед вызовом
                                 if (
