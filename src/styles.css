@@ -151,3 +151,22 @@ code {
         height: 100%;
     }
 }
+
+/* Скрываем контролы видео по умолчанию, показываем при наведении */
+.video-controls-on-hover::-webkit-media-controls {
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.video-controls-on-hover:hover::-webkit-media-controls {
+    opacity: 1;
+}
+
+/* Firefox */
+.video-controls-on-hover:not(:hover) {
+    --moz-appearance: none;
+}
+
+.video-controls-on-hover:hover {
+    --moz-appearance: auto;
+}

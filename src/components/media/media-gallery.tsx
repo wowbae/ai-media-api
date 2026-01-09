@@ -185,7 +185,7 @@ export function MediaGallery({
                                     />
                                 </div>
                                 {/* Кнопка прикрепления слева вверху (только для изображений) */}
-                                {file.type === 'IMAGE' && onAttachFile && (
+                                {onAttachFile && (
                                     <Button
                                         size='icon'
                                         variant='ghost'

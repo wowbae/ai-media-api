@@ -1,5 +1,5 @@
 // Список сообщений (запросов и результатов)
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     Loader2,
     AlertCircle,
@@ -7,21 +7,27 @@ import {
     CheckCircle2,
     Paperclip,
     Trash2,
+    Maximize2,
+    Download,
+    X,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { MediaPreview } from './media-preview';
 import { ModelBadge } from './model-selector';
 import {
     type MediaRequest,
     type RequestStatus,
     type MediaModel,
+    type MediaFile,
     useDeleteFileMutation,
     useGetModelsQuery,
 } from '@/redux/media-api';
 import { getMediaFileUrl } from '@/lib/constants';
+import { downloadFile } from '@/lib/utils';
 
 interface MessageListProps {
     requests: MediaRequest[];
@@ -123,6 +129,9 @@ function MessageItem({
 }: MessageItemProps) {
     const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
     const { data: models } = useGetModelsQuery();
+    const [fullscreenVideo, setFullscreenVideo] = useState<MediaFile | null>(
+        null
+    );
 
     // Получаем информацию о модели и провайдере из сохранённой модели запроса
     // Показываем только если модель сохранена в запросе
@@ -325,6 +334,23 @@ function MessageItem({
                                                     >
                                                         <Trash2 className='h-4 w-4' />
                                                     </Button>
+                                                    {/* Кнопка увеличения для видео */}
+                                                    {file.type === 'VIDEO' && (
+                                                        <Button
+                                                            type='button'
+                                                            size='icon'
+                                                            variant='ghost'
+                                                            className='h-8 w-8 shrink-0 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-slate-600/50 group-hover:opacity-100'
+                                                            onClick={() =>
+                                                                setFullscreenVideo(
+                                                                    file
+                                                                )
+                                                            }
+                                                            title='Открыть на весь экран'
+                                                        >
+                                                            <Maximize2 className='h-4 w-4' />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
@@ -341,6 +367,54 @@ function MessageItem({
                         )}
                 </div>
             </div>
+
+            {/* Полноэкранный просмотр видео */}
+            {fullscreenVideo && (
+                <Dialog
+                    open={!!fullscreenVideo}
+                    onOpenChange={(open) => !open && setFullscreenVideo(null)}
+                >
+                    <DialogContent
+                        showCloseButton={false}
+                        className='max-h-[95vh] max-w-[95vw] overflow-hidden border-slate-700 bg-slate-900 p-0'
+                    >
+                        <DialogTitle className='sr-only'>
+                            Просмотр видео: {fullscreenVideo.filename}
+                        </DialogTitle>
+                        <div className='relative'>
+                            <video
+                                src={getMediaFileUrl(fullscreenVideo.path)}
+                                controls
+                                autoPlay
+                                className='max-h-[90vh] w-full'
+                            />
+                            <div className='absolute right-2 top-2 flex gap-2'>
+                                <Button
+                                    size='icon'
+                                    variant='secondary'
+                                    onClick={() =>
+                                        downloadFile(
+                                            getMediaFileUrl(
+                                                fullscreenVideo.path
+                                            ),
+                                            fullscreenVideo.filename
+                                        )
+                                    }
+                                >
+                                    <Download className='h-4 w-4' />
+                                </Button>
+                                <Button
+                                    size='icon'
+                                    variant='secondary'
+                                    onClick={() => setFullscreenVideo(null)}
+                                >
+                                    <X className='h-4 w-4' />
+                                </Button>
+                            </div>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
         </div>
     );
 }

@@ -153,10 +153,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     const file = await urlToFile(url, filename);
 
                     // Проверяем тип файла (только изображения)
-                    if (!file.type.startsWith('image/')) {
-                        alert('Можно прикреплять только изображения');
-                        return;
-                    }
+                    // if (!file.type.startsWith('image/')) {
+                    //     alert('Можно прикреплять только изображения');
+                    //     return;
+                    // }
 
                     // Проверяем размер (макс 10MB)
                     if (file.size > 10 * 1024 * 1024) {
@@ -223,10 +223,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
             for (const file of Array.from(files)) {
                 // Проверяем тип файла
-                if (!file.type.startsWith('image/')) {
-                    alert('Можно прикреплять только изображения');
-                    continue;
-                }
+                // if (!file.type.startsWith('image/')) {
+                //     alert('Можно прикреплять только изображения');
+                //     continue;
+                // }
 
                 // Проверяем размер (макс 10MB)
                 if (file.size > 10 * 1024 * 1024) {

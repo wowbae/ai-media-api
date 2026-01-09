@@ -78,41 +78,57 @@ export function MediaPreview({ file, showDelete = false, className, onAttach }: 
                     />
                 )}
 
-                {/* Overlay с действиями */}
-                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                    {file.type === 'IMAGE' && (
+                {/* Overlay с действиями (не показываем для видео, чтобы не перекрывать нативные контролы) */}
+                {file.type !== 'VIDEO' && (
+                    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                        {file.type === 'IMAGE' && (
+                            <Button
+                                size="icon"
+                                variant="secondary"
+                                className="h-8 w-8"
+                                onClick={() => setIsFullscreen(true)}
+                            >
+                                <Maximize2 className="h-4 w-4" />
+                            </Button>
+                        )}
+
                         <Button
                             size="icon"
                             variant="secondary"
                             className="h-8 w-8"
-                            onClick={() => setIsFullscreen(true)}
+                            onClick={handleDownload}
                         >
-                            <Maximize2 className="h-4 w-4" />
+                            <Download className="h-4 w-4" />
                         </Button>
-                    )}
 
+                        {showDelete && (
+                            <Button
+                                size="icon"
+                                variant="destructive"
+                                className="h-8 w-8"
+                                onClick={handleDelete}
+                                disabled={isDeleting}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
+                )}
 
-                    <Button
-                        size="icon"
-                        variant="secondary"
-                        className="h-8 w-8"
-                        onClick={handleDownload}
-                    >
-                        <Download className="h-4 w-4" />
-                    </Button>
-
-                    {showDelete && (
+                {/* Кнопка удаления для видео (не перекрывает нативные контролы) */}
+                {file.type === 'VIDEO' && showDelete && (
+                    <div className="absolute right-2 top-2 z-10">
                         <Button
                             size="icon"
                             variant="destructive"
-                            className="h-8 w-8"
+                            className="h-8 w-8 bg-black/70 hover:bg-red-600/80"
                             onClick={handleDelete}
                             disabled={isDeleting}
                         >
                             <Trash2 className="h-4 w-4" />
                         </Button>
-                    )}
-                </div>
+                    </div>
+                )}
 
                 {/* Информация о файле */}
                 <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-2">
@@ -233,15 +249,16 @@ function VideoPreview({ previewUrl, originalUrl, filename }: VideoPreviewProps) 
     }
 
     // Если пользователь хочет воспроизвести - показываем оригинал
+    // Контролы видео скрыты по умолчанию, показываются при наведении (стили в styles.css)
     if (shouldLoadOriginal) {
         return (
-            <div className="relative aspect-video">
+            <div className="group/video relative aspect-square">
                 <video
                     src={originalUrl}
                     poster={previewUrl}
                     controls
                     autoPlay
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover video-controls-on-hover"
                 />
             </div>
         );
@@ -251,7 +268,7 @@ function VideoPreview({ previewUrl, originalUrl, filename }: VideoPreviewProps) 
     if (!previewUrl || hasPreviewError) {
         return (
             <div
-                className="relative aspect-video cursor-pointer overflow-hidden bg-slate-800"
+                className="relative aspect-square cursor-pointer overflow-hidden bg-slate-800"
                 onClick={handlePlay}
             >
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
@@ -267,7 +284,7 @@ function VideoPreview({ previewUrl, originalUrl, filename }: VideoPreviewProps) 
     // Показываем только превью (lazy loading оригинала)
     return (
         <div
-            className="relative aspect-video cursor-pointer overflow-hidden"
+            className="relative aspect-square cursor-pointer overflow-hidden"
             onClick={handlePlay}
         >
             <img
