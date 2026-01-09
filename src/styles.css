@@ -170,3 +170,29 @@ code {
 .video-controls-on-hover:hover {
     --moz-appearance: auto;
 }
+
+/* Стилизованный скроллбар в синих тонах */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgb(51 65 85 / 0.5); /* slate-700 с прозрачностью */
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(34 211 238 / 0.6); /* cyan-400 с прозрачностью */
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgb(34 211 238 / 0.8); /* cyan-400 более непрозрачный */
+}
+
+/* Firefox */
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(34 211 238 / 0.6) rgb(51 65 85 / 0.5);
+}

@@ -18,7 +18,7 @@ const MAX_POLLING_TIME = 10 * 60 * 1000;
 // Хранилище активных polling задач
 const activePollingTasks = new Map<
     number,
-    { taskId: string; providerName: string }
+    { taskId: string; providerName: string; model?: MediaModel }
 >();
 
 // Основная функция генерации медиа через провайдеры
@@ -31,7 +31,8 @@ export async function generateMedia(
     quality?: '1k' | '2k' | '4k',
     videoQuality?: '480p' | '720p' | '1080p',
     duration?: number,
-    ar?: '16:9' | '9:16'
+    ar?: '16:9' | '9:16',
+    sound?: boolean
 ): Promise<SavedFileInfo[]> {
     const providerManager = getProviderManager();
     const provider = providerManager.getProvider(model);
@@ -70,6 +71,7 @@ export async function generateMedia(
             videoQuality,
             duration,
             ar,
+            sound,
         };
 
         const result = await provider.generate(generateParams);
@@ -85,6 +87,7 @@ export async function generateMedia(
             activePollingTasks.set(requestId, {
                 taskId: result.taskId,
                 providerName: provider.name,
+                model,
             });
 
             // Запускаем polling в фоне

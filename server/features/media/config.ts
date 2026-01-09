@@ -86,6 +86,17 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.5, // стоимость за видео
         },
     },
+    KLING_2_6: {
+        id: 'kling-2-6',
+        name: 'Kling 2.6',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 4096,
+        supportsImageInput: true,
+        provider: 'kieai',
+        pricing: {
+            output: 0.1, // стоимость за видео (уточнить)
+        },
+    },
 };
 
 export type MediaModelKey = keyof typeof MEDIA_MODELS;

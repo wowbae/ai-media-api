@@ -4,7 +4,10 @@ import type { MediaProvider } from './interfaces';
 import { createOpenRouterProvider } from './openrouter';
 import { createGPTunnelMediaProvider } from './gptunnel';
 import { createLaoZhangProvider } from './laozhang';
-import { createKieAiMidjourneyProvider } from './kieai';
+import {
+    createKieAiMidjourneyProvider,
+    createKieAiKlingProvider,
+} from './kieai';
 import { MEDIA_MODELS, type MediaModelConfig } from '../config';
 import 'dotenv/config';
 
@@ -54,14 +57,8 @@ export function createProviderManager(): ProviderManager {
         providers.gptunnel = createGPTunnelMediaProvider(gptunnelConfig);
     }
 
-    // Kie.ai провайдер (Midjourney через Kie.ai API)
-    const kieaiApiKey = process.env.KIEAI_API_KEY || '';
-    if (kieaiApiKey) {
-        providers.kieai = createKieAiMidjourneyProvider({
-            apiKey: kieaiApiKey,
-            baseURL: 'https://api.kie.ai', // TODO: уточнить точный URL
-        });
-    }
+    // Kie.ai провайдеры создаются динамически в getProvider по модели
+    // Не создаем их здесь, так как для разных моделей нужны разные провайдеры
 
     // LaoZhang провайдер (Nano Banana Pro, Sora 2, Veo 3.1)
     const laozhangApiKey = process.env.LAOZHANG_API_KEY || '';
@@ -77,6 +74,27 @@ export function createProviderManager(): ProviderManager {
             const modelConfig = MEDIA_MODELS[model];
             if (!modelConfig) {
                 throw new Error(`Неизвестная модель: ${model}`);
+            }
+
+            // Для kieai провайдера выбираем правильный подпровайдер по модели
+            if (modelConfig.provider === 'kieai') {
+                const kieaiApiKey = process.env.KIEAI_API_KEY || '';
+                if (!kieaiApiKey) {
+                    throw new Error('KIEAI_API_KEY не настроен');
+                }
+
+                const kieaiConfig = {
+                    apiKey: kieaiApiKey,
+                    baseURL: 'https://api.kie.ai',
+                };
+
+                // Для Kling 2.6 используем kling провайдер
+                if (model === 'KLING_2_6') {
+                    return createKieAiKlingProvider(kieaiConfig);
+                }
+
+                // Для остальных моделей kieai (Midjourney) используем midjourney провайдер
+                return createKieAiMidjourneyProvider(kieaiConfig);
             }
 
             const provider = providers[modelConfig.provider];

@@ -217,18 +217,18 @@ function formatCaption(file: MediaFile, chatName: string, prompt: string): strin
     const truncatedPrompt = prompt.length > 500 ? prompt.slice(0, 497) + '...' : prompt;
     const metadata = file.metadata as Record<string, unknown>;
 
-    let caption = `🎨 <b>AI Media Generated</b>\n\n`;
-    caption += `📁 <b>Чат:</b> ${escapeHtml(chatName)}\n`;
+    // let caption = `🎨 <b>AI Media Generated</b>\n\n`;
+    let caption = `📁 <b>Чат:</b> ${escapeHtml(chatName)}\n`;
     caption += `📝 <b>Промпт:</b> ${escapeHtml(truncatedPrompt)}\n\n`;
-    caption += `📊 <b>Тип:</b> ${file.type}\n`;
-    caption += `💾 <b>Размер:</b> ${formatFileSize(file.size)}\n`;
+    // caption += `📊 <b>Тип:</b> ${file.type}\n`;
+    // caption += `💾 <b>Размер:</b> ${formatFileSize(file.size)}\n`;
 
     // Добавляем размеры для изображений
     if (metadata.width && metadata.height) {
         caption += `📐 <b>Разрешение:</b> ${metadata.width}x${metadata.height}\n`;
     }
 
-    caption += `\n🕐 ${new Date().toLocaleString('ru-RU')}`;
+    // caption += `\n🕐 ${new Date().toLocaleString('ru-RU')}`;
 
     return caption;
 }

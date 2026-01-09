@@ -23,7 +23,7 @@ model MediaRequest {
   chatId       Int
   chat         MediaChat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
   prompt       String
-  model        MediaModel?   // Модель, использованная для этого запроса
+  model        MediaModel? // Модель, использованная для этого запроса
   status       RequestStatus @default(PENDING)
   inputFiles   String[]      @default([])
   files        MediaFile[]
@@ -54,6 +54,8 @@ enum MediaModel {
   NANO_BANANA_PRO
   SORA_2
   VEO_3_1
+  // Kie.ai провайдер
+  KLING_2_6
 }
 
 enum MediaType {

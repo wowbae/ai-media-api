@@ -11,6 +11,7 @@ export interface GenerateMediaRequest {
     videoQuality?: '480p' | '720p' | '1080p'; // Качество видео для видео-моделей
     duration?: number; // Длина видео в секундах (1-20) для видео-моделей
     ar?: '16:9' | '9:16'; // Формат видео для Veo
+    sound?: boolean; // Звук для Kling 2.6
 }
 
 export interface GenerateMediaResponse {

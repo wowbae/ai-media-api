@@ -6,6 +6,9 @@ export interface MediaSettings {
     format?: '9:16' | '16:9';
     quality?: '1k' | '2k' | '4k';
     videoFormat?: '16:9' | '9:16'; // Формат видео для Veo
+    klingAspectRatio?: '16:9' | '9:16'; // Формат видео для Kling 2.6
+    klingDuration?: 5 | 10; // Длительность видео для Kling 2.6
+    klingSound?: boolean; // Звук для Kling 2.6
 }
 
 // Загрузить настройки из localStorage
@@ -22,6 +25,9 @@ export function loadMediaSettings(): MediaSettings {
                 format: parsed.format,
                 quality: parsed.quality,
                 videoFormat: parsed.videoFormat,
+                klingAspectRatio: parsed.klingAspectRatio,
+                klingDuration: parsed.klingDuration,
+                klingSound: parsed.klingSound,
             };
         }
     } catch (error) {

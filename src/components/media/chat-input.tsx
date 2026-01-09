@@ -92,10 +92,21 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const [videoFormat, setVideoFormat] = useState<
             '16:9' | '9:16' | undefined
         >(undefined);
+        const [klingAspectRatio, setKlingAspectRatio] = useState<
+            '16:9' | '9:16' | undefined
+        >(undefined);
+        const [klingDuration, setKlingDuration] = useState<5 | 10 | undefined>(
+            undefined
+        );
+        const [klingSound, setKlingSound] = useState<boolean | undefined>(
+            undefined
+        );
         const [isSubmitting, setIsSubmitting] = useState(false);
         const [isLockEnabled, setIsLockEnabled] = useState(false);
+        const [needsScrollbar, setNeedsScrollbar] = useState(false);
         const { isTestMode } = useTestMode();
         const fileInputRef = useRef<HTMLInputElement>(null);
+        const textareaRef = useRef<HTMLTextAreaElement>(null);
         const submitInProgressRef = useRef(false);
         const submitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -110,6 +121,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const isNanoBananaPro = currentModel === 'NANO_BANANA_PRO';
         const isVeo =
             currentModel === 'VEO_3_1_FAST' || currentModel === 'VEO_3_1';
+        const isKling = (currentModel as string) === 'KLING_2_6';
 
         // Очистка таймера при размонтировании
         useEffect(() => {
@@ -119,6 +131,60 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 }
             };
         }, []);
+
+        // Функция для обновления высоты textarea
+        const adjustTextareaHeight = useCallback(() => {
+            const textarea = textareaRef.current;
+            if (!textarea) return;
+
+            // Сбрасываем высоту для корректного расчета scrollHeight
+            textarea.style.height = 'auto';
+
+            // Получаем реальную высоту контента
+            const scrollHeight = textarea.scrollHeight;
+            const maxHeight = window.innerHeight * 0.2; // 20% от высоты экрана
+
+            // Устанавливаем высоту на основе содержимого, но не больше maxHeight
+            const newHeight = Math.min(scrollHeight, maxHeight);
+            textarea.style.height = `${newHeight}px`;
+
+            // Проверяем, нужен ли скроллбар
+            // Скроллбар нужен только если scrollHeight действительно больше установленной высоты
+            // Используем небольшую погрешность (1px) для избежания проблем с округлением
+            const needsScroll = scrollHeight > newHeight + 1;
+            setNeedsScrollbar(needsScroll);
+        }, []);
+
+        // Обработчик изменения размера textarea
+        const handleTextareaChange = useCallback(
+            (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                setPrompt(e.target.value);
+                // Используем requestAnimationFrame для обновления после рендера
+                requestAnimationFrame(() => {
+                    adjustTextareaHeight();
+                });
+            },
+            [adjustTextareaHeight]
+        );
+
+        // Обновление высоты при изменении prompt извне
+        useEffect(() => {
+            requestAnimationFrame(() => {
+                adjustTextareaHeight();
+            });
+        }, [prompt, adjustTextareaHeight]);
+
+        // Обновление высоты при изменении размера окна
+        useEffect(() => {
+            const handleResize = () => {
+                adjustTextareaHeight();
+            };
+
+            window.addEventListener('resize', handleResize);
+            return () => {
+                window.removeEventListener('resize', handleResize);
+            };
+        }, [adjustTextareaHeight]);
 
         // Загрузка файла по URL и конвертация в File объект
         const urlToFile = useCallback(
@@ -214,6 +280,26 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             ).videoFormat;
             if (videoFormatValue) {
                 setVideoFormat(videoFormatValue);
+            }
+
+            // Загружаем настройки Kling 2.6
+            if (settings.klingAspectRatio) {
+                setKlingAspectRatio(settings.klingAspectRatio);
+            } else if ((currentModel as string) === 'KLING_2_6') {
+                // Значение по умолчанию для Kling 2.6
+                setKlingAspectRatio('16:9');
+            }
+            if (settings.klingDuration) {
+                setKlingDuration(settings.klingDuration);
+            } else if ((currentModel as string) === 'KLING_2_6') {
+                // Значение по умолчанию для Kling 2.6
+                setKlingDuration(5);
+            }
+            if (settings.klingSound !== undefined) {
+                setKlingSound(settings.klingSound);
+            } else if ((currentModel as string) === 'KLING_2_6') {
+                // Значение по умолчанию для Kling 2.6
+                setKlingSound(true);
             }
 
             // Загружаем состояние кнопки замочка
@@ -420,9 +506,19 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         prompt: finalPrompt,
                         model: currentModel,
                         inputFiles: attachedFiles.map((f) => f.base64),
-                        ...((isNanoBanana || isNanoBananaPro) && format && { format }),
-                        ...((isNanoBanana || isNanoBananaPro) && quality && { quality }),
+                        ...((isNanoBanana || isNanoBananaPro) &&
+                            format && { format }),
+                        ...((isNanoBanana || isNanoBananaPro) &&
+                            quality && { quality }),
                         ...(isVeo && videoFormat && { ar: videoFormat }),
+                        ...(isKling &&
+                            klingAspectRatio && {
+                                format: klingAspectRatio,
+                            }),
+                        ...(isKling &&
+                            klingDuration && { duration: klingDuration }),
+                        ...(isKling &&
+                            klingSound !== undefined && { sound: klingSound }),
                     }).unwrap();
                     console.log(
                         '[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:',
@@ -769,6 +865,123 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             </SelectContent>
                         </Select>
                     )}
+
+                    {/* Настройки для Kling 2.6 */}
+                    {isKling && (
+                        <>
+                            <Select
+                                value={klingAspectRatio || '16:9'}
+                                onValueChange={(value) => {
+                                    const newAspectRatio = value as
+                                        | '16:9'
+                                        | '9:16';
+                                    setKlingAspectRatio(newAspectRatio);
+                                    saveMediaSettings({
+                                        klingAspectRatio: newAspectRatio,
+                                        klingDuration,
+                                        klingSound,
+                                    });
+                                }}
+                                disabled={isDisabled}
+                            >
+                                <SelectTrigger className='w-[120px] border-slate-600 bg-slate-700 text-white'>
+                                    <SelectValue placeholder='Формат'>
+                                        {klingAspectRatio || '16:9'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className='border-slate-700 bg-slate-800'>
+                                    <SelectItem
+                                        value='16:9'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        16:9 (Горизонтальный)
+                                    </SelectItem>
+                                    <SelectItem
+                                        value='9:16'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        9:16 (Вертикальный)
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            <Select
+                                value={klingDuration?.toString() || '5'}
+                                onValueChange={(value) => {
+                                    const newDuration = parseInt(value) as
+                                        | 5
+                                        | 10;
+                                    setKlingDuration(newDuration);
+                                    saveMediaSettings({
+                                        klingAspectRatio,
+                                        klingDuration: newDuration,
+                                        klingSound,
+                                    });
+                                }}
+                                disabled={isDisabled}
+                            >
+                                <SelectTrigger className='w-[100px] border-slate-600 bg-slate-700 text-white'>
+                                    <SelectValue placeholder='Длительность'>
+                                        {klingDuration || 5} сек
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className='border-slate-700 bg-slate-800'>
+                                    <SelectItem
+                                        value='5'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        5 сек
+                                    </SelectItem>
+                                    <SelectItem
+                                        value='10'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        10 сек
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            <Select
+                                value={
+                                    klingSound === undefined
+                                        ? 'true'
+                                        : klingSound.toString()
+                                }
+                                onValueChange={(value) => {
+                                    const newSound = value === 'true';
+                                    setKlingSound(newSound);
+                                    saveMediaSettings({
+                                        klingAspectRatio,
+                                        klingDuration,
+                                        klingSound: newSound,
+                                    });
+                                }}
+                                disabled={isDisabled}
+                            >
+                                <SelectTrigger className='w-[100px] border-slate-600 bg-slate-700 text-white'>
+                                    <SelectValue placeholder='Звук'>
+                                        {klingSound === undefined || klingSound
+                                            ? 'Да'
+                                            : 'Нет'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className='border-slate-700 bg-slate-800'>
+                                    <SelectItem
+                                        value='true'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        Да
+                                    </SelectItem>
+                                    <SelectItem
+                                        value='false'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        Нет
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </>
+                    )}
                 </div>
 
                 {/* Поле ввода с кнопками внутри */}
@@ -782,14 +995,18 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         className='hidden'
                     />
                     <Textarea
+                        ref={textareaRef}
                         value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
+                        onChange={handleTextareaChange}
                         onKeyDown={handleKeyDown}
                         placeholder='Опишите, что хотите сгенерировать...'
                         className={cn(
-                            'h-[76px] resize-none border-slate-600 bg-slate-700 pb-10 pl-4 pr-12 text-white placeholder:text-slate-400',
-                            'focus-visible:ring-cyan-500'
+                            'min-h-[76px] max-h-[20vh] resize-none border-slate-600 bg-slate-700 pb-10 pl-4 pr-12 text-white placeholder:text-slate-400',
+                            'focus-visible:ring-cyan-500',
+                            needsScrollbar && 'overflow-y-auto custom-scrollbar',
+                            !needsScrollbar && 'overflow-y-hidden'
                         )}
+                        style={{ height: 'auto' }}
                         disabled={isDisabled}
                     />
 

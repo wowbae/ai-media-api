@@ -16,6 +16,7 @@ export interface GenerateParams {
     videoQuality?: '480p' | '720p' | '1080p';
     duration?: number;
     ar?: '16:9' | '9:16'; // Формат видео для Veo (передается как ar в теле запроса)
+    sound?: boolean; // Звук для Kling 2.6
 }
 
 // Результат создания задачи (для async провайдеров)

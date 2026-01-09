@@ -9,6 +9,7 @@ const MODEL_ICONS: Record<string, string> = {
     NANO_BANANA_PRO: '🍌',
     SORA_2: '🌊',
     VEO_3_1: '🎥',
+    KLING_2_6: '🎬',
 };
 
 const DEFAULT_ICON = '✨';

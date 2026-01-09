@@ -69,3 +69,28 @@ export interface KieAiStatusResponse {
     error?: string;
     progress?: number;
 }
+
+// Интерфейсы для Kling 2.6 API
+// Документация: https://kie.ai/kling-2-6
+
+// Соотношение сторон для Kling 2.6
+export type KieAiKlingAspectRatio = '1:1' | '16:9' | '9:16';
+
+// Длительность видео для Kling 2.6
+export type KieAiKlingDuration = '5' | '10';
+
+// Запрос на создание задачи Kling 2.6 (Text-to-Video)
+export interface KieAiKlingTextToVideoRequest {
+    prompt: string;
+    sound: boolean;
+    aspect_ratio: KieAiKlingAspectRatio;
+    duration: KieAiKlingDuration;
+}
+
+// Запрос на создание задачи Kling 2.6 (Image-to-Video)
+export interface KieAiKlingImageToVideoRequest {
+    prompt: string;
+    image_urls: string[]; // Массив URL изображений
+    sound: boolean;
+    duration: KieAiKlingDuration;
+}

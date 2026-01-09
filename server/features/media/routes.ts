@@ -245,7 +245,7 @@ mediaRouter.delete('/chats/:id', async (req: Request, res: Response) => {
 // Отправить запрос на генерацию
 mediaRouter.post('/generate', async (req: Request, res: Response) => {
     try {
-        const { chatId, prompt, model, inputFiles, format, quality, videoQuality, duration, ar } = req.body as GenerateMediaRequest;
+        const { chatId, prompt, model, inputFiles, format, quality, videoQuality, duration, ar, sound } = req.body as GenerateMediaRequest;
 
         console.log('[API] POST /generate - получен запрос:', {
             chatId,
@@ -346,7 +346,8 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             quality,
             videoQuality,
             duration,
-            ar
+            ar,
+            sound
         ).catch((error) => {
             console.error('Ошибка генерации:', error);
         });
