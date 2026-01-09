@@ -39,13 +39,28 @@ export function MessageList({
     onAttachFile,
 }: MessageListProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Автопрокрутка к последнему сообщению
+    // Используем scrollIntoView на элементе-маркере в конце списка
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [requests.length]);
+        // Используем двойной requestAnimationFrame для гарантии, что DOM полностью обновлен
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (messagesEndRef.current) {
+                    messagesEndRef.current.scrollIntoView({
+                        behavior: 'smooth',
+                    });
+                }
+            });
+        });
+    }, [
+        requests.length,
+        // Добавляем зависимости от статусов и наличия ошибок для автоскролла при изменении статуса
+        requests
+            .map((r) => `${r.id}:${r.status}:${r.errorMessage || ''}`)
+            .join(','),
+    ]);
 
     if (isLoading) {
         return (
@@ -88,6 +103,8 @@ export function MessageList({
                         onAttachFile={onAttachFile}
                     />
                 ))}
+                {/* Маркер для автоскролла */}
+                <div ref={messagesEndRef} />
             </div>
         </ScrollArea>
     );

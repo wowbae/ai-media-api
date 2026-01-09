@@ -8,6 +8,7 @@ import {
     MessageList,
     MediaGallery,
     type ChatInputRef,
+    type ChatInputProps,
 } from '@/components/media';
 import {
     useGetChatQuery,
@@ -26,6 +27,17 @@ export const Route = createFileRoute('/media/$chatId')({
     component: MediaChatPage,
 });
 
+// Интерфейс для pending-сообщения (оптимистичное отображение)
+interface PendingMessage {
+    id: string; // Временный ID (pending-xxx)
+    requestId?: number; // Реальный ID запроса после получения от сервера
+    prompt: string;
+    model: MediaModel;
+    createdAt: string;
+    status: 'PENDING' | 'FAILED';
+    errorMessage?: string;
+}
+
 function MediaChatPage() {
     const { chatId } = Route.useParams();
     const chatIdNum = parseInt(chatId);
@@ -37,12 +49,15 @@ function MediaChatPage() {
         isFetching: isChatFetching,
         error: chatError,
         refetch,
-    } = useGetChatQuery({ id: chatIdNum, limit: 3 }, {
-        // Показывать кешированные данные немедленно
-        refetchOnMountOrArgChange: 10, // Обновлять только если данные старше 10 секунд
-        // Показывать данные из кеша даже при ошибке сети
-        skip: false,
-    });
+    } = useGetChatQuery(
+        { id: chatIdNum, limit: 3 },
+        {
+            // Показывать кешированные данные немедленно
+            refetchOnMountOrArgChange: true, // Всегда обновлять при монтировании или изменении аргументов
+            // Показывать данные из кеша даже при ошибке сети
+            skip: false,
+        }
+    );
 
     // Фоновая подгрузка всех requests после первоначальной загрузки
     const shouldSkipFullLoad =
@@ -53,16 +68,26 @@ function MediaChatPage() {
     const {
         data: fullChat,
         isLoading: isFullChatLoading,
-    } = useGetChatQuery({ id: chatIdNum }, {
-        skip: shouldSkipFullLoad,
-        refetchOnMountOrArgChange: false, // Не обновлять автоматически
-    });
+        refetch: refetchFull,
+    } = useGetChatQuery(
+        { id: chatIdNum },
+        {
+            skip: shouldSkipFullLoad,
+            refetchOnMountOrArgChange: false, // Не обновлять автоматически
+        }
+    );
 
     const [updateChat] = useUpdateChatMutation();
     const { isTestMode } = useTestMode();
 
     const [currentModel, setCurrentModel] = useState<MediaModel>('NANO_BANANA');
-    const [pollingRequestId, setPollingRequestId] = useState<number | null>(null);
+    const [pollingRequestId, setPollingRequestId] = useState<number | null>(
+        null
+    );
+    // Локальное состояние для оптимистичного отображения pending-сообщения
+    const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(
+        null
+    );
     const chatInputRef = useRef<ChatInputRef>(null);
     const isInitialLoadRef = useRef(true);
     const previousChatIdRef = useRef(chatIdNum);
@@ -107,7 +132,10 @@ function MediaChatPage() {
         const activeChatForUpdate = fullChat || chat;
         if (activeChatForUpdate) {
             try {
-                await updateChat({ id: activeChatForUpdate.id, model }).unwrap();
+                await updateChat({
+                    id: activeChatForUpdate.id,
+                    model,
+                }).unwrap();
                 // После успешного обновления на сервере модель остается установленной пользователем
                 // и НЕ будет синхронизироваться автоматически при последующих обновлениях чата
             } catch (error) {
@@ -133,53 +161,191 @@ function MediaChatPage() {
     const shouldSkipPolling = !pollingRequestId || isTestMode;
     const { data: pollingRequest } = useGetRequestQuery(pollingRequestId!, {
         skip: shouldSkipPolling, // Не опрашиваем в тестовом режиме
-        pollingInterval: isTestMode ? 0 : 2000, // Опрос каждые 2 секунды только в обычном режиме
+        pollingInterval: isTestMode ? 0 : 1500, // Опрос каждые 1.5 секунды для более быстрого обновления
+        // Принудительно обновляем данные при каждом запросе
+        refetchOnMountOrArgChange: true,
     });
+
+    // Обработчик добавления pending-сообщения (вызывается из ChatInput перед отправкой)
+    function handleAddPendingMessage(prompt: string) {
+        const pending: PendingMessage = {
+            id: `pending-${Date.now()}`,
+            prompt,
+            model: currentModel,
+            createdAt: new Date().toISOString(),
+            status: 'PENDING',
+        };
+        setPendingMessage(pending);
+        console.log('[Chat] ⏳ Добавлено pending-сообщение:', pending.id);
+    }
+
+    // Обработчик ошибки отправки (обновляет pending-сообщение на FAILED)
+    function handleSendError(errorMessage: string) {
+        setPendingMessage((prev) => {
+            if (!prev) return null;
+            console.log('[Chat] ❌ Pending-сообщение помечено как FAILED');
+            return {
+                ...prev,
+                status: 'FAILED',
+                errorMessage,
+            };
+        });
+    }
 
     // Обработчик создания нового запроса (вызывается из ChatInput после успешной отправки)
     function handleRequestCreated(requestId: number) {
+        console.log(
+            '[Chat] ✅ Новый запрос создан, обновляем чат и запускаем polling:',
+            { requestId }
+        );
+
+        // Сохраняем requestId в pending для точного сравнения
+        setPendingMessage((prev) => {
+            if (!prev) return null;
+            return { ...prev, requestId };
+        });
+
+        // Обновляем оба кеша чата
+        Promise.all([
+            refetch(),
+            !shouldSkipFullLoad ? refetchFull() : Promise.resolve(),
+        ]).catch((error) => {
+            console.error('[Chat] Ошибка при обновлении чата:', error);
+        });
+
         // В тестовом режиме не запускаем polling
         if (isTestMode) {
-            console.log('[Chat] 🧪 Тестовый режим: polling отключен для нового запроса');
+            console.log(
+                '[Chat] 🧪 Тестовый режим: polling отключен для нового запроса'
+            );
             return;
         }
 
-        console.log('[Chat] Новый запрос создан, запускаем polling:', { requestId });
+        // Запускаем polling для отслеживания статуса
         setPollingRequestId(requestId);
     }
 
     // Останавливаем polling при включении тестового режима
     useEffect(() => {
         if (isTestMode && pollingRequestId !== null) {
-            console.log('[Chat] 🧪 Тестовый режим включен: останавливаем polling');
+            console.log(
+                '[Chat] 🧪 Тестовый режим включен: останавливаем polling'
+            );
             setPollingRequestId(null);
         }
     }, [isTestMode, pollingRequestId]);
 
     // Обновляем чат когда статус запроса изменился
+    // Используем ref для отслеживания предыдущего статуса, чтобы обновлять чат при любых изменениях
+    const previousStatusRef = useRef<string | null>(null);
+    const pollingStartTimeRef = useRef<number | null>(null);
+    const maxPollingTime = 5 * 60 * 1000; // Максимальное время polling - 5 минут
+
+    useEffect(() => {
+        if (pollingRequestId && !pollingStartTimeRef.current) {
+            // Запоминаем время начала polling
+            pollingStartTimeRef.current = Date.now();
+        }
+    }, [pollingRequestId]);
+
     useEffect(() => {
         if (pollingRequest) {
+            const currentStatus = pollingRequest.status;
+            const previousStatus = previousStatusRef.current;
+
+            // Проверяем таймаут polling
+            if (pollingStartTimeRef.current) {
+                const pollingDuration =
+                    Date.now() - pollingStartTimeRef.current;
+                if (pollingDuration > maxPollingTime) {
+                    console.warn(
+                        '[Chat] ⚠️ Polling превысил максимальное время, останавливаем'
+                    );
+                    setPollingRequestId(null);
+                    pollingStartTimeRef.current = null;
+                    previousStatusRef.current = null;
+                    // Принудительно обновляем чат при таймауте
+                    refetch();
+                    return;
+                }
+            }
+
+            // Обновляем чат при первом получении данных или при изменении статуса
+            const statusChanged = previousStatus !== currentStatus;
+            const isFirstRequest = previousStatus === null;
+
             console.log('[Chat] Polling request статус:', {
                 id: pollingRequest.id,
-                status: pollingRequest.status,
+                status: currentStatus,
+                previousStatus,
+                statusChanged,
+                isFirstRequest,
                 filesCount: pollingRequest.files?.length || 0,
+                errorMessage: pollingRequest.errorMessage || null,
             });
 
-            if (pollingRequest.status === 'COMPLETED' || pollingRequest.status === 'FAILED') {
-                console.log('[Chat] Запрос завершен, обновляем чат');
-                refetch();
+            // Обновляем чат при первом получении данных (даже если уже FAILED) или при изменении статуса
+            // Также обновляем периодически для PROCESSING статуса (каждые 5 секунд)
+            const shouldUpdate =
+                isFirstRequest ||
+                statusChanged ||
+                (currentStatus === 'PROCESSING' &&
+                    previousStatus === 'PROCESSING' &&
+                    Date.now() % 5000 < 1500); // Примерно каждые 5 секунд
+
+            if (shouldUpdate) {
+                console.log('[Chat] Обновляем чат');
+                refetch().catch((error) => {
+                    console.error('[Chat] Ошибка при обновлении чата:', error);
+                });
+            }
+
+            // Останавливаем polling при завершении или ошибке
+            if (currentStatus === 'COMPLETED' || currentStatus === 'FAILED') {
+                console.log('[Chat] Запрос завершен, останавливаем polling');
                 setPollingRequestId(null);
+                pollingStartTimeRef.current = null;
+                previousStatusRef.current = null; // Сбрасываем для следующего запроса
+
+                // Финальное обновление чата для отображения финального статуса
+                setTimeout(() => {
+                    refetch().catch((error) => {
+                        console.error(
+                            '[Chat] Ошибка при финальном обновлении чата:',
+                            error
+                        );
+                    });
+                }, 500);
+            } else {
+                // Сохраняем текущий статус для следующей проверки
+                previousStatusRef.current = currentStatus;
             }
         }
-    }, [pollingRequest, refetch]);
+    }, [pollingRequest, refetch, maxPollingTime]);
+
+    // Убираем pending-сообщение если реальный запрос появился
+    // ВАЖНО: Этот useEffect должен быть ДО early returns для соблюдения правил хуков
+    const activeRequests = fullChat?.requests || chat?.requests || [];
+    useEffect(() => {
+        // Если есть requestId и реальный запрос с таким ID появился - убираем pending
+        if (
+            pendingMessage?.requestId &&
+            activeRequests.some((r) => r.id === pendingMessage.requestId)
+        ) {
+            console.log(
+                '[Chat] 🔄 Реальный запрос появился, убираем pending-сообщение'
+            );
+            setPendingMessage(null);
+        }
+    }, [activeRequests, pendingMessage]);
 
     // Показываем загрузку только если нет кешированных данных и идет первичная загрузка
     if (isChatLoading && !chat) {
         return (
-            <div className="flex h-screen bg-slate-900">
+            <div className='flex h-screen bg-slate-900'>
                 <ChatSidebar />
-                <div className="flex flex-1 items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+                <div className='flex flex-1 items-center justify-center'>
+                    <Loader2 className='h-8 w-8 animate-spin text-cyan-400' />
                 </div>
             </div>
         );
@@ -188,12 +354,13 @@ function MediaChatPage() {
     // Показываем ошибку только если нет кешированных данных
     if (chatError && !chat) {
         return (
-            <div className="flex h-screen bg-slate-900">
+            <div className='flex h-screen bg-slate-900'>
                 <ChatSidebar />
-                <div className="flex flex-1 flex-col items-center justify-center text-center">
-                    <p className="text-xl text-red-400">Ошибка загрузки чата</p>
-                    <p className="text-sm text-slate-500 mt-2">
-                        Не удалось загрузить чат. Проверьте соединение с сервером.
+                <div className='flex flex-1 flex-col items-center justify-center text-center'>
+                    <p className='text-xl text-red-400'>Ошибка загрузки чата</p>
+                    <p className='text-sm text-slate-500 mt-2'>
+                        Не удалось загрузить чат. Проверьте соединение с
+                        сервером.
                     </p>
                 </div>
             </div>
@@ -203,11 +370,11 @@ function MediaChatPage() {
     // Показываем "не найден" только если нет кешированных данных и нет ошибки
     if (!chat && !isChatLoading && !chatError) {
         return (
-            <div className="flex h-screen bg-slate-900">
+            <div className='flex h-screen bg-slate-900'>
                 <ChatSidebar />
-                <div className="flex flex-1 flex-col items-center justify-center text-center">
-                    <p className="text-xl text-slate-400">Чат не найден</p>
-                    <p className="text-sm text-slate-500">
+                <div className='flex flex-1 flex-col items-center justify-center text-center'>
+                    <p className='text-xl text-slate-400'>Чат не найден</p>
+                    <p className='text-sm text-slate-500'>
                         Выберите чат из списка или создайте новый
                     </p>
                 </div>
@@ -228,7 +395,8 @@ function MediaChatPage() {
 
     // Сортируем запросы по дате (старые сверху)
     const sortedRequests = [...(activeChat.requests || [])].sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
 
     // Обновляем статус активного запроса если есть polling данные
@@ -238,6 +406,41 @@ function MediaChatPage() {
         }
         return request;
     }) as MediaRequest[];
+
+    // Добавляем pending-сообщение в конец списка (если есть)
+    // Проверяем, что pending-сообщение еще не было заменено реальным запросом
+    // Если есть requestId - сравниваем по нему (точное совпадение)
+    // Если нет requestId - pending ещё не получил ответ от сервера, показываем его
+    const hasPendingInList =
+        pendingMessage &&
+        !requestsWithPolling.some(
+            (r) =>
+                pendingMessage.requestId
+                    ? r.id === pendingMessage.requestId // Сравниваем по реальному ID
+                    : false // Пока нет requestId - реального запроса точно нет в списке
+        );
+
+    // Создаем объект для pending-сообщения в формате MediaRequest
+    const pendingAsRequest: MediaRequest | null =
+        hasPendingInList && pendingMessage
+            ? {
+                  id: -1, // Временный ID
+                  chatId: chatIdNum,
+                  prompt: pendingMessage.prompt,
+                  model: pendingMessage.model,
+                  status: pendingMessage.status,
+                  inputFiles: [],
+                  errorMessage: pendingMessage.errorMessage || null,
+                  createdAt: pendingMessage.createdAt,
+                  completedAt: null,
+                  files: [],
+              }
+            : null;
+
+    // Финальный список запросов с pending-сообщением
+    const finalRequests = pendingAsRequest
+        ? [...requestsWithPolling, pendingAsRequest]
+        : requestsWithPolling;
 
     // Обработчик редактирования промпта
     function handleEditPrompt(prompt: string) {
@@ -253,18 +456,22 @@ function MediaChatPage() {
     const showUpdatingIndicator = isChatFetching && !isChatLoading;
 
     return (
-        <div className="flex h-screen bg-slate-900">
+        <div className='flex h-screen bg-slate-900'>
             {/* Сайдбар */}
             <ChatSidebar />
 
             {/* Основной чат */}
-            <div className="flex flex-1 flex-col">
+            <div className='flex flex-1 flex-col'>
                 {/* Заголовок чата */}
-                <ChatHeader name={activeChat.name} model={currentModel} showUpdating={showUpdatingIndicator} />
+                <ChatHeader
+                    name={activeChat.name}
+                    model={currentModel}
+                    showUpdating={showUpdatingIndicator}
+                />
 
                 {/* Список сообщений */}
                 <MessageList
-                    requests={requestsWithPolling}
+                    requests={finalRequests}
                     chatModel={currentModel}
                     onEditPrompt={handleEditPrompt}
                     onAttachFile={handleAttachFile}
@@ -277,6 +484,8 @@ function MediaChatPage() {
                     currentModel={currentModel}
                     onModelChange={handleModelChange}
                     onRequestCreated={handleRequestCreated}
+                    onPendingMessage={handleAddPendingMessage}
+                    onSendError={handleSendError}
                 />
             </div>
 
@@ -302,16 +511,16 @@ function ChatHeader({ name, model, showUpdating }: ChatHeaderProps) {
 
     return (
         <div className={cn(PANEL_HEADER_CLASSES, 'bg-slate-800/50')}>
-            <div className="flex items-center gap-3">
-                <span className="text-2xl">{getModelIcon(model)}</span>
-                <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                        <h1 className="font-semibold text-white">{name}</h1>
+            <div className='flex items-center gap-3'>
+                <span className='text-2xl'>{getModelIcon(model)}</span>
+                <div className='flex-1'>
+                    <div className='flex items-center gap-2'>
+                        <h1 className='font-semibold text-white'>{name}</h1>
                         {showUpdating && (
-                            <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                            <Loader2 className='h-4 w-4 animate-spin text-slate-400' />
                         )}
                     </div>
-                    <p className="text-xs text-slate-400">
+                    <p className='text-xs text-slate-400'>
                         {modelInfo?.name || model}
                     </p>
                 </div>
@@ -319,4 +528,3 @@ function ChatHeader({ name, model, showUpdating }: ChatHeaderProps) {
         </div>
     );
 }
-

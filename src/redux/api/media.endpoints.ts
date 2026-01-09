@@ -148,6 +148,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 );
                 return response.data;
             },
+            // Инвалидируем кеш чата при успехе, чтобы обновить список запросов
             invalidatesTags: (result, _error, { chatId }) => [
                 { type: 'Chat', id: chatId },
                 { type: 'Request', id: result?.requestId || 'LIST' },
@@ -186,6 +187,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 );
                 return response.data;
             },
+            // Инвалидируем кеш чата при успехе, чтобы обновить список запросов
             invalidatesTags: (result, _error, { chatId }) => [
                 { type: 'Chat', id: chatId },
                 { type: 'Request', id: result?.requestId || 'LIST' },
