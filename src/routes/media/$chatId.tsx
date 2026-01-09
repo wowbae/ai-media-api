@@ -52,9 +52,9 @@ function MediaChatPage() {
     } = useGetChatQuery(
         { id: chatIdNum, limit: 3 },
         {
-            // Показывать кешированные данные немедленно
-            refetchOnMountOrArgChange: true, // Всегда обновлять при монтировании или изменении аргументов
-            // Показывать данные из кеша даже при ошибке сети
+            // Всегда обновлять при монтировании или изменении аргументов
+            // Это критично для правильной работы при смене чата
+            refetchOnMountOrArgChange: true,
             skip: false,
         }
     );
@@ -73,7 +73,8 @@ function MediaChatPage() {
         { id: chatIdNum },
         {
             skip: shouldSkipFullLoad,
-            refetchOnMountOrArgChange: false, // Не обновлять автоматически
+            // Обновляем при смене аргументов (chatId), но не при других обновлениях
+            refetchOnMountOrArgChange: true,
         }
     );
 
@@ -95,10 +96,24 @@ function MediaChatPage() {
     // Сброс состояния при смене чата
     useEffect(() => {
         if (previousChatIdRef.current !== chatIdNum) {
+            console.log('[Chat] Смена чата:', {
+                previous: previousChatIdRef.current,
+                current: chatIdNum,
+            });
+
+            // Сбрасываем все состояние
             isInitialLoadRef.current = true;
             previousChatIdRef.current = chatIdNum;
+            setPollingRequestId(null);
+            setPendingMessage(null);
+
+            // Принудительно обновляем запросы
+            refetch();
+            if (!shouldSkipFullLoad) {
+                refetchFull();
+            }
         }
-    }, [chatIdNum]);
+    }, [chatIdNum, refetch, refetchFull, shouldSkipFullLoad]);
 
     // Синхронизация модели с настройками чата
     // ВАЖНО: Обновляем ТОЛЬКО при первоначальной загрузке чата
@@ -253,10 +268,13 @@ function MediaChatPage() {
             // ВАЖНО: Проверяем, что pollingRequest соответствует текущему pollingRequestId
             // При смене pollingRequestId, pollingRequest какое-то время содержит данные старого запроса
             if (pollingRequest.id !== pollingRequestId) {
-                console.log('[Chat] ⚠️ pollingRequest.id не совпадает с pollingRequestId, игнорируем:', {
-                    pollingRequestId: pollingRequest.id,
-                    expectedId: pollingRequestId,
-                });
+                console.log(
+                    '[Chat] ⚠️ pollingRequest.id не совпадает с pollingRequestId, игнорируем:',
+                    {
+                        pollingRequestId: pollingRequest.id,
+                        expectedId: pollingRequestId,
+                    }
+                );
                 return;
             }
 
@@ -385,9 +403,7 @@ function MediaChatPage() {
                 pollingRequest.status === 'FAILED');
 
         if (requestAppeared) {
-            console.log(
-                '[Chat] 🔄 Запрос найден, убираем pending-сообщение'
-            );
+            console.log('[Chat] 🔄 Запрос найден, убираем pending-сообщение');
             setPendingMessage(null);
         }
     }, [activeRequests, pendingMessage, pollingRequest]);
