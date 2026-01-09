@@ -34,7 +34,7 @@ interface PendingMessage {
     prompt: string;
     model: MediaModel;
     createdAt: string;
-    status: 'PENDING' | 'FAILED';
+    status: 'PENDING' | 'PROCESSING' | 'FAILED';
     errorMessage?: string;
 }
 
@@ -284,6 +284,40 @@ function MediaChatPage() {
                 errorMessage: pollingRequest.errorMessage || null,
             });
 
+            // Обновляем pending-сообщение, чтобы убрать лоадер и показать ошибку сразу
+            setPendingMessage((prev) => {
+                if (!prev) return prev;
+                if (!pollingRequestId || prev.requestId !== pollingRequestId) {
+                    return prev;
+                }
+
+                const isProcessing = currentStatus === 'PROCESSING';
+                const isFailed = currentStatus === 'FAILED';
+                const nextStatus = isProcessing
+                    ? 'PROCESSING'
+                    : isFailed
+                      ? 'FAILED'
+                      : prev.status;
+                const nextError =
+                    isFailed && (pollingRequest.errorMessage || true)
+                        ? pollingRequest.errorMessage ||
+                          'Генерация не удалась. Детали ошибки не предоставлены провайдером.'
+                        : prev.errorMessage;
+
+                if (
+                    nextStatus === prev.status &&
+                    nextError === prev.errorMessage
+                ) {
+                    return prev;
+                }
+
+                return {
+                    ...prev,
+                    status: nextStatus,
+                    errorMessage: nextError,
+                };
+            });
+
             // Обновляем чат при первом получении данных (даже если уже FAILED) или при изменении статуса
             // Также обновляем периодически для PROCESSING статуса (каждые 5 секунд)
             const shouldUpdate =
@@ -340,9 +374,9 @@ function MediaChatPage() {
             (pollingRequest.status === 'COMPLETED' ||
                 pollingRequest.status === 'FAILED');
 
-        if (requestAppeared || pollingCompleted) {
+        if (requestAppeared) {
             console.log(
-                '[Chat] 🔄 Запрос найден или завершен, убираем pending-сообщение'
+                '[Chat] 🔄 Запрос найден, убираем pending-сообщение'
             );
             setPendingMessage(null);
         }
