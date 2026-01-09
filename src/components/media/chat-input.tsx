@@ -107,6 +107,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const [isSubmitting, setIsSubmitting] = useState(false);
         const [isLockEnabled, setIsLockEnabled] = useState(false);
         const [needsScrollbar, setNeedsScrollbar] = useState(false);
+        const [isDragging, setIsDragging] = useState(false);
         const { isTestMode } = useTestMode();
         const fileInputRef = useRef<HTMLInputElement>(null);
         const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -312,39 +313,65 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             });
         }, []);
 
-        // Обработка выбора файлов
+        // Обработка файлов (общая функция для переиспользования)
+        const processFiles = useCallback(
+            async (files: File[]): Promise<AttachedFile[]> => {
+                const newFiles: AttachedFile[] = [];
+
+                for (const file of files) {
+                    // Проверяем тип файла (только изображения и видео)
+                    if (
+                        !file.type.startsWith('image/') &&
+                        !file.type.startsWith('video/')
+                    ) {
+                        console.warn(
+                            '[ChatInput] Пропущен файл недопустимого типа:',
+                            file.type
+                        );
+                        continue;
+                    }
+
+                    // Проверяем размер (макс 10MB)
+                    if (file.size > 10 * 1024 * 1024) {
+                        alert(
+                            `Размер файла "${file.name}" не должен превышать 10MB`
+                        );
+                        continue;
+                    }
+
+                    try {
+                        const base64 = await fileToBase64(file);
+                        const preview = URL.createObjectURL(file);
+
+                        newFiles.push({
+                            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                            file,
+                            preview,
+                            base64,
+                        });
+                    } catch (error) {
+                        console.error(
+                            '[ChatInput] Ошибка обработки файла:',
+                            file.name,
+                            error
+                        );
+                        alert(`Не удалось обработать файл "${file.name}"`);
+                    }
+                }
+
+                return newFiles;
+            },
+            [fileToBase64]
+        );
+
+        // Обработка выбора файлов из input
         async function handleFileSelect(
             event: React.ChangeEvent<HTMLInputElement>
         ) {
             const files = event.target.files;
             if (!files) return;
 
-            const newFiles: AttachedFile[] = [];
-
-            for (const file of Array.from(files)) {
-                // Проверяем тип файла
-                // if (!file.type.startsWith('image/')) {
-                //     alert('Можно прикреплять только изображения');
-                //     continue;
-                // }
-
-                // Проверяем размер (макс 10MB)
-                if (file.size > 10 * 1024 * 1024) {
-                    alert('Размер файла не должен превышать 10MB');
-                    continue;
-                }
-
-                const base64 = await fileToBase64(file);
-                const preview = URL.createObjectURL(file);
-
-                newFiles.push({
-                    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    file,
-                    preview,
-                    base64,
-                });
-            }
-
+            const newFiles = await processFiles(Array.from(files));
             setAttachedFiles((prev) => [...prev, ...newFiles]);
 
             // Сбрасываем input
@@ -363,6 +390,85 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 return prev.filter((f) => f.id !== fileId);
             });
         }
+
+        // Обработчики drag-and-drop
+        const handleDragOver = useCallback(
+            (event: React.DragEvent<HTMLDivElement>) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!isDisabled) {
+                    setIsDragging(true);
+                }
+            },
+            [isDisabled]
+        );
+
+        const handleDragLeave = useCallback(
+            (event: React.DragEvent<HTMLDivElement>) => {
+                event.preventDefault();
+                event.stopPropagation();
+                // Проверяем, что relatedTarget находится вне текущего элемента
+                const currentTarget = event.currentTarget;
+                const relatedTarget = event.relatedTarget as Node | null;
+                if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
+                    setIsDragging(false);
+                }
+            },
+            []
+        );
+
+        const handleDrop = useCallback(
+            async (event: React.DragEvent<HTMLDivElement>) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsDragging(false);
+
+                if (isDisabled) return;
+
+                const files = Array.from(event.dataTransfer.files);
+                if (files.length === 0) return;
+
+                const newFiles = await processFiles(files);
+                if (newFiles.length > 0) {
+                    setAttachedFiles((prev) => [...prev, ...newFiles]);
+                }
+            },
+            [isDisabled, processFiles]
+        );
+
+        // Обработчик paste из буфера обмена
+        const handlePaste = useCallback(
+            async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+                if (isDisabled) return;
+
+                const items = event.clipboardData.items;
+                if (!items) return;
+
+                const files: File[] = [];
+
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    // Проверяем только файлы (не текст)
+                    if (item.kind === 'file') {
+                        const file = item.getAsFile();
+                        if (file) {
+                            files.push(file);
+                        }
+                    }
+                }
+
+                if (files.length === 0) return;
+
+                // Предотвращаем вставку текста, если есть файлы
+                event.preventDefault();
+
+                const newFiles = await processFiles(files);
+                if (newFiles.length > 0) {
+                    setAttachedFiles((prev) => [...prev, ...newFiles]);
+                }
+            },
+            [isDisabled, processFiles]
+        );
 
         // Отправка запроса
         async function handleSubmit(
@@ -1089,7 +1195,16 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 </div>
 
                 {/* Поле ввода с кнопками внутри */}
-                <div className='relative'>
+                <div
+                    className={cn(
+                        'relative rounded-lg transition-all',
+                        isDragging &&
+                            'border-2 border-cyan-500 bg-slate-700/90 p-1'
+                    )}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
                     <input
                         ref={fileInputRef}
                         type='file'
@@ -1103,13 +1218,15 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         value={prompt}
                         onChange={handleTextareaChange}
                         onKeyDown={handleKeyDown}
+                        onPaste={handlePaste}
                         placeholder='Опишите, что хотите сгенерировать...'
                         className={cn(
                             'min-h-[76px] max-h-[20vh] resize-none border-slate-600 bg-slate-700 pb-10 pl-4 pr-12 text-white placeholder:text-slate-400',
                             'focus-visible:ring-cyan-500',
                             needsScrollbar &&
                                 'overflow-y-auto custom-scrollbar',
-                            !needsScrollbar && 'overflow-y-hidden'
+                            !needsScrollbar && 'overflow-y-hidden',
+                            isDragging && 'border-cyan-400'
                         )}
                         style={{ height: 'auto' }}
                         disabled={isDisabled}
@@ -1189,7 +1306,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
                 {/* Подсказка */}
                 <p className='mt-2 text-xs text-slate-500'>
-                    Enter — отправить, Shift+Enter — новая строка
+                    Enter — отправить, Shift+Enter — новая строка. Можно
+                    перетаскивать файлы или вставлять из буфера обмена
+                    (Ctrl+V/Cmd+V)
                 </p>
             </div>
         );
