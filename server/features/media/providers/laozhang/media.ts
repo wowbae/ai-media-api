@@ -10,6 +10,7 @@ import { PROVIDER_STATUS_MAP } from '../interfaces';
 import type { SavedFileInfo } from '../../file.service';
 import { saveBase64File, saveFileFromUrl } from '../../file.service';
 import { MEDIA_MODELS } from '../../config';
+import type { MediaModelConfig } from '../../config';
 import type {
     LaoZhangConfig,
     LaoZhangMessage,
@@ -154,6 +155,98 @@ function calculateResolution(
     return `${width}x${height}`;
 }
 
+// Функция для парсинга ошибок LaoZhang API
+function parseLaoZhangError(
+    errorText: string,
+    modelConfig?: MediaModelConfig,
+    statusCode?: number
+): string {
+    try {
+        const errorData = JSON.parse(errorText);
+
+        if (errorData.error?.message) {
+            const apiMessage = errorData.error.message;
+
+            // Ошибка отсутствия доступных каналов (может быть из-за баланса, настроек группы, недоступности модели)
+            if (apiMessage.includes('无可用渠道') || apiMessage.includes('无可用')) {
+                const modelInfo = modelConfig
+                    ? `Модель ${modelConfig.name} (${modelConfig.id})`
+                    : 'Модель';
+
+                return (
+                    `❌ ${modelInfo} недоступна.\n\n` +
+                    `Возможные причины:\n` +
+                    `• Недостаточно баланса на аккаунте LaoZhang\n` +
+                    `• Модель не доступна в группе "default"\n` +
+                    `• Не настроены каналы с требуемыми режимами оплаты\n` +
+                    `• Модель временно недоступна\n\n` +
+                    `💡 Рекомендации:\n` +
+                    `• Проверьте баланс в личном кабинете LaoZhang: https://console.laozhang.ai\n` +
+                    `• Попробуйте другую модель (например, Veo 3.1)\n` +
+                    `• Проверьте настройки группы и каналов в консоли`
+                );
+            }
+
+            // Ошибки, связанные с балансом
+            if (
+                apiMessage.includes('余额') ||
+                apiMessage.includes('余额不足') ||
+                apiMessage.includes('insufficient') ||
+                apiMessage.includes('balance')
+            ) {
+                return (
+                    `❌ Недостаточно средств на балансе аккаунта LaoZhang.\n\n` +
+                    `💡 Пополните баланс в личном кабинете: https://console.laozhang.ai`
+                );
+            }
+
+            // Ошибки режима оплаты
+            if (apiMessage.includes('计费模式') || apiMessage.includes('billing')) {
+                const modelInfo = modelConfig ? modelConfig.name : 'модели';
+                return (
+                    `❌ Проблема с режимом оплаты для ${modelInfo}.\n\n` +
+                    `Возможные причины:\n` +
+                    `• Не настроены каналы с требуемыми режимами оплаты\n` +
+                    `• Недостаточно баланса для выбранного режима\n\n` +
+                    `💡 Проверьте настройки биллинга в консоли LaoZhang`
+                );
+            }
+
+            // Ошибки модели
+            if (apiMessage.includes('模型') || apiMessage.includes('model')) {
+                const modelInfo = modelConfig ? modelConfig.name : 'модели';
+                return `❌ Ошибка модели: ${apiMessage}\n\n${modelInfo} недоступна или не настроена.`;
+            }
+
+            // Ошибка группы
+            if (apiMessage.includes('分组') || apiMessage.includes('group')) {
+                return (
+                    `❌ Проблема с группой "default".\n\n` +
+                    `💡 Проверьте настройки группы в консоли LaoZhang или обратитесь в поддержку.`
+                );
+            }
+
+            // Общая ошибка API с оригинальным сообщением
+            return `❌ LaoZhang API error: ${apiMessage}`;
+        }
+
+        // Если структура ошибки другая
+        return `❌ LaoZhang API error: ${statusCode || 'unknown'} - ${errorText}`;
+    } catch {
+        // Если не удалось распарсить JSON
+        // Проверяем по тексту на типичные ошибки
+        const lowerError = errorText.toLowerCase();
+        if (lowerError.includes('balance') || lowerError.includes('insufficient')) {
+            return (
+                `❌ Недостаточно средств на балансе аккаунта LaoZhang.\n\n` +
+                `💡 Пополните баланс в личном кабинете: https://console.laozhang.ai`
+            );
+        }
+
+        return `❌ LaoZhang API error: ${statusCode || 'unknown'} - ${errorText}`;
+    }
+}
+
 // Провайдер для изображений (синхронный) - Nano Banana Pro
 export function createLaoZhangImageProvider(
     config: LaoZhangConfig
@@ -227,9 +320,12 @@ export function createLaoZhangImageProvider(
 
             if (!response.ok) {
                 const errorData = await response.text();
-                throw new Error(
-                    `LaoZhang API error: ${response.status} - ${errorData}`
+                const errorMessage = parseLaoZhangError(
+                    errorData,
+                    modelConfig,
+                    response.status
                 );
+                throw new Error(errorMessage);
             }
 
             const data = (await response.json()) as LaoZhangImageResponse;
@@ -305,9 +401,12 @@ export function createLaoZhangVideoProvider(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(
-                `LaoZhang API error: ${response.status} - ${errorText}`
+            const errorMessage = parseLaoZhangError(
+                errorText,
+                modelConfig,
+                response.status
             );
+            throw new Error(errorMessage);
         }
 
         const data = (await response.json()) as LaoZhangVideoCreateResponse;
@@ -352,9 +451,13 @@ export function createLaoZhangVideoProvider(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(
-                `LaoZhang API error: ${response.status} - ${errorText}`
+            // Для checkVideoStatus modelConfig недоступен, но ошибка все равно будет информативной
+            const errorMessage = parseLaoZhangError(
+                errorText,
+                undefined,
+                response.status
             );
+            throw new Error(errorMessage);
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

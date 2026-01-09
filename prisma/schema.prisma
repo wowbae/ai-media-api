@@ -23,6 +23,7 @@ model MediaRequest {
   chatId       Int
   chat         MediaChat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
   prompt       String
+  model        MediaModel?   // Модель, использованная для этого запроса
   status       RequestStatus @default(PENDING)
   inputFiles   String[]      @default([])
   files        MediaFile[]

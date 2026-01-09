@@ -317,6 +317,7 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             data: {
                 chatId,
                 prompt: prompt.trim(),
+                model: selectedModel, // Сохраняем модель, использованную для этого запроса
                 inputFiles: inputFiles || [],
                 status: 'PENDING',
             },
@@ -423,6 +424,7 @@ mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
             data: {
                 chatId,
                 prompt: prompt.trim(),
+                model: chat.model, // Сохраняем модель чата для тестового режима
                 inputFiles: [],
                 status: 'COMPLETED',
                 completedAt: new Date(),

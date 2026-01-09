@@ -19,6 +19,7 @@ import {
     type RequestStatus,
     type MediaModel,
     useDeleteFileMutation,
+    useGetModelsQuery,
 } from '@/redux/media-api';
 import { getMediaFileUrl } from '@/lib/constants';
 
@@ -104,6 +105,19 @@ function MessageItem({
     onAttachFile,
 }: MessageItemProps) {
     const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
+    const { data: models } = useGetModelsQuery();
+
+    // Получаем информацию о модели и провайдере из сохранённой модели запроса
+    // Показываем только если модель сохранена в запросе
+    function getModelInfo(model: MediaModel | null) {
+        if (!model) return null;
+        return models?.find((m) => m.key === model);
+    }
+
+    const modelInfo = getModelInfo(request.model);
+    const providerName = modelInfo?.provider
+        ? getProviderDisplayName(modelInfo.provider)
+        : null;
 
     async function handleDeleteFile(event: React.MouseEvent, fileId: number) {
         event.stopPropagation();
@@ -144,9 +158,19 @@ function MessageItem({
                     <p className='whitespace-pre-wrap text-white'>
                         {request.prompt}
                     </p>
-                    <p className='mt-1 text-right text-xs text-cyan-200/70'>
-                        {formatTime(request.createdAt)}
-                    </p>
+                    <div className='mt-1 flex items-center justify-end gap-2 text-xs text-cyan-200/70'>
+                        {modelInfo && (
+                            <span className='flex items-center gap-1'>
+                                {modelInfo.name}
+                                {providerName && (
+                                    <span className='text-cyan-300/60'>
+                                        • {providerName}
+                                    </span>
+                                )}
+                            </span>
+                        )}
+                        <span>{formatTime(request.createdAt)}</span>
+                    </div>
                 </div>
             </div>
 
@@ -157,7 +181,9 @@ function MessageItem({
                     {(request.status !== 'COMPLETED' ||
                         (request.status === 'COMPLETED' &&
                             request.files.length === 0)) && (
-                        <div className={`rounded-2xl rounded-tl-sm px-4 py-3 ${getResponseBackgroundClass()}`}>
+                        <div
+                            className={`rounded-2xl rounded-tl-sm px-4 py-3 ${getResponseBackgroundClass()}`}
+                        >
                             {/* Статус */}
                             <StatusBadge status={request.status} />
 
@@ -178,7 +204,10 @@ function MessageItem({
                                 <div className='mt-3 space-y-3'>
                                     {/* Скелетон-placeholder для изображения */}
                                     <Skeleton className='aspect-square w-48 rounded-xl' />
-                                    <div hidden className='flex items-center gap-2 text-slate-400'>
+                                    <div
+                                        hidden
+                                        className='flex items-center gap-2 text-slate-400'
+                                    >
                                         <Loader2 className='h-4 w-4 animate-spin' />
                                         <span className='text-sm'>
                                             {request.status === 'PENDING'
@@ -229,7 +258,9 @@ function MessageItem({
                                                 key={file.id}
                                                 className='group flex items-start gap-2'
                                             >
-                                                <div className={`inline-block w-fit rounded-2xl rounded-tl-sm p-2 ${getResponseBackgroundClass()}`}>
+                                                <div
+                                                    className={`inline-block w-fit rounded-2xl rounded-tl-sm p-2 ${getResponseBackgroundClass()}`}
+                                                >
                                                     <MediaPreview
                                                         file={file}
                                                         onAttach={onAttachFile}
@@ -246,7 +277,10 @@ function MessageItem({
                                                                 variant='ghost'
                                                                 className='h-8 w-8 shrink-0 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-slate-600/50 group-hover:opacity-100'
                                                                 onClick={() => {
-                                                                    const fileUrl = getMediaFileUrl(file.path);
+                                                                    const fileUrl =
+                                                                        getMediaFileUrl(
+                                                                            file.path
+                                                                        );
                                                                     onAttachFile(
                                                                         fileUrl,
                                                                         file.filename
@@ -353,4 +387,15 @@ function formatTime(dateString: string): string {
         hour: '2-digit',
         minute: '2-digit',
     });
+}
+
+// Получить отображаемое название провайдера
+function getProviderDisplayName(provider: string): string {
+    const providerNames: Record<string, string> = {
+        openrouter: 'OpenRouter',
+        gptunnel: 'GPTunnel',
+        midjourney: 'Midjourney',
+        laozhang: 'LaoZhang',
+    };
+    return providerNames[provider] || provider;
 }

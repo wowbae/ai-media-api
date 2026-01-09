@@ -39,6 +39,7 @@ export interface MediaRequest {
     id: number;
     chatId: number;
     prompt: string;
+    model: MediaModel | null; // Модель, использованная для этого запроса
     status: RequestStatus;
     inputFiles: string[];
     errorMessage: string | null;
