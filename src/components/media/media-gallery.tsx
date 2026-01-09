@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { Download, X, Trash2, Paperclip } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { MediaPreview } from './media-preview';
 import {
     type MediaFile,
@@ -19,6 +20,7 @@ import { formatFileSize, downloadFile } from '@/lib/utils';
 interface MediaGalleryProps {
     requests: MediaRequest[];
     onAttachFile?: (fileUrl: string, filename: string) => void;
+    isLoading?: boolean;
 }
 
 // Количество файлов для первоначального отображения
@@ -26,7 +28,11 @@ const INITIAL_FILES_LIMIT = 12;
 // Количество файлов для подгрузки при скролле
 const LOAD_MORE_COUNT = 12;
 
-export function MediaGallery({ requests, onAttachFile }: MediaGalleryProps) {
+export function MediaGallery({
+    requests,
+    onAttachFile,
+    isLoading,
+}: MediaGalleryProps) {
     const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null);
     const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
     const [visibleFilesCount, setVisibleFilesCount] =
@@ -104,6 +110,29 @@ export function MediaGallery({ requests, onAttachFile }: MediaGalleryProps) {
         } catch (error) {
             console.error('Ошибка удаления файла:', error);
         }
+    }
+
+    // Показываем скелетоны во время загрузки
+    if (isLoading) {
+        return (
+            <div className='flex h-full w-[30%] flex-col border-l border-slate-700 bg-slate-800/50'>
+                <div className={PANEL_HEADER_CLASSES}>
+                    <h2 className={PANEL_HEADER_TITLE_CLASSES}>Медиафайлы</h2>
+                </div>
+                <ScrollArea className='flex-1'>
+                    <div className='grid grid-cols-4 gap-2 p-4'>
+                        {Array.from({ length: INITIAL_FILES_LIMIT }).map(
+                            (_, index) => (
+                                <Skeleton
+                                    key={`skeleton-${index}`}
+                                    className='aspect-square w-full rounded-xl'
+                                />
+                            )
+                        )}
+                    </div>
+                </ScrollArea>
+            </div>
+        );
     }
 
     if (allFiles.length === 0) {

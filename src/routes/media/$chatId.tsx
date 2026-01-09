@@ -257,6 +257,7 @@ function MediaChatPage() {
             <MediaGallery
                 requests={requestsWithPolling}
                 onAttachFile={handleAttachFile}
+                isLoading={isChatLoading || isFullChatLoading}
             />
         </div>
     );

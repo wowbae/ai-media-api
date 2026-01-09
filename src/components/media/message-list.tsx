@@ -172,16 +172,20 @@ function MessageItem({
                                     </div>
                                 )}
 
-                            {/* Загрузка */}
+                            {/* Загрузка с скелетоном */}
                             {(request.status === 'PENDING' ||
                                 request.status === 'PROCESSING') && (
-                                <div className='mt-2 flex items-center gap-2 text-slate-400'>
-                                    {/* <Loader2 className='h-4 w-4 animate-spin' /> */}
-                                    <span className='text-sm'>
-                                        {request.status === 'PENDING'
-                                            ? 'В очереди...'
-                                            : 'Креативим...'}
-                                    </span>
+                                <div className='mt-3 space-y-3'>
+                                    {/* Скелетон-placeholder для изображения */}
+                                    <Skeleton className='aspect-square w-48 rounded-xl' />
+                                    <div hidden className='flex items-center gap-2 text-slate-400'>
+                                        <Loader2 className='h-4 w-4 animate-spin' />
+                                        <span className='text-sm'>
+                                            {request.status === 'PENDING'
+                                                ? 'В очереди...'
+                                                : 'Креативим...'}
+                                        </span>
+                                    </div>
                                 </div>
                             )}
 
