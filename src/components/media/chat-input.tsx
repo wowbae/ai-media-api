@@ -498,8 +498,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 {/* Прикрепленные файлы */}
                 {attachedFiles.length > 0 && (
                     <div className='mb-3 flex flex-wrap gap-2'>
-                        {/* Невидимый элемент для выравнивания с кнопками слева */}
-                        <div className='w-8 shrink-0' aria-hidden='true' />
                         {attachedFiles.map((file) => (
                             <div
                                 key={file.id}
@@ -523,8 +521,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
                 {/* Верхняя панель с выбором модели и настроек */}
                 <div className='mb-3 flex flex-wrap items-center gap-3'>
-                    {/* Невидимый элемент для выравнивания с кнопками слева */}
-                    <div className='w-8 shrink-0' aria-hidden='true' />
                     <ModelSelector
                         value={currentModel}
                         onChange={onModelChange}
@@ -627,36 +623,53 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     )}
                 </div>
 
-                {/* Поле ввода */}
-                <div className='flex gap-2'>
-                    {/* Вертикальная колонка с кнопками */}
-                    <div className='flex flex-col justify-start gap-1'>
-                        <input
-                            ref={fileInputRef}
-                            type='file'
-                            accept='image/*'
-                            multiple
-                            onChange={handleFileSelect}
-                            className='hidden'
-                        />
+                {/* Поле ввода с кнопками внутри */}
+                <div className='relative'>
+                    <input
+                        ref={fileInputRef}
+                        type='file'
+                        accept='image/*'
+                        multiple
+                        onChange={handleFileSelect}
+                        className='hidden'
+                    />
+                    <Textarea
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder='Опишите, что хотите сгенерировать...'
+                        className={cn(
+                            'h-[76px] resize-none border-slate-600 bg-slate-700 pb-10 pl-4 pr-12 text-white placeholder:text-slate-400',
+                            'focus-visible:ring-cyan-500'
+                        )}
+                        disabled={isDisabled}
+                    />
+
+                    {/* Кнопки слева внутри поля ввода */}
+                    <div className='absolute bottom-1.5 left-1.5 flex items-center gap-0'>
                         <Button
                             type='button'
-                            size='icon'
+                            size='icon-sm'
                             variant='ghost'
-                            className='shrink-0 text-slate-400 hover:text-cyan-400'
+                            className={cn(
+                                'h-8 w-8 hover:bg-slate-600',
+                                attachedFiles.length > 0
+                                    ? 'text-cyan-400 hover:text-cyan-300'
+                                    : 'text-slate-400 hover:text-cyan-400'
+                            )}
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isDisabled}
                         >
-                            <Paperclip className='h-5 w-5' />
+                            <Paperclip className='h-4 w-4' />
                         </Button>
 
                         {/* Кнопка замочка для сохранения промптов */}
                         <Button
                             type='button'
-                            size='icon'
+                            size='icon-sm'
                             variant='ghost'
                             className={cn(
-                                'shrink-0',
+                                'h-8 w-8 hover:bg-slate-600',
                                 isLockEnabled
                                     ? 'text-cyan-400 hover:text-cyan-300'
                                     : 'text-slate-400 hover:text-slate-300'
@@ -670,58 +683,44 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             }
                         >
                             {isLockEnabled ? (
-                                <Lock className='h-5 w-5' />
+                                <Lock className='h-4 w-4' />
                             ) : (
-                                <Unlock className='h-5 w-5' />
+                                <Unlock className='h-4 w-4' />
                             )}
                         </Button>
                     </div>
 
-                    {/* Textarea с кнопкой отправки внутри */}
-                    <div className='relative flex-1'>
-                        <Textarea
-                            value={prompt}
-                            onChange={(e) => setPrompt(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder='Опишите, что хотите сгенерировать...'
-                            className={cn(
-                                'h-[76px] resize-none border-slate-600 bg-slate-700 pb-10 pr-12 text-white placeholder:text-slate-400',
-                                'focus-visible:ring-cyan-500'
-                            )}
-                            disabled={isDisabled}
-                        />
-                        {/* Кнопка отправки внутри поля ввода */}
-                        <Button
-                            type='button'
-                            size='icon-sm'
-                            className='absolute bottom-1.5 right-1.5 bg-cyan-600 hover:bg-cyan-700 hover:text-cyan-400'
-                            onClick={(e) => {
-                                // Дополнительная проверка перед вызовом
-                                if (
-                                    submitInProgressRef.current ||
-                                    isSubmitting ||
-                                    isGenerating ||
-                                    isGeneratingTest ||
-                                    isDisabled
-                                ) {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    return;
-                                }
-                                handleSubmit(e);
-                            }}
-                            disabled={
-                                isDisabled ||
-                                (!prompt.trim() && attachedFiles.length === 0)
+                    {/* Кнопка отправки справа внутри поля ввода */}
+                    <Button
+                        type='button'
+                        size='icon-sm'
+                        className='absolute bottom-1.5 right-1.5 bg-cyan-600 hover:bg-cyan-700 hover:text-cyan-400'
+                        onClick={(e) => {
+                            // Дополнительная проверка перед вызовом
+                            if (
+                                submitInProgressRef.current ||
+                                isSubmitting ||
+                                isGenerating ||
+                                isGeneratingTest ||
+                                isDisabled
+                            ) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                return;
                             }
-                        >
-                            {isGenerating || isGeneratingTest ? (
-                                <Loader2 className='h-4 w-4 animate-spin' />
-                            ) : (
-                                <Send className='h-4 w-4' />
-                            )}
-                        </Button>
-                    </div>
+                            handleSubmit(e);
+                        }}
+                        disabled={
+                            isDisabled ||
+                            (!prompt.trim() && attachedFiles.length === 0)
+                        }
+                    >
+                        {isGenerating || isGeneratingTest ? (
+                            <Loader2 className='h-4 w-4 animate-spin' />
+                        ) : (
+                            <Send className='h-4 w-4' />
+                        )}
+                    </Button>
                 </div>
 
                 {/* Подсказка */}
