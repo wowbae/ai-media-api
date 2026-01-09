@@ -8,6 +8,8 @@ export interface GenerateMediaRequest {
     inputFiles?: string[]; // base64 или URL файлов для image-to-image
     format?: '9:16' | '16:9'; // Формат изображения для NANO_BANANA
     quality?: '1k' | '2k' | '4k'; // Качество изображения для NANO_BANANA
+    videoQuality?: '480p' | '720p' | '1080p'; // Качество видео для Sora и других видео-моделей
+    duration?: number; // Длина видео в секундах (1-20) для Sora
 }
 
 export interface GenerateMediaResponse {

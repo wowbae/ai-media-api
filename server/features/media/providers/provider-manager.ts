@@ -3,6 +3,7 @@ import type { MediaModel } from '@prisma/client';
 import type { MediaProvider } from './interfaces';
 import { createOpenRouterProvider } from './openrouter';
 import { createGPTunnelMediaProvider, createMidjourneyProvider } from './gptunnel';
+import { createLaoZhangProvider } from './laozhang';
 import { MEDIA_MODELS, type MediaModelConfig } from '../config';
 import 'dotenv/config';
 
@@ -53,6 +54,15 @@ export function createProviderManager(): ProviderManager {
 
         // Midjourney провайдер (использует /v1/midjourney API GPTunnel)
         providers.midjourney = createMidjourneyProvider(gptunnelConfig);
+    }
+
+    // LaoZhang провайдер (Nano Banana Pro, Sora 2, Veo 3.1)
+    const laozhangApiKey = process.env.LAOZHANG_API_KEY || '';
+    if (laozhangApiKey) {
+        providers.laozhang = createLaoZhangProvider({
+            apiKey: laozhangApiKey,
+            baseURL: 'https://api.laozhang.ai',
+        });
     }
 
     return {

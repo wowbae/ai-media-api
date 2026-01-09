@@ -7,6 +7,10 @@ const MODEL_ICONS: Record<string, string> = {
     KLING: '🎬',
     MIDJOURNEY: '🎨',
     VEO_3_1_FAST: '🎥',
+    SORA: '🌊',
+    NANO_BANANA_PRO: '🍌',
+    SORA_2: '🌊',
+    VEO_3_1: '🎥',
 };
 
 const DEFAULT_ICON = '✨';

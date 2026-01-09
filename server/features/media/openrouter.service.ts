@@ -28,7 +28,9 @@ export async function generateMedia(
     model: MediaModel,
     inputFiles: string[] = [],
     format?: '9:16' | '16:9',
-    quality?: '1k' | '2k' | '4k'
+    quality?: '1k' | '2k' | '4k',
+    videoQuality?: '480p' | '720p' | '1080p',
+    duration?: number
 ): Promise<SavedFileInfo[]> {
     const providerManager = getProviderManager();
     const provider = providerManager.getProvider(model);
@@ -64,6 +66,8 @@ export async function generateMedia(
             inputFiles,
             aspectRatio: format as '1:1' | '9:16' | '16:9' | undefined,
             quality,
+            videoQuality,
+            duration,
         };
 
         const result = await provider.generate(generateParams);

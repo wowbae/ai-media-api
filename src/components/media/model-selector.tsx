@@ -37,6 +37,10 @@ const PROVIDER_BADGE_CONFIG: Record<MediaProviderType, { label: string; classNam
         label: 'GPTunnel',
         className: 'bg-emerald-900/50 text-emerald-400 border-emerald-700/50',
     },
+    laozhang: {
+        label: 'LaoZhang',
+        className: 'bg-orange-900/50 text-orange-400 border-orange-700/50',
+    },
 };
 
 // Бейдж провайдера
@@ -47,6 +51,11 @@ interface ProviderBadgeProps {
 
 export function ProviderBadge({ provider, className }: ProviderBadgeProps) {
     const config = PROVIDER_BADGE_CONFIG[provider];
+
+    // Если конфиг не найден, не рендерим бейдж
+    if (!config) {
+        return null;
+    }
 
     return (
         <Badge
@@ -89,8 +98,8 @@ export function ModelSelector({
                         <span className='truncate'>
                             {currentModel?.name || value}
                         </span>
-                        {currentModel?.provider && (
-                            <ProviderBadge provider={currentModel.provider} />
+                        {currentModel?.provider && currentModel.provider in PROVIDER_BADGE_CONFIG && (
+                            <ProviderBadge provider={currentModel.provider as MediaProviderType} />
                         )}
                     </div>
                 </SelectValue>
@@ -120,7 +129,9 @@ export function ModelSelector({
                                         <div className='flex items-center gap-2 w-full min-w-[200px]'>
                                             <span>{getModelIcon(model.key)}</span>
                                             <span>{model.name}</span>
-                                            <ProviderBadge provider={model.provider} />
+                                            {model.provider && model.provider in PROVIDER_BADGE_CONFIG && (
+                                                <ProviderBadge provider={model.provider as MediaProviderType} />
+                                            )}
                                         </div>
                                     </SelectItem>
                                 ))}
@@ -143,7 +154,9 @@ export function ModelSelector({
                                         <div className='flex items-center gap-2 w-full min-w-[200px]'>
                                             <span>{getModelIcon(model.key)}</span>
                                             <span>{model.name}</span>
-                                            <ProviderBadge provider={model.provider} />
+                                            {model.provider && model.provider in PROVIDER_BADGE_CONFIG && (
+                                                <ProviderBadge provider={model.provider as MediaProviderType} />
+                                            )}
                                         </div>
                                     </SelectItem>
                                 ))}
@@ -172,8 +185,8 @@ export function ModelBadge({ model, showProvider = false }: ModelBadgeProps) {
                 <span className='mr-1'>{getModelIcon(model)}</span>
                 {modelInfo?.name || model}
             </Badge>
-            {showProvider && modelInfo?.provider && (
-                <ProviderBadge provider={modelInfo.provider} />
+            {showProvider && modelInfo?.provider && modelInfo.provider in PROVIDER_BADGE_CONFIG && (
+                <ProviderBadge provider={modelInfo.provider as MediaProviderType} />
             )}
         </div>
     );

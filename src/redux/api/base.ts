@@ -10,11 +10,15 @@ export type MediaModel =
     | 'NANO_BANANA'
     | 'KLING'
     | 'MIDJOURNEY'
-    | 'VEO_3_1_FAST';
+    | 'VEO_3_1_FAST'
+    | 'SORA'
+    | 'NANO_BANANA_PRO'
+    | 'SORA_2'
+    | 'VEO_3_1';
 
 export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
 export type RequestStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-export type MediaProviderType = 'openrouter' | 'gptunnel' | 'midjourney';
+export type MediaProviderType = 'openrouter' | 'gptunnel' | 'midjourney' | 'laozhang';
 
 // ==================== Интерфейсы сущностей ====================
 
@@ -90,6 +94,8 @@ export interface GenerateMediaRequest {
     inputFiles?: string[];
     format?: '9:16' | '16:9';
     quality?: '1k' | '2k' | '4k';
+    videoQuality?: '480p' | '720p' | '1080p';
+    duration?: number;
 }
 
 export interface GenerateMediaResponse {

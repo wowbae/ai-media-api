@@ -13,6 +13,8 @@ export interface GenerateParams {
     inputFiles?: string[];
     aspectRatio?: '1:1' | '9:16' | '16:9';
     quality?: '1k' | '2k' | '4k';
+    videoQuality?: '480p' | '720p' | '1080p';
+    duration?: number;
 }
 
 // Результат создания задачи (для async провайдеров)

@@ -59,6 +59,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
     const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
     const [format, setFormat] = useState<'9:16' | '16:9' | undefined>(undefined);
     const [quality, setQuality] = useState<'1k' | '2k' | '4k' | undefined>(undefined);
+    const [videoQuality, setVideoQuality] = useState<'480p' | '720p' | '1080p' | undefined>(undefined);
+    const [duration, setDuration] = useState<number | undefined>(undefined);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLockEnabled, setIsLockEnabled] = useState(false);
     const { isTestMode } = useTestMode();
@@ -72,6 +74,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
 
     const isDisabled = disabled || isGenerating || isGeneratingTest || isSubmitting;
     const isNanoBanana = currentModel === 'NANO_BANANA';
+    const isSora = currentModel === 'SORA';
 
     // Очистка таймера при размонтировании
     useEffect(() => {
@@ -325,6 +328,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
                     inputFiles: attachedFiles.map((f) => f.base64),
                     ...(isNanoBanana && format && { format }),
                     ...(isNanoBanana && quality && { quality }),
+                    ...(isSora && videoQuality && { videoQuality }),
+                    ...(isSora && duration && { duration }),
                 }).unwrap();
                 console.log('[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:', result.requestId);
             }

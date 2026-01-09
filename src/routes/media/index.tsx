@@ -69,7 +69,7 @@ function MediaIndexPage() {
                         <div className='mb-8 flex flex-wrap justify-center gap-3'>
                             <ModelCard
                                 emoji='🍌'
-                                name='Nano Banana 2 Pro'
+                                name='Nano Banana Pro'
                                 description='Gemini 3 Pro'
                             />
                             <ModelCard

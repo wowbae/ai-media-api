@@ -49,6 +49,11 @@ enum MediaModel {
   KLING
   MIDJOURNEY
   VEO_3_1_FAST
+  SORA
+  // LaoZhang провайдер
+  NANO_BANANA_PRO
+  SORA_2
+  VEO_3_1
 }
 
 enum MediaType {

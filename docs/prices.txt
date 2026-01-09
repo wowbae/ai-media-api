@@ -1,5 +1,11 @@
 GPTtunnel
-- veo 3.1 fast - 49 рублей
+- veo 3.1 fast - 49₽
+- sora - цена уточняется
 
 OpenRouter
-- banana pro - 11 рублей
+- banana pro - 11₽
+
+Laozhang (https://api.laozhang.ai)
+- nano banana pro - 4.8₽ ($0.05 за 4K изображение)
+- sora 2 - 14₽ ($0.30 за видео 540p, 10s)
+- veo 3.1 - ~50₽ ($0.50 за видео 720p, async)

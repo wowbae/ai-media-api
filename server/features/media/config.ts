@@ -2,7 +2,7 @@
 // Единственный источник истины для всех провайдеров
 import 'dotenv/config';
 
-export type MediaProviderType = 'openrouter' | 'gptunnel' | 'midjourney';
+export type MediaProviderType = 'openrouter' | 'gptunnel' | 'midjourney' | 'laozhang';
 
 export interface MediaModelConfig {
     id: string;
@@ -20,7 +20,7 @@ export interface MediaModelConfig {
 export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
     NANO_BANANA: {
         id: 'google/gemini-3-pro-image-preview',
-        name: 'Nano Banana 2 Pro',
+        name: 'Nano Banana Pro',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
         supportsImageInput: true,
@@ -61,6 +61,51 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         provider: 'gptunnel',
         pricing: {
             output: 0.1,
+        },
+    },
+    SORA: {
+        id: 'sora',
+        name: 'Sora',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 4096,
+        supportsImageInput: false,
+        provider: 'gptunnel',
+        pricing: {
+            output: 0.1,
+        },
+    },
+    // LaoZhang провайдер - модели для генерации изображений и видео
+    NANO_BANANA_PRO: {
+        id: 'gemini/gemini-2.0-flash-exp-image-generation',
+        name: 'Nano Banana Pro',
+        types: ['IMAGE'] as const,
+        maxPromptLength: 8192,
+        supportsImageInput: true,
+        provider: 'laozhang',
+        pricing: {
+            output: 0.05, // $0.05 за изображение 4K
+        },
+    },
+    SORA_2: {
+        id: 'sora-2-540p-10s',
+        name: 'Sora 2',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 4096,
+        supportsImageInput: true,
+        provider: 'laozhang',
+        pricing: {
+            output: 0.3, // стоимость за видео
+        },
+    },
+    VEO_3_1: {
+        id: 'veo-3.1-720p-async',
+        name: 'Veo 3.1',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 4096,
+        supportsImageInput: true,
+        provider: 'laozhang',
+        pricing: {
+            output: 0.5, // стоимость за видео
         },
     },
 };

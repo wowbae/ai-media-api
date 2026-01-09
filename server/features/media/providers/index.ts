@@ -17,6 +17,14 @@ export {
     type OpenRouterConfig,
 } from './openrouter';
 
+// LaoZhang провайдер (Nano Banana Pro, Sora 2, Veo 3.1)
+export {
+    createLaoZhangProvider,
+    createLaoZhangImageProvider,
+    createLaoZhangVideoProvider,
+    type LaoZhangConfig,
+} from './laozhang';
+
 // Менеджер провайдеров
 export {
     createProviderManager,

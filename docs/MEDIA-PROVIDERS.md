@@ -23,6 +23,7 @@ APP_URL=http://localhost:3000
 
 **Модели:**
 - `VEO_3_1_FAST` - Google Veo 3.1 Fast (генерация видео)
+- `SORA` - OpenAI Sora (генерация видео)
 
 **Переменные окружения:**
 ```env
@@ -113,6 +114,23 @@ interface GenerateParams {
     model: MediaModel;
     inputFiles?: string[];           // URL или base64 для image-to-video
     aspectRatio?: '1:1' | '9:16' | '16:9';
-    quality?: '1k' | '2k' | '4k';
+    quality?: '1k' | '2k' | '4k';   // Качество для изображений
+    videoQuality?: '480p' | '720p' | '1080p'; // Качество для видео (Sora)
+    duration?: number;               // Длина видео в секундах (1-20) для Sora
 }
 ```
+
+### Специфичные параметры моделей
+
+**Для изображений (NANO_BANANA, MIDJOURNEY):**
+- `quality`: '1k' | '2k' | '4k' - разрешение изображения
+- `aspectRatio`: '1:1' | '9:16' | '16:9' - соотношение сторон
+
+**Для видео Sora:**
+- `videoQuality`: '480p' | '720p' | '1080p' - качество видео
+- `duration`: число от 1 до 20 - длина видео в секундах
+- `aspectRatio`: '1:1' | '16:9' | '9:16' - соотношение сторон
+
+**Для видео Veo 3.1 Fast:**
+- `aspectRatio`: '1:1' | '9:16' | '16:9' - соотношение сторон
+- `inputFiles`: поддерживается image-to-video
