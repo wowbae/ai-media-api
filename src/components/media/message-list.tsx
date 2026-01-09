@@ -181,7 +181,7 @@ function MessageItem({
                     </Button>
                 )}
                 <div className='max-w-[80%] rounded-2xl rounded-tr-sm bg-cyan-600 px-4 py-3'>
-                    <p className='whitespace-pre-wrap text-white'>
+                    <p className='whitespace-pre-wrap text-white text-sm'>
                         {request.prompt}
                     </p>
                     {/* Превью прикрепленных файлов */}
