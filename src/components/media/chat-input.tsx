@@ -515,24 +515,35 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 {/* Прикрепленные файлы */}
                 {attachedFiles.length > 0 && (
                     <div className='mb-3 flex flex-wrap gap-2'>
-                        {attachedFiles.map((file) => (
-                            <div
-                                key={file.id}
-                                className='group relative h-16 w-16 overflow-hidden rounded-lg border border-slate-600'
-                            >
-                                <img
-                                    src={file.preview}
-                                    alt='Attachment'
-                                    className='h-full w-full object-cover'
-                                />
-                                <button
-                                    onClick={() => removeFile(file.id)}
-                                    className='absolute right-0.5 top-0.5 rounded-full bg-slate-900/80 p-0.5 opacity-0 transition-opacity group-hover:opacity-100'
+                        {attachedFiles.map((file) => {
+                            const isVideo = file.file.type.startsWith('video/');
+                            return (
+                                <div
+                                    key={file.id}
+                                    className='group relative h-16 w-16 overflow-hidden rounded-lg border border-slate-600'
                                 >
-                                    <X className='h-3 w-3 text-white' />
-                                </button>
-                            </div>
-                        ))}
+                                    {isVideo ? (
+                                        <video
+                                            src={file.preview}
+                                            className='h-full w-full object-cover'
+                                            muted
+                                        />
+                                    ) : (
+                                        <img
+                                            src={file.preview}
+                                            alt='Attachment'
+                                            className='h-full w-full object-cover'
+                                        />
+                                    )}
+                                    <button
+                                        onClick={() => removeFile(file.id)}
+                                        className='absolute right-0.5 top-0.5 rounded-full bg-slate-900/80 p-0.5 opacity-0 transition-opacity group-hover:opacity-100'
+                                    >
+                                        <X className='h-3 w-3 text-white' />
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -691,7 +702,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     <input
                         ref={fileInputRef}
                         type='file'
-                        accept='image/*'
+                        accept='image/*,video/*'
                         multiple
                         onChange={handleFileSelect}
                         className='hidden'
