@@ -99,7 +99,33 @@ export function createGPTunnelMediaProvider(config: GPTunnelConfig): MediaProvid
             );
         }
 
-        return (await response.json()) as GPTunnelMediaResultResponse;
+        const data = (await response.json()) as GPTunnelMediaResultResponse;
+
+        // Проверяем code в ответе только если это критическая ошибка API (не статус задачи)
+        // Статус "failed" обрабатывается нормально через checkTaskStatus
+        if (data.code !== 0 && data.status !== 'failed') {
+            const errorMessage = data.error || `GPTunnel error code: ${data.code}`;
+            console.error('[GPTunnel Media] Критическая ошибка API:', {
+                taskId,
+                code: data.code,
+                status: data.status,
+                error: data.error,
+                fullResponse: data,
+            });
+            throw new Error(errorMessage);
+        }
+
+        // Логируем ошибки даже если code === 0, но статус failed
+        if (data.status === 'failed') {
+            console.warn('[GPTunnel Media] Задача завершилась с ошибкой:', {
+                taskId,
+                code: data.code,
+                status: data.status,
+                error: data.error,
+            });
+        }
+
+        return data;
     }
 
     return {
@@ -120,16 +146,21 @@ export function createGPTunnelMediaProvider(config: GPTunnelConfig): MediaProvid
         async checkTaskStatus(taskId: string): Promise<TaskStatusResult> {
             const result = await getResult(taskId);
 
+            const mappedStatus = PROVIDER_STATUS_MAP[result.status] || 'pending';
+
             console.log('[GPTunnel Media] Статус задачи:', {
                 taskId,
                 status: result.status,
+                mappedStatus,
                 hasUrl: !!result.url,
+                error: result.error || undefined,
+                code: result.code,
             });
 
             return {
-                status: PROVIDER_STATUS_MAP[result.status] || 'pending',
+                status: mappedStatus,
                 url: result.url || undefined,
-                error: result.error,
+                error: result.error || undefined,
             };
         },
 

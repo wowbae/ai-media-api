@@ -114,6 +114,15 @@ function MessageItem({
         }
     }
 
+    // Определение класса фона для ответа нейросети
+    function getResponseBackgroundClass(): string {
+        if (request.status === 'FAILED') {
+            return 'bg-red-950/50 border border-red-900/30';
+        }
+        // Синеватый фон в тему с глобальным bg-slate-900
+        return 'bg-slate-800/60 border border-slate-700/50';
+    }
+
     return (
         <div className='space-y-3'>
             {/* Промпт пользователя */}
@@ -148,7 +157,7 @@ function MessageItem({
                     {(request.status !== 'COMPLETED' ||
                         (request.status === 'COMPLETED' &&
                             request.files.length === 0)) && (
-                        <div className='rounded-2xl rounded-tl-sm bg-slate-700 px-4 py-3'>
+                        <div className={`rounded-2xl rounded-tl-sm px-4 py-3 ${getResponseBackgroundClass()}`}>
                             {/* Статус */}
                             <StatusBadge status={request.status} />
 
@@ -171,7 +180,7 @@ function MessageItem({
                                     <span className='text-sm'>
                                         {request.status === 'PENDING'
                                             ? 'В очереди...'
-                                            : 'Рисуем...'}
+                                            : 'Креативим...'}
                                     </span>
                                 </div>
                             )}
@@ -216,7 +225,7 @@ function MessageItem({
                                                 key={file.id}
                                                 className='group flex items-start gap-2'
                                             >
-                                                <div className='inline-block w-fit rounded-2xl rounded-tl-sm bg-slate-700 p-2'>
+                                                <div className={`inline-block w-fit rounded-2xl rounded-tl-sm p-2 ${getResponseBackgroundClass()}`}>
                                                     <MediaPreview
                                                         file={file}
                                                         onAttach={onAttachFile}

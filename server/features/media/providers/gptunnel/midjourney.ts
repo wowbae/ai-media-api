@@ -108,16 +108,30 @@ export function createMidjourneyProvider(config: GPTunnelConfig): MediaProvider 
         async checkTaskStatus(taskId: string): Promise<TaskStatusResult> {
             const result = await getTaskResultFromAPI(taskId);
 
-            console.log('[GPTunnel Midjourney] Статус задачи:', {
-                taskId,
-                status: result.status,
-                percent: result.percent,
-                hasResult: !!result.result,
-                error: result.error,
-            });
+            const mappedStatus = PROVIDER_STATUS_MAP[result.status] || 'pending';
+
+            // Логируем ошибки при статусе failed
+            if (result.status === 'failed') {
+                console.warn('[GPTunnel Midjourney] Задача завершилась с ошибкой:', {
+                    taskId,
+                    status: result.status,
+                    mappedStatus,
+                    percent: result.percent,
+                    error: result.error,
+                });
+            } else {
+                console.log('[GPTunnel Midjourney] Статус задачи:', {
+                    taskId,
+                    status: result.status,
+                    mappedStatus,
+                    percent: result.percent,
+                    hasResult: !!result.result,
+                    error: result.error || undefined,
+                });
+            }
 
             return {
-                status: PROVIDER_STATUS_MAP[result.status] || 'pending',
+                status: mappedStatus,
                 url: result.result || undefined,
                 error: result.error || undefined,
             };

@@ -175,6 +175,7 @@ async function pollTaskResult(
             console.log(`[MediaService] Polling статус: requestId=${requestId}`, {
                 status: status.status,
                 hasUrl: !!status.url,
+                error: status.error || undefined,
             });
 
             if (status.status === 'done') {
@@ -207,17 +208,34 @@ async function pollTaskResult(
             }
 
             if (status.status === 'failed') {
-                throw new Error(status.error || 'Генерация не удалась');
+                const errorMessage =
+                    status.error ||
+                    'Генерация не удалась. Детали ошибки не предоставлены провайдером.';
+                console.error(
+                    `[MediaService] ⚠️ Задача завершилась с ошибкой: requestId=${requestId}, taskId=${taskId}`,
+                    {
+                        error: status.error,
+                        provider: provider.name,
+                    }
+                );
+                throw new Error(errorMessage);
             }
 
             // pending или processing - продолжаем polling
         } catch (error) {
             const errorMessage =
                 error instanceof Error ? error.message : 'Polling error';
+            const errorStack =
+                error instanceof Error ? error.stack : undefined;
+
             console.error(
-                `[MediaService] ❌ Ошибка polling: requestId=${requestId}:`,
+                `[MediaService] ❌ Ошибка polling: requestId=${requestId}, taskId=${taskId}:`,
                 errorMessage
             );
+
+            if (errorStack) {
+                console.error('[MediaService] Stack trace:', errorStack);
+            }
 
             await prisma.mediaRequest.update({
                 where: { id: requestId },
