@@ -128,7 +128,7 @@ function MessageItem({
             {/* Промпт пользователя */}
             <div className='group flex items-start justify-end gap-2'>
                 {/* Кнопка редактирования слева от сообщения */}
-                {request.status === 'COMPLETED' && onEditPrompt && (
+                {onEditPrompt && (
                     <Button
                         type='button'
                         size='icon'
