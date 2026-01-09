@@ -643,6 +643,95 @@ mediaRouter.delete('/files/:id', async (req: Request, res: Response) => {
     }
 });
 
+// ==================== Thumbnail ====================
+
+// Сохранить thumbnail для видео (генерируется на клиенте через canvas)
+mediaRouter.post('/files/:id/thumbnail', async (req: Request, res: Response) => {
+    try {
+        const fileId = parseInt(req.params.id);
+        const { thumbnail } = req.body as { thumbnail: string }; // base64 image
+
+        if (!thumbnail) {
+            return res.status(400).json({ success: false, error: 'thumbnail обязателен' });
+        }
+
+        // Проверяем существование файла
+        const file = await prisma.mediaFile.findUnique({
+            where: { id: fileId },
+        });
+
+        if (!file) {
+            return res.status(404).json({ success: false, error: 'Файл не найден' });
+        }
+
+        // Проверяем, что это видео
+        if (file.type !== 'VIDEO') {
+            return res.status(400).json({ success: false, error: 'Thumbnail можно создать только для видео' });
+        }
+
+        // Если превью уже существует - не перезаписываем
+        if (file.previewPath) {
+            return res.json({
+                success: true,
+                data: { previewPath: file.previewPath },
+                message: 'Превью уже существует'
+            });
+        }
+
+        // Извлекаем base64 данные (убираем data:image/jpeg;base64, prefix)
+        const base64Data = thumbnail.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // Импортируем sharp для обработки изображения
+        let sharp: typeof import('sharp') | null = null;
+        try {
+            sharp = (await import('sharp')).default;
+        } catch {
+            console.warn('Sharp не установлен - превью будет сохранено без обработки');
+        }
+
+        // Генерируем имя файла для превью
+        const previewFilename = `preview-${file.filename.replace(/\.[^.]+$/, '.jpg')}`;
+        const fullPreviewPath = path.join(mediaStorageConfig.previewsPath, previewFilename);
+
+        // Сохраняем превью (с оптимизацией через sharp если доступен)
+        if (sharp) {
+            const { width, height } = mediaStorageConfig.previewSize;
+            await sharp(buffer)
+                .resize(width, height, {
+                    fit: 'cover',
+                    position: 'center',
+                })
+                .jpeg({ quality: 80 })
+                .toFile(fullPreviewPath);
+        } else {
+            // Fallback: сохраняем как есть
+            const { writeFile } = await import('fs/promises');
+            await writeFile(fullPreviewPath, buffer);
+        }
+
+        // Формируем относительный путь
+        const relativePreviewPath = path.relative(mediaStorageConfig.basePath, fullPreviewPath);
+
+        // Обновляем запись в БД
+        await prisma.mediaFile.update({
+            where: { id: fileId },
+            data: { previewPath: relativePreviewPath },
+        });
+
+        console.log(`[API] ✅ Thumbnail создан для файла ${fileId}: ${relativePreviewPath}`);
+
+        res.json({
+            success: true,
+            data: { previewPath: relativePreviewPath },
+            message: 'Превью успешно создано'
+        });
+    } catch (error) {
+        console.error('Ошибка создания превью:', error);
+        res.status(500).json({ success: false, error: 'Ошибка создания превью' });
+    }
+});
+
 // ==================== Модели ====================
 
 // Получить доступные модели

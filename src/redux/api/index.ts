@@ -33,6 +33,7 @@ export {
     useGenerateMediaTestMutation,
     useGetRequestQuery,
     useGetFilesQuery,
+    useUploadThumbnailMutation,
     useDeleteFileMutation,
 } from './media.endpoints';
 

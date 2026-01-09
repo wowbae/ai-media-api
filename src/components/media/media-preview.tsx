@@ -1,5 +1,5 @@
 // Компонент превью медиа-файлов (изображения, видео, аудио)
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Download,
     Maximize2,
@@ -13,9 +13,21 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatFileSize, downloadFile } from '@/lib/utils';
 import { getMediaFileUrl } from '@/lib/constants';
-import { type MediaFile, type MediaType, useDeleteFileMutation } from '@/redux/media-api';
+import {
+    type MediaFile,
+    type MediaType,
+    useDeleteFileMutation,
+    useUploadThumbnailMutation,
+} from '@/redux/media-api';
+import {
+    extractVideoThumbnail,
+    isThumbnailPending,
+    markThumbnailPending,
+    unmarkThumbnailPending,
+} from '@/lib/video-thumbnail';
 
 interface MediaPreviewProps {
     file: MediaFile;
@@ -30,7 +42,8 @@ export function MediaPreview({ file, showDelete = false, className, onAttach }: 
 
     // Получаем URL файла для отображения
     const fileUrl = getMediaFileUrl(file.path);
-    const previewUrl = file.previewPath
+    // previewUrl для изображений (для видео логика внутри VideoPreview)
+    const imagePreviewUrl = file.previewPath
         ? getMediaFileUrl(file.previewPath)
         : fileUrl;
 
@@ -57,7 +70,7 @@ export function MediaPreview({ file, showDelete = false, className, onAttach }: 
                 {/* Контент в зависимости от типа */}
                 {file.type === 'IMAGE' && (
                     <ImagePreview
-                        src={previewUrl}
+                        src={imagePreviewUrl}
                         alt={file.filename}
                         onClick={() => setIsFullscreen(true)}
                     />
@@ -65,7 +78,8 @@ export function MediaPreview({ file, showDelete = false, className, onAttach }: 
 
                 {file.type === 'VIDEO' && (
                     <VideoPreview
-                        previewUrl={previewUrl}
+                        fileId={file.id}
+                        previewUrl={file.previewPath}
                         originalUrl={fileUrl}
                         filename={file.filename}
                     />
@@ -173,7 +187,7 @@ export function MediaPreview({ file, showDelete = false, className, onAttach }: 
                                     <X className="h-4 w-4" />
                                 </Button>
                             </div>
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                            <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-4">
                                 <div className="flex items-center justify-between text-white">
                                     <span className="font-medium">{file.filename}</span>
                                     <span className="text-sm text-slate-300">
@@ -232,40 +246,128 @@ function ImagePreview({ src, alt, onClick }: ImagePreviewProps) {
 }
 
 // Превью видео - показывает только превью, оригинал загружается по требованию
+// Автоматически генерирует thumbnail если его нет
 interface VideoPreviewProps {
-    previewUrl: string;
+    fileId: number;
+    previewUrl: string | null;
     originalUrl: string;
     filename: string;
 }
 
-function VideoPreview({ previewUrl, originalUrl, filename }: VideoPreviewProps) {
+function VideoPreview({
+    fileId,
+    previewUrl,
+    originalUrl,
+    filename,
+}: VideoPreviewProps) {
     const [shouldLoadOriginal, setShouldLoadOriginal] = useState(false);
     const [isPreviewLoaded, setIsPreviewLoaded] = useState(false);
     const [hasPreviewError, setHasPreviewError] = useState(false);
+    const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
+    const [localThumbnail, setLocalThumbnail] = useState<string | null>(null);
+    const thumbnailGeneratedRef = useRef(false);
+
+    const [uploadThumbnail] = useUploadThumbnailMutation();
+
+    // Проверяем, является ли previewUrl временным (оптимистичное обновление)
+    const isPendingPreview = previewUrl?.startsWith('__pending__') ?? false;
+    const actualPreviewUrl = isPendingPreview && previewUrl
+        ? previewUrl.replace('__pending__', '')
+        : previewUrl;
+
+    // Автоматическая генерация thumbnail если его нет
+    useEffect(() => {
+        // Пропускаем если:
+        // - уже есть превью
+        // - генерация уже запущена
+        // - уже пытались генерировать
+        // - файл в процессе генерации глобально
+        if (
+            previewUrl ||
+            isGeneratingThumbnail ||
+            thumbnailGeneratedRef.current ||
+            isThumbnailPending(fileId)
+        ) {
+            return;
+        }
+
+        async function generateThumbnail() {
+            thumbnailGeneratedRef.current = true;
+            markThumbnailPending(fileId);
+            setIsGeneratingThumbnail(true);
+
+            try {
+                const thumbnail = await extractVideoThumbnail(originalUrl);
+
+                if (thumbnail) {
+                    // Сразу показываем локально
+                    setLocalThumbnail(thumbnail);
+
+                    // Отправляем на сервер в фоне
+                    uploadThumbnail({ fileId, thumbnail }).catch((error) => {
+                        console.warn(
+                            '[VideoPreview] Ошибка загрузки thumbnail на сервер:',
+                            error
+                        );
+                    });
+                }
+            } catch (error) {
+                console.warn('[VideoPreview] Ошибка генерации thumbnail:', error);
+            } finally {
+                setIsGeneratingThumbnail(false);
+                unmarkThumbnailPending(fileId);
+            }
+        }
+
+        generateThumbnail();
+    }, [fileId, previewUrl, originalUrl, isGeneratingThumbnail, uploadThumbnail]);
 
     function handlePlay() {
         // Загружаем оригинал только при попытке воспроизведения
         setShouldLoadOriginal(true);
     }
 
+    // Определяем какой URL использовать для превью
+    // Если previewUrl начинается с data: - это base64 из оптимистичного обновления
+    const displayPreviewUrl = actualPreviewUrl
+        ? actualPreviewUrl.startsWith('data:')
+            ? actualPreviewUrl
+            : getMediaFileUrl(actualPreviewUrl)
+        : localThumbnail;
+
     // Если пользователь хочет воспроизвести - показываем оригинал
-    // Контролы видео скрыты по умолчанию, показываются при наведении (стили в styles.css)
     if (shouldLoadOriginal) {
         return (
             <div className="group/video relative aspect-square">
                 <video
                     src={originalUrl}
-                    poster={previewUrl}
+                    poster={displayPreviewUrl || undefined}
                     controls
-                    // autoPlay
                     className="h-full w-full object-cover video-controls-on-hover"
                 />
             </div>
         );
     }
 
-    // Если нет превью - показываем плейсхолдер с кнопкой воспроизведения
-    if (!previewUrl || hasPreviewError) {
+    // Если генерируется thumbnail - показываем скелетон
+    if (isGeneratingThumbnail && !localThumbnail) {
+        return (
+            <div
+                className="relative aspect-square cursor-pointer overflow-hidden"
+                onClick={handlePlay}
+            >
+                <Skeleton className="h-full w-full rounded-none" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="rounded-full bg-white/20 p-4 backdrop-blur-sm animate-pulse">
+                        <Video className="h-8 w-8 text-white" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Если нет превью и нет локального thumbnail - показываем плейсхолдер
+    if (!displayPreviewUrl || hasPreviewError) {
         return (
             <div
                 className="relative aspect-square cursor-pointer overflow-hidden bg-slate-800"
@@ -281,14 +383,14 @@ function VideoPreview({ previewUrl, originalUrl, filename }: VideoPreviewProps) 
         );
     }
 
-    // Показываем только превью (lazy loading оригинала)
+    // Показываем превью (серверное или локальное)
     return (
         <div
             className="relative aspect-square cursor-pointer overflow-hidden"
             onClick={handlePlay}
         >
             <img
-                src={previewUrl}
+                src={displayPreviewUrl}
                 alt={filename}
                 loading="lazy"
                 className={cn(
@@ -298,7 +400,6 @@ function VideoPreview({ previewUrl, originalUrl, filename }: VideoPreviewProps) 
                 onLoad={() => setIsPreviewLoaded(true)}
                 onError={() => {
                     setHasPreviewError(true);
-                    setShouldLoadOriginal(true);
                 }}
             />
             {!isPreviewLoaded && (
@@ -306,12 +407,8 @@ function VideoPreview({ previewUrl, originalUrl, filename }: VideoPreviewProps) 
                     <Video className="h-8 w-8 animate-pulse text-slate-600" />
                 </div>
             )}
-            {/* Overlay с иконкой воспроизведения */}
-            <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity hover:bg-black/40">
-                <div className="rounded-full bg-white/20 p-4 backdrop-blur-sm">
-                    <Video className="h-8 w-8 text-white" />
-                </div>
-            </div>
+            {/* Тонкий hover эффект для индикации кликабельности */}
+            <div className="absolute inset-0 bg-black/0 transition-colors hover:bg-black/10" />
         </div>
     );
 }

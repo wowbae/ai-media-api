@@ -34,6 +34,7 @@ export {
     useGenerateMediaTestMutation,
     useGetRequestQuery,
     useGetFilesQuery,
+    useUploadThumbnailMutation,
     useDeleteFileMutation,
     useGetModelsQuery,
 } from './api/index';

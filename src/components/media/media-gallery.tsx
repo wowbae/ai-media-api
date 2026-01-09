@@ -257,9 +257,13 @@ function MediaFullscreenView({
     onAttachFile,
 }: MediaFullscreenViewProps) {
     const fileUrl = getMediaFileUrl(file.path);
+    // Поддержка base64 превью из оптимистичного обновления
     const previewUrl = file.previewPath
-        ? getMediaFileUrl(file.previewPath)
-        : fileUrl;
+        ? file.previewPath.startsWith('data:') ||
+          file.previewPath.startsWith('__pending__')
+            ? file.previewPath.replace('__pending__', '')
+            : getMediaFileUrl(file.previewPath)
+        : undefined;
 
     // Обработка клавиши Escape для закрытия
     useEffect(() => {
