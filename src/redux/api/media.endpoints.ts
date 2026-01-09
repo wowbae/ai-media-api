@@ -91,7 +91,30 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 url: `/chats/${id}`,
                 method: 'DELETE',
             }),
-            invalidatesTags: [{ type: 'Chat', id: 'LIST' }],
+            async onQueryStarted(chatId, { dispatch, queryFulfilled }) {
+                // Оптимистично удаляем чат из списка
+                const patchResult = dispatch(
+                    mediaEndpoints.util.updateQueryData('getChats', undefined, (draft) => {
+                        if (draft) {
+                            const index = draft.findIndex((chat) => chat.id === chatId);
+                            if (index !== -1) {
+                                draft.splice(index, 1);
+                            }
+                        }
+                    })
+                );
+
+                try {
+                    await queryFulfilled;
+                } catch {
+                    // Откатываем изменения при ошибке
+                    patchResult.undo();
+                }
+            },
+            invalidatesTags: (_result, _error, chatId) => [
+                { type: 'Chat', id: chatId },
+                { type: 'Chat', id: 'LIST' },
+            ],
         }),
 
         // ==================== Генерация ====================
@@ -233,33 +256,47 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 url: `/files/${id}`,
                 method: 'DELETE',
             }),
-            async onQueryStarted(
-                fileId,
-                { dispatch, queryFulfilled, getState }
-            ) {
-                // Оптимистичное обновление: удаляем файл из всех чатов в кеше
+            async onQueryStarted(fileId, { dispatch, queryFulfilled, getState }) {
+                // Получаем все кешированные запросы
                 const state = getState() as {
                     [key: string]: {
                         queries: Record<
                             string,
-                            { data?: MediaChatWithRequests; status: string }
+                            {
+                                endpointName?: string;
+                                data?: MediaChatWithRequests | MediaRequest;
+                                status: string;
+                                originalArgs?: { id: number; limit?: number } | number;
+                            }
                         >;
                     };
                 };
                 const apiState = state[baseApi.reducerPath];
                 const queries = apiState?.queries || {};
 
-                // Находим все запросы getChat и оптимистично удаляем файл
-                const patches: Array<{
-                    queryCacheKey: string;
+                // Находим чат, в котором есть удаляемый файл, и ID чата
+                let chatId: number | null = null;
+                const chatPatches: Array<{
+                    undo: () => void;
                     chatId: number;
+                    args: { id: number; limit?: number };
                 }> = [];
 
+                // Находим все запросы getChat и оптимистично удаляем файл
                 for (const [queryKey, queryData] of Object.entries(queries)) {
+                    // Проверяем тип запроса через endpointName или queryKey
+                    const isGetChat =
+                        queryData?.endpointName === 'getChat' ||
+                        queryKey.includes('"getChat"') ||
+                        queryKey.startsWith('getChat(');
+
                     if (
-                        queryKey.includes('getChat(') &&
+                        isGetChat &&
                         queryData?.data &&
-                        queryData.status === 'fulfilled'
+                        queryData.status === 'fulfilled' &&
+                        queryData.originalArgs &&
+                        typeof queryData.originalArgs === 'object' &&
+                        'id' in queryData.originalArgs
                     ) {
                         const chat = queryData.data as MediaChatWithRequests;
                         // Проверяем, есть ли этот файл в чате
@@ -268,16 +305,20 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                         );
 
                         if (hasFile) {
-                            patches.push({
-                                queryCacheKey: queryKey,
-                                chatId: chat.id,
-                            });
+                            if (!chatId) {
+                                chatId = chat.id;
+                            }
+
+                            const args = queryData.originalArgs as {
+                                id: number;
+                                limit?: number;
+                            };
 
                             // Оптимистично удаляем файл из кеша
-                            dispatch(
+                            const patchResult = dispatch(
                                 mediaEndpoints.util.updateQueryData(
                                     'getChat',
-                                    chat.id,
+                                    args,
                                     (draft) => {
                                         if (draft?.requests) {
                                             draft.requests = draft.requests.map(
@@ -292,27 +333,34 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                                     }
                                 )
                             );
+                            chatPatches.push({
+                                undo: patchResult.undo,
+                                chatId: chat.id,
+                                args,
+                            });
                         }
                     }
 
                     // Также обновляем getRequest, если файл был в запросе
+                    const isGetRequest =
+                        queryData?.endpointName === 'getRequest' ||
+                        queryKey.includes('"getRequest"') ||
+                        queryKey.startsWith('getRequest(');
+
                     if (
-                        queryKey.includes('getRequest(') &&
+                        isGetRequest &&
                         queryData?.data &&
-                        queryData.status === 'fulfilled'
+                        queryData.status === 'fulfilled' &&
+                        typeof queryData.originalArgs === 'number'
                     ) {
-                        const request =
-                            queryData.data as unknown as MediaRequest;
+                        const request = queryData.data as MediaRequest;
                         if (
                             request &&
-                            'id' in request &&
                             'files' in request &&
                             Array.isArray(request.files) &&
-                            request.files.some(
-                                (f: MediaFile) => f.id === fileId
-                            )
+                            request.files.some((f: MediaFile) => f.id === fileId)
                         ) {
-                            const requestId = request.id as number;
+                            const requestId = queryData.originalArgs;
                             dispatch(
                                 mediaEndpoints.util.updateQueryData(
                                     'getRequest',
@@ -330,25 +378,38 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                     }
                 }
 
+                // Оптимистично обновляем список чатов (для счетчиков файлов)
+                let chatsPatch: { undo: () => void } | null = null;
+                if (chatId) {
+                    chatsPatch = dispatch(
+                        mediaEndpoints.util.updateQueryData(
+                            'getChats',
+                            undefined,
+                            (draft) => {
+                                if (draft) {
+                                    const chat = draft.find((c) => c.id === chatId);
+                                    if (chat && chat._count && chat._count.files > 0) {
+                                        chat._count.files -= 1;
+                                    }
+                                }
+                            }
+                        )
+                    );
+                }
+
                 // Ожидаем завершения запроса и откатываем изменения в случае ошибки
                 try {
                     await queryFulfilled;
                 } catch {
                     // В случае ошибки откатываем все оптимистичные обновления
-                    for (const patch of patches) {
-                        dispatch(
-                            mediaEndpoints.util.invalidateTags([
-                                { type: 'Chat', id: patch.chatId },
-                            ])
-                        );
-                    }
+                    chatPatches.forEach((patch) => patch.undo());
+                    chatsPatch?.undo();
                 }
             },
             invalidatesTags: (_result, _error, fileId) => [
                 { type: 'File', id: fileId },
                 { type: 'File', id: 'LIST' },
                 { type: 'Request', id: 'LIST' },
-                { type: 'Chat', id: 'LIST' },
             ],
         }),
     }),

@@ -33,6 +33,7 @@ export function createMidjourneyProvider(config: GPTunnelConfig): MediaProvider 
                 Authorization: apiKey,
             },
             body: JSON.stringify({
+                model: 'midjourney',
                 prompt,
                 useWalletBalance: true,
             }),

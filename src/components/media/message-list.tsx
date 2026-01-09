@@ -192,7 +192,7 @@ function MessageItem({
                                 request.errorMessage && (
                                     <div className='mt-2 flex items-start gap-2 rounded-lg bg-red-900/30 p-3 text-red-300'>
                                         <AlertCircle className='mt-0.5 h-4 w-4 shrink-0' />
-                                        <p className='text-sm'>
+                                        <p className='text-xs'>
                                             {request.errorMessage}
                                         </p>
                                     </div>
@@ -390,11 +390,13 @@ function formatTime(dateString: string): string {
 }
 
 // Получить отображаемое название провайдера
+// Провайдеры: openrouter, gptunnel, laozhang
+// midjourney - это внутренний провайдер, который использует GPTunnel API, поэтому показываем GPTunnel
 function getProviderDisplayName(provider: string): string {
     const providerNames: Record<string, string> = {
         openrouter: 'OpenRouter',
         gptunnel: 'GPTunnel',
-        midjourney: 'Midjourney',
+        midjourney: 'GPTunnel', // Midjourney использует GPTunnel API
         laozhang: 'LaoZhang',
     };
     return providerNames[provider] || provider;
