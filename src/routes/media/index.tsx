@@ -73,11 +73,6 @@ function MediaIndexPage() {
                                 description='Gemini 3 Pro'
                             />
                             <ModelCard
-                                emoji='🎬'
-                                name='Kling AI'
-                                description='Видео и изображения'
-                            />
-                            <ModelCard
                                 emoji='🎨'
                                 name='Midjourney'
                                 description='Скоро'

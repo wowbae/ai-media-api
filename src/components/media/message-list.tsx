@@ -192,7 +192,7 @@ function MessageItem({
                                 request.errorMessage && (
                                     <div className='mt-2 flex items-start gap-2 rounded-lg bg-red-900/30 p-3 text-red-300'>
                                         <AlertCircle className='mt-0.5 h-4 w-4 shrink-0' />
-                                        <p className='text-xs'>
+                                        <p className='min-w-0 flex-1 text-xs whitespace-pre-wrap break-all overflow-x-auto'>
                                             {request.errorMessage}
                                         </p>
                                     </div>

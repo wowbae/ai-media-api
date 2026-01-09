@@ -120,7 +120,7 @@ export function MediaGallery({
                     <h2 className={PANEL_HEADER_TITLE_CLASSES}>Медиафайлы</h2>
                 </div>
                 <ScrollArea className='flex-1'>
-                    <div className='grid grid-cols-4 gap-2 p-4'>
+                    <div className='grid grid-cols-3 gap-2 p-4'>
                         {Array.from({ length: INITIAL_FILES_LIMIT }).map(
                             (_, index) => (
                                 <Skeleton
@@ -160,7 +160,7 @@ export function MediaGallery({
 
                 {/* Grid с файлами */}
                 <ScrollArea className='flex-1'>
-                    <div className='grid grid-cols-4 gap-2 p-4'>
+                    <div className='grid grid-cols-3 gap-2 p-4'>
                         {visibleFiles.map((file) => (
                             <div
                                 key={file.id}

@@ -64,17 +64,42 @@ function MediaChatPage() {
     const [currentModel, setCurrentModel] = useState<MediaModel>('NANO_BANANA');
     const [pollingRequestId, setPollingRequestId] = useState<number | null>(null);
     const chatInputRef = useRef<ChatInputRef>(null);
+    const isInitialLoadRef = useRef(true);
+    const previousChatIdRef = useRef(chatIdNum);
+
+    // Сброс состояния при смене чата
+    useEffect(() => {
+        if (previousChatIdRef.current !== chatIdNum) {
+            isInitialLoadRef.current = true;
+            previousChatIdRef.current = chatIdNum;
+        }
+    }, [chatIdNum]);
 
     // Синхронизация модели с настройками чата
+    // ВАЖНО: Обновляем ТОЛЬКО при первоначальной загрузке чата
+    // После этого модель может быть изменена ТОЛЬКО пользователем вручную через селектор
+    // Все автоматические обновления чата (polling, refetch) НЕ влияют на выбранную модель
     useEffect(() => {
         const activeChatForSync = fullChat || chat;
-        if (activeChatForSync) {
+        if (!activeChatForSync) return;
+
+        // При первоначальной загрузке устанавливаем модель из чата
+        if (isInitialLoadRef.current) {
             setCurrentModel(activeChatForSync.model);
+            isInitialLoadRef.current = false;
+            return;
         }
+
+        // После первоначальной загрузки НЕ синхронизируем модель автоматически
+        // Это предотвращает изменение модели при обновлениях чата после генерации
     }, [chat, fullChat]);
 
-    // Обработка смены модели
+    // Обработка смены модели пользователем
+    // ВАЖНО: Это единственный способ изменить модель после первоначальной загрузки
     async function handleModelChange(model: MediaModel) {
+        // Если модель не изменилась, ничего не делаем
+        if (model === currentModel) return;
+
         // Оптимистичное обновление UI
         const previousModel = currentModel;
         setCurrentModel(model);
@@ -83,6 +108,8 @@ function MediaChatPage() {
         if (activeChatForUpdate) {
             try {
                 await updateChat({ id: activeChatForUpdate.id, model }).unwrap();
+                // После успешного обновления на сервере модель остается установленной пользователем
+                // и НЕ будет синхронизироваться автоматически при последующих обновлениях чата
             } catch (error) {
                 // Откатываем изменение модели при ошибке
                 setCurrentModel(previousModel);

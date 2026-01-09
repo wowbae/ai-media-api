@@ -9,7 +9,6 @@
 
 **Модели:**
 - `NANO_BANANA` - Google Gemini 3 Pro Image Preview (генерация изображений)
-- `KLING` - Kling AI (генерация видео и изображений)
 - `MIDJOURNEY` - Midjourney (генерация изображений)
 
 **Переменные окружения:**

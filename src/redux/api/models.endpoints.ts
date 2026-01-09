@@ -9,6 +9,8 @@ export const modelsEndpoints = baseApi.injectEndpoints({
             transformResponse: (response: ApiResponse<ModelInfo[]>) =>
                 response.data,
             providesTags: [{ type: 'Model', id: 'LIST' }],
+            // Модели обновляются редко, поэтому не нужно часто проверять обновления
+            keepUnusedDataFor: 300, // Хранить данные 5 минут
         }),
     }),
     overrideExisting: false,

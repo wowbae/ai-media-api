@@ -8,7 +8,6 @@ export const API_BASE_URL = 'http://localhost:4000/api/media';
 
 export type MediaModel =
     | 'NANO_BANANA'
-    | 'KLING'
     | 'MIDJOURNEY'
     | 'VEO_3_1_FAST'
     | 'SORA'

@@ -1,5 +1,5 @@
 // OpenRouter провайдер для работы с моделями через OpenRouter API
-// Используется для Nano Banana (Gemini), Kling и других моделей
+// Используется для Nano Banana (Gemini) и других моделей
 import type { MediaProvider, GenerateParams } from '../interfaces';
 import type { SavedFileInfo } from '../../file.service';
 import { saveBase64File, saveFileFromUrl } from '../../file.service';
@@ -131,43 +131,6 @@ async function parseGeminiImageResponse(
         }
     } catch (error) {
         console.error('[OpenRouter] ❌ Ошибка парсинга Gemini:', error);
-    }
-
-    return files;
-}
-
-// Парсинг ответа от Kling
-async function parseKlingResponse(data: unknown): Promise<SavedFileInfo[]> {
-    const files: SavedFileInfo[] = [];
-
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const responseData = data as any;
-
-        if (responseData.data?.url) {
-            const savedFile = await saveFileFromUrl(responseData.data.url);
-            files.push(savedFile);
-        }
-
-        if (Array.isArray(responseData.data)) {
-            for (const item of responseData.data) {
-                if (item.url) {
-                    const savedFile = await saveFileFromUrl(item.url);
-                    files.push(savedFile);
-                }
-            }
-        }
-
-        const choices = responseData.choices || [];
-        for (const choice of choices) {
-            const content = choice.message?.content;
-            if (typeof content === 'string' && content.startsWith('http')) {
-                const savedFile = await saveFileFromUrl(content);
-                files.push(savedFile);
-            }
-        }
-    } catch (error) {
-        console.error('[OpenRouter] ❌ Ошибка парсинга Kling:', error);
     }
 
     return files;
@@ -355,8 +318,6 @@ export function createOpenRouterProvider(
             // Парсим ответ в зависимости от модели
             if (params.model === 'NANO_BANANA') {
                 savedFiles = await parseGeminiImageResponse(data);
-            } else if (params.model === 'KLING') {
-                savedFiles = await parseKlingResponse(data);
             } else {
                 savedFiles = await parseGenericResponse(data);
             }

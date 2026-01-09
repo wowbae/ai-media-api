@@ -30,17 +30,6 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.4,
         },
     },
-    KLING: {
-        id: 'kling-ai/kling-video',
-        name: 'Kling AI',
-        types: ['VIDEO'] as const,
-        maxPromptLength: 2048,
-        supportsImageInput: true,
-        provider: 'openrouter',
-        pricing: {
-            output: 0.04,
-        },
-    },
     MIDJOURNEY: {
         id: 'midjourney/imagine',
         name: 'Midjourney',

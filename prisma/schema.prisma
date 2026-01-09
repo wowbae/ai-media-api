@@ -47,7 +47,6 @@ model MediaFile {
 
 enum MediaModel {
   NANO_BANANA
-  KLING
   MIDJOURNEY
   VEO_3_1_FAST
   SORA

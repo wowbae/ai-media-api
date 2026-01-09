@@ -1,4 +1,5 @@
 // Компонент выбора модели для генерации
+import React from 'react';
 import { Sparkles, Video, ImageIcon } from 'lucide-react';
 import {
     Select,
@@ -74,21 +75,37 @@ export function ModelSelector({
 }: ModelSelectorProps) {
     const { data: models, isLoading } = useGetModelsQuery();
 
-    // Разделяем модели по типам
-    const imageModels = models?.filter((model) =>
-        model.types.includes('IMAGE')
-    ) || [];
-    const videoModels = models?.filter((model) =>
-        model.types.includes('VIDEO')
-    ) || [];
+    // Мемоизируем разделение моделей по типам, чтобы не пересчитывать при каждом рендере
+    const imageModels = React.useMemo(
+        () => models?.filter((model) => model.types.includes('IMAGE')) || [],
+        [models]
+    );
+    const videoModels = React.useMemo(
+        () => models?.filter((model) => model.types.includes('VIDEO')) || [],
+        [models]
+    );
 
     // Получаем текущую модель для отображения провайдера в триггере
-    const currentModel = models?.find((m) => m.key === value);
+    const currentModel = React.useMemo(
+        () => models?.find((m) => m.key === value),
+        [models, value]
+    );
+
+    // Мемоизируем обработчик изменения, чтобы предотвратить лишние перерендеры
+    const handleValueChange = React.useCallback(
+        (v: string) => {
+            // Вызываем onChange только если значение действительно изменилось
+            if (v !== value) {
+                onChange(v as MediaModel);
+            }
+        },
+        [value, onChange]
+    );
 
     return (
         <Select
             value={value}
-            onValueChange={(v) => onChange(v as MediaModel)}
+            onValueChange={handleValueChange}
             disabled={disabled || isLoading}
         >
             <SelectTrigger className='w-[280px] border-slate-600 bg-slate-700 text-white'>
