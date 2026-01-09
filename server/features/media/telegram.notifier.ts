@@ -265,6 +265,22 @@ export async function notifyTelegramGroupBatch(
                         inline_keyboard: [[deleteButton]],
                     },
                 });
+            } else if (firstFile.type === 'VIDEO') {
+                await bot.api.sendVideo(groupId, inputFile, {
+                    caption,
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [[deleteButton]],
+                    },
+                });
+            } else if (firstFile.type === 'AUDIO') {
+                await bot.api.sendAudio(groupId, inputFile, {
+                    caption,
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [[deleteButton]],
+                    },
+                });
             } else {
                 await bot.api.sendDocument(groupId, inputFile, {
                     caption,

@@ -16,6 +16,9 @@ model MediaChat {
   requests  MediaRequest[]
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
+
+  @@index([updatedAt])
+  @@index([createdAt])
 }
 
 model MediaRequest {
@@ -25,11 +28,17 @@ model MediaRequest {
   prompt       String
   model        MediaModel? // Модель, использованная для этого запроса
   status       RequestStatus @default(PENDING)
+  taskId       String? // ID задачи от провайдера (для async генерации)
   inputFiles   String[]      @default([])
   files        MediaFile[]
   errorMessage String?
   createdAt    DateTime      @default(now())
   completedAt  DateTime?
+
+  @@index([chatId])
+  @@index([createdAt])
+  @@index([status])
+  @@index([chatId, createdAt])
 }
 
 model MediaFile {
@@ -43,6 +52,10 @@ model MediaFile {
   size        Int
   metadata    Json         @default("{}")
   createdAt   DateTime     @default(now())
+
+  @@index([requestId])
+  @@index([createdAt])
+  @@index([type])
 }
 
 enum MediaModel {
@@ -56,6 +69,7 @@ enum MediaModel {
   VEO_3_1
   // Kie.ai провайдер
   KLING_2_6
+  NANO_BANANA_PRO_KIEAI
 }
 
 enum MediaType {

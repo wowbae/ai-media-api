@@ -1,6 +1,6 @@
 // Страница чата с медиа-генерацией
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import {
   ChatSidebar,
@@ -50,7 +50,7 @@ function MediaChatPage() {
     error: chatError,
     refetch,
   } = useGetChatQuery(
-    { id: chatIdNum, limit: 3 },
+    { id: chatIdNum, limit: 10 },
     {
       // Всегда обновлять при монтировании или изменении аргументов
       // Это критично для правильной работы при смене чата
@@ -59,26 +59,23 @@ function MediaChatPage() {
     },
   );
 
-  // Фоновая подгрузка всех requests после первоначальной загрузки
-  const shouldSkipFullLoad =
-    isChatLoading ||
-    !chat ||
-    (chat._count && chat.requests.length >= chat._count.requests); // Пропускаем если уже загружены все requests
+  // Загружаем только последние 10 запросов для чата
+  // MediaGallery загружает файлы отдельно через /files endpoint
 
-  const {
-    data: fullChat,
-    isLoading: isFullChatLoading,
-    refetch: refetchFull,
-  } = useGetChatQuery(
-    { id: chatIdNum },
-    {
-      skip: shouldSkipFullLoad,
-      // Обновляем при смене аргументов (chatId), но не при других обновлениях
-      refetchOnMountOrArgChange: true,
-    },
-  );
+  // Debug logging для отслеживания загрузки чата
+  useEffect(() => {
+    console.log("[Chat] Состояние загрузки:", {
+      chatId: chatIdNum,
+      isChatLoading,
+      isChatFetching,
+      hasChat: !!chat,
+      requestsCount: chat?.requests?.length || 0,
+      error: chatError,
+    });
+  }, [chatIdNum, isChatLoading, isChatFetching, chat, chatError]);
 
   const [updateChat] = useUpdateChatMutation();
+
   const { isTestMode } = useTestMode();
 
   const [currentModel, setCurrentModel] = useState<MediaModel>("NANO_BANANA");
@@ -107,18 +104,37 @@ function MediaChatPage() {
 
       // Принудительно обновляем запросы
       refetch();
-      if (!shouldSkipFullLoad) {
-        refetchFull();
-      }
     }
-  }, [chatIdNum, refetch, refetchFull, shouldSkipFullLoad]);
+  }, [chatIdNum, refetch]);
+
+  // Инвалидация данных при фокусе на окне браузера
+  // Это гарантирует, что пользователь всегда видит актуальные данные
+  // когда возвращается на вкладку с чатом
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log("[Chat] 🔄 Окно получило фокус, обновляем данные чата");
+
+      // Обновляем данные чата
+      refetch().catch((error) => {
+        console.error("[Chat] Ошибка при обновлении чата после фокуса:", error);
+      });
+    };
+
+    // Подписываемся на событие фокуса окна
+    window.addEventListener("focus", handleFocus);
+
+    // Отписываемся при размонтировании
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [refetch]);
 
   // Синхронизация модели с настройками чата
   // ВАЖНО: Обновляем ТОЛЬКО при первоначальной загрузке чата
   // После этого модель может быть изменена ТОЛЬКО пользователем вручную через селектор
   // Все автоматические обновления чата (polling, refetch) НЕ влияют на выбранную модель
   useEffect(() => {
-    const activeChatForSync = fullChat || chat;
+    const activeChatForSync = chat;
     if (!activeChatForSync) return;
 
     // При первоначальной загрузке устанавливаем модель из чата
@@ -130,7 +146,7 @@ function MediaChatPage() {
 
     // После первоначальной загрузки НЕ синхронизируем модель автоматически
     // Это предотвращает изменение модели при обновлениях чата после генерации
-  }, [chat, fullChat]);
+  }, [chat]);
 
   // Обработка смены модели пользователем
   // ВАЖНО: Это единственный способ изменить модель после первоначальной загрузки
@@ -142,7 +158,7 @@ function MediaChatPage() {
     const previousModel = currentModel;
     setCurrentModel(model);
 
-    const activeChatForUpdate = fullChat || chat;
+    const activeChatForUpdate = chat;
     if (activeChatForUpdate) {
       try {
         await updateChat({
@@ -218,11 +234,8 @@ function MediaChatPage() {
       return { ...prev, requestId };
     });
 
-    // Обновляем оба кеша чата
-    Promise.all([
-      refetch(),
-      !shouldSkipFullLoad ? refetchFull() : Promise.resolve(),
-    ]).catch((error) => {
+    // Обновляем кеш чата
+    refetch().catch((error) => {
       console.error("[Chat] Ошибка при обновлении чата:", error);
     });
 
@@ -349,10 +362,7 @@ function MediaChatPage() {
 
       if (shouldUpdate) {
         console.log("[Chat] Обновляем чат");
-        Promise.all([
-          refetch(),
-          !shouldSkipFullLoad ? refetchFull() : Promise.resolve(),
-        ]).catch((error) => {
+        refetch().catch((error) => {
           console.error("[Chat] Ошибка при обновлении чата:", error);
         });
       }
@@ -367,10 +377,7 @@ function MediaChatPage() {
         // Финальное обновление чата для отображения финального статуса и файлов
         // Делаем несколько обновлений с задержками для гарантии получения всех файлов
         setTimeout(() => {
-          Promise.all([
-            refetch(),
-            !shouldSkipFullLoad ? refetchFull() : Promise.resolve(),
-          ]).catch((error) => {
+          refetch().catch((error) => {
             console.error(
               "[Chat] Ошибка при финальном обновлении чата:",
               error,
@@ -380,10 +387,7 @@ function MediaChatPage() {
 
         // Дополнительное обновление через 1.5 секунды для гарантии получения файлов
         setTimeout(() => {
-          Promise.all([
-            refetch(),
-            !shouldSkipFullLoad ? refetchFull() : Promise.resolve(),
-          ]).catch((error) => {
+          refetch().catch((error) => {
             console.error(
               "[Chat] Ошибка при дополнительном обновлении чата:",
               error,
@@ -395,18 +399,12 @@ function MediaChatPage() {
         previousStatusRef.current = currentStatus;
       }
     }
-  }, [
-    pollingRequest,
-    pollingRequestId,
-    refetch,
-    refetchFull,
-    shouldSkipFullLoad,
-    maxPollingTime,
-  ]);
+  }, [pollingRequest, pollingRequestId, refetch, maxPollingTime]);
 
   // Убираем pending-сообщение если реальный запрос появился
   // ВАЖНО: Этот useEffect должен быть ДО early returns для соблюдения правил хуков
-  const activeRequests = fullChat?.requests || chat?.requests || [];
+  const activeRequests = useMemo(() => chat?.requests || [], [chat?.requests]);
+
   useEffect(() => {
     if (!pendingMessage?.requestId) return;
 
@@ -477,8 +475,8 @@ function MediaChatPage() {
     return null;
   }
 
-  // Используем полные данные если они загружены, иначе используем ограниченные
-  const activeChat = fullChat || chat;
+  // Используем данные с ограничением для оптимизации загрузки
+  const activeChat = chat;
 
   // Сортируем запросы по дате (старые сверху)
   const sortedRequests = [...(activeChat.requests || [])].sort(
@@ -587,11 +585,7 @@ function MediaChatPage() {
       </div>
 
       {/* Панель с медиафайлами */}
-      <MediaGallery
-        requests={requestsWithPolling}
-        onAttachFile={handleAttachFile}
-        isLoading={isChatLoading || isFullChatLoading}
-      />
+      <MediaGallery chatId={chatIdNum} onAttachFile={handleAttachFile} />
     </div>
   );
 }

@@ -1,14 +1,22 @@
 // Компонент галереи всех медиафайлов чата
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Download, X, Trash2, Paperclip, ChevronDown, ImageIcon, VideoIcon } from "lucide-react";
+import {
+  Download,
+  X,
+  Trash2,
+  Paperclip,
+  ChevronDown,
+  ImageIcon,
+  VideoIcon,
+} from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MediaPreview } from "./media-preview";
 import {
   type MediaFile,
-  type MediaRequest,
   useDeleteFileMutation,
+  useGetFilesQuery,
 } from "@/redux/media-api";
 import {
   PANEL_HEADER_CLASSES,
@@ -18,9 +26,8 @@ import { getMediaFileUrl } from "@/lib/constants";
 import { formatFileSize, downloadFile } from "@/lib/utils";
 
 interface MediaGalleryProps {
-  requests: MediaRequest[];
+  chatId?: number; // Optional - если не указан, загружаем все файлы
   onAttachFile?: (fileUrl: string, filename: string) => void;
-  isLoading?: boolean;
 }
 
 // Количество файлов для первоначального отображения
@@ -28,35 +35,25 @@ const INITIAL_FILES_LIMIT = 12;
 // Количество файлов для подгрузки при скролле
 const LOAD_MORE_COUNT = 12;
 
-export function MediaGallery({
-  requests,
-  onAttachFile,
-  isLoading,
-}: MediaGalleryProps) {
+export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
   const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null);
   const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
-  const [visibleFilesCount, setVisibleFilesCount] =
-    useState(INITIAL_FILES_LIMIT);
+  const [page, setPage] = useState(1);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
   const [isVideoExpanded, setIsVideoExpanded] = useState(true);
   const [isImageExpanded, setIsImageExpanded] = useState(true);
 
-  // Собираем все файлы из всех requests, сортируем по дате (новые сверху)
-  const allFiles = useMemo(() => {
-    const files: MediaFile[] = [];
+  // Загружаем файлы с пагинацией
+  const {
+    data: filesData,
+    isLoading,
+    isFetching,
+  } = useGetFilesQuery({
+    page,
+    limit: 50, // Загружаем по 50 файлов за раз
+  });
 
-    requests.forEach((request) => {
-      if (request.files && request.files.length > 0) {
-        files.push(...request.files);
-      }
-    });
-
-    // Сортируем по дате создания (новые сверху)
-    return files.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-  }, [requests]);
+  const allFiles = useMemo(() => filesData?.data || [], [filesData]);
 
   // Разделяем файлы на видео и изображения
   const { videoFiles, imageFiles } = useMemo(() => {
@@ -74,40 +71,32 @@ export function MediaGallery({
     return { videoFiles: videos, imageFiles: images };
   }, [allFiles]);
 
-  // Отображаемые файлы (с ограничением для быстрой загрузки)
-  const visibleVideoFiles = useMemo(() => {
-    return videoFiles.slice(0, visibleFilesCount);
-  }, [videoFiles, visibleFilesCount]);
+  // Отображаемые файлы
+  const visibleVideoFiles = useMemo(() => videoFiles, [videoFiles]);
+  const visibleImageFiles = useMemo(() => imageFiles, [imageFiles]);
 
-  const visibleImageFiles = useMemo(() => {
-    return imageFiles.slice(0, visibleFilesCount);
-  }, [imageFiles, visibleFilesCount]);
-
-  // Сброс счетчика видимых файлов при изменении requests
+  // Автоматическая подгрузка следующей страницы при скролле
   useEffect(() => {
-    setVisibleFilesCount(INITIAL_FILES_LIMIT);
-  }, [requests.length]);
+    if (!loadMoreTriggerRef.current || isFetching) {
+      return;
+    }
 
-  // Lazy loading при скролле с помощью Intersection Observer
-  useEffect(() => {
-    if (!loadMoreTriggerRef.current || visibleFilesCount >= allFiles.length) {
+    // Проверяем, есть ли еще страницы для загрузки
+    const hasMorePages =
+      filesData?.pagination &&
+      filesData.pagination.page < filesData.pagination.totalPages;
+
+    if (!hasMorePages) {
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          setVisibleFilesCount((prev) =>
-            Math.min(prev + LOAD_MORE_COUNT, allFiles.length),
-          );
+          setPage((prev) => prev + 1);
         }
       },
-      {
-        // Используем viewport как root для простоты
-        root: null,
-        rootMargin: "100px", // Начинаем загрузку за 100px до видимости
-        threshold: 0,
-      },
+      { threshold: 0.1 },
     );
 
     observer.observe(loadMoreTriggerRef.current);
@@ -115,7 +104,7 @@ export function MediaGallery({
     return () => {
       observer.disconnect();
     };
-  }, [visibleFilesCount, allFiles.length]);
+  }, [isFetching, filesData]);
 
   function handleFileClick(file: MediaFile) {
     setSelectedFile(file);
@@ -184,11 +173,11 @@ export function MediaGallery({
                   onClick={() => setIsVideoExpanded(!isVideoExpanded)}
                   className="flex w-full items-center justify-between rounded-lg bg-slate-700/0 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors"
                 >
-                <div className="flex gap-2 items-center">
-                <VideoIcon className='h-4 w-4' />
-                <span>Видео ({videoFiles.length})</span>
-                </div>
-                 
+                  <div className="flex gap-2 items-center">
+                    <VideoIcon className="h-4 w-4" />
+                    <span>Видео ({videoFiles.length})</span>
+                  </div>
+
                   <ChevronDown
                     className={`h-4 w-4 transition-transform ${
                       isVideoExpanded ? "rotate-180" : ""
@@ -257,18 +246,16 @@ export function MediaGallery({
                 <button
                   onClick={() => setIsImageExpanded(!isImageExpanded)}
                   className="flex w-full items-center justify-between rounded-lg bg-slate-700/0 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors"
-                >  
-                <div className="flex gap-2 items-center">
-                <ImageIcon className='h-4 w-4' />
-                  <span>Изображения ({imageFiles.length})</span>
-                  
-                
-                </div>
-                <ChevronDown
-                  className={`h-4 w-4 transition-transform ${
-                    isImageExpanded ? "rotate-180" : ""
-                  }`}
-                />
+                >
+                  <div className="flex gap-2 items-center">
+                    <ImageIcon className="h-4 w-4" />
+                    <span>Изображения ({imageFiles.length})</span>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${
+                      isImageExpanded ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
                 {isImageExpanded && (
                   <div className="grid grid-cols-3 gap-2 mt-2">
@@ -326,15 +313,20 @@ export function MediaGallery({
               </div>
             )}
 
-            {/* Триггер для lazy loading */}
-            {visibleFilesCount < allFiles.length && (
-              <div
-                ref={loadMoreTriggerRef}
-                className="flex h-20 items-center justify-center"
-              >
-                <div className="h-1 w-1 rounded-full bg-slate-600" />
-              </div>
-            )}
+            {/* Триггер для lazy loading следующей страницы */}
+            {filesData?.pagination &&
+              filesData.pagination.page < filesData.pagination.totalPages && (
+                <div
+                  ref={loadMoreTriggerRef}
+                  className="flex h-20 items-center justify-center"
+                >
+                  {isFetching ? (
+                    <div className="text-xs text-slate-400">Загрузка...</div>
+                  ) : (
+                    <div className="h-1 w-1 rounded-full bg-slate-600" />
+                  )}
+                </div>
+              )}
           </div>
         </ScrollArea>
       </div>

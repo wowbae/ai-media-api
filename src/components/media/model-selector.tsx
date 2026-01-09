@@ -76,14 +76,27 @@ export function ModelSelector({
     const { data: models, isLoading } = useGetModelsQuery();
 
     // Мемоизируем разделение моделей по типам, чтобы не пересчитывать при каждом рендере
-    const imageModels = React.useMemo(
-        () => models?.filter((model) => model.types.includes('IMAGE')) || [],
-        [models]
-    );
-    const videoModels = React.useMemo(
-        () => models?.filter((model) => model.types.includes('VIDEO')) || [],
-        [models]
-    );
+    // Сортируем модели: kieai наверх, затем остальные по имени
+    const imageModels = React.useMemo(() => {
+        const filtered = models?.filter((model) => model.types.includes('IMAGE')) || [];
+        return filtered.sort((a, b) => {
+            // Сначала модели от kieai
+            if (a.provider === 'kieai' && b.provider !== 'kieai') return -1;
+            if (a.provider !== 'kieai' && b.provider === 'kieai') return 1;
+            // Затем сортируем по имени
+            return a.name.localeCompare(b.name);
+        });
+    }, [models]);
+    const videoModels = React.useMemo(() => {
+        const filtered = models?.filter((model) => model.types.includes('VIDEO')) || [];
+        return filtered.sort((a, b) => {
+            // Сначала модели от kieai
+            if (a.provider === 'kieai' && b.provider !== 'kieai') return -1;
+            if (a.provider !== 'kieai' && b.provider === 'kieai') return 1;
+            // Затем сортируем по имени
+            return a.name.localeCompare(b.name);
+        });
+    }, [models]);
 
     // Получаем текущую модель для отображения провайдера в триггере
     const currentModel = React.useMemo(

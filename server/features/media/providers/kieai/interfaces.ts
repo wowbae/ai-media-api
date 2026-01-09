@@ -138,3 +138,62 @@ export interface KieAiKlingImageToVideoRequest {
   sound: boolean;
   duration: KieAiKlingDuration;
 }
+
+// Интерфейсы для Nano Banana Pro API
+// Документация: https://docs.kie.ai/market/google/pro-image-to-image
+
+// Соотношения сторон для Nano Banana Pro
+export type KieAiNanoBananaAspectRatio =
+  | "1:1"
+  | "9:16"
+  | "16:9"
+  | "3:4"
+  | "4:3"
+  | "2:3"
+  | "3:2";
+
+// Разрешение изображения для Nano Banana Pro
+export type KieAiNanoBananaResolution = "1K" | "2K" | "4K";
+
+// Формат выходного файла для Nano Banana Pro
+export type KieAiNanoBananaOutputFormat = "png" | "jpg";
+
+// Запрос на создание задачи Nano Banana Pro (унифицированный для text-to-image и image-to-image)
+export interface KieAiNanoBananaRequest {
+  model: "nano-banana-pro";
+  callBackUrl?: string;
+  input: {
+    prompt: string;
+    image_input?: string[]; // Массив URL изображений для image-to-image (опционально)
+    aspect_ratio?: KieAiNanoBananaAspectRatio;
+    resolution?: KieAiNanoBananaResolution;
+    output_format?: KieAiNanoBananaOutputFormat;
+  };
+}
+
+// Ответ на создание задачи (общий формат для Kie.ai)
+export interface KieAiUnifiedCreateResponse {
+  code: number;
+  msg: string;
+  data: {
+    taskId: string;
+  };
+}
+
+// Ответ на проверку статуса задачи (общий формат)
+export interface KieAiUnifiedTaskResponse {
+  code: number;
+  msg: string;
+  data: {
+    taskId: string;
+    model: string;
+    state: "waiting" | "queuing" | "generating" | "success" | "fail";
+    param: string; // JSON string с оригинальными параметрами
+    resultJson: string; // JSON string с результатами
+    failCode: string;
+    failMsg: string;
+    completeTime: number;
+    createTime: number;
+    updateTime: number;
+  };
+}
