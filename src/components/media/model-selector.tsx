@@ -25,7 +25,10 @@ interface ModelSelectorProps {
 }
 
 // Конфиг для бейджей провайдеров
-const PROVIDER_BADGE_CONFIG: Record<MediaProviderType, { label: string; className: string }> = {
+const PROVIDER_BADGE_CONFIG: Record<
+    MediaProviderType,
+    { label: string; className: string }
+> = {
     gptunnel: {
         label: 'GPTunnel',
         className: 'bg-emerald-900/50 text-emerald-400 border-emerald-700/50',
@@ -78,7 +81,9 @@ export function ModelSelector({
     // Мемоизируем разделение моделей по типам, чтобы не пересчитывать при каждом рендере
     // Сортируем модели: kieai наверх, затем остальные по имени
     const imageModels = React.useMemo(() => {
-        const filtered = models?.filter((model) => model.types.includes('IMAGE')) || [];
+        let filtered =
+            models?.filter((model) => model.types.includes('IMAGE')) || [];
+
         return filtered.sort((a, b) => {
             // Сначала модели от kieai
             if (a.provider === 'kieai' && b.provider !== 'kieai') return -1;
@@ -87,8 +92,11 @@ export function ModelSelector({
             return a.name.localeCompare(b.name);
         });
     }, [models]);
+
     const videoModels = React.useMemo(() => {
-        const filtered = models?.filter((model) => model.types.includes('VIDEO')) || [];
+        let filtered =
+            models?.filter((model) => model.types.includes('VIDEO')) || [];
+
         return filtered.sort((a, b) => {
             // Сначала модели от kieai
             if (a.provider === 'kieai' && b.provider !== 'kieai') return -1;
@@ -128,9 +136,14 @@ export function ModelSelector({
                         <span className='truncate'>
                             {currentModel?.name || value}
                         </span>
-                        {currentModel?.provider && currentModel.provider in PROVIDER_BADGE_CONFIG && (
-                            <ProviderBadge provider={currentModel.provider as MediaProviderType} />
-                        )}
+                        {currentModel?.provider &&
+                            currentModel.provider in PROVIDER_BADGE_CONFIG && (
+                                <ProviderBadge
+                                    provider={
+                                        currentModel.provider as MediaProviderType
+                                    }
+                                />
+                            )}
                     </div>
                 </SelectValue>
             </SelectTrigger>
@@ -157,11 +170,19 @@ export function ModelSelector({
                                         className='text-slate-300 focus:bg-slate-700 focus:text-white'
                                     >
                                         <div className='flex items-center gap-2 w-full min-w-[200px]'>
-                                            <span>{getModelIcon(model.key)}</span>
+                                            <span>
+                                                {getModelIcon(model.key)}
+                                            </span>
                                             <span>{model.name}</span>
-                                            {model.provider && model.provider in PROVIDER_BADGE_CONFIG && (
-                                                <ProviderBadge provider={model.provider as MediaProviderType} />
-                                            )}
+                                            {model.provider &&
+                                                model.provider in
+                                                    PROVIDER_BADGE_CONFIG && (
+                                                    <ProviderBadge
+                                                        provider={
+                                                            model.provider as MediaProviderType
+                                                        }
+                                                    />
+                                                )}
                                         </div>
                                     </SelectItem>
                                 ))}
@@ -182,11 +203,19 @@ export function ModelSelector({
                                         className='text-slate-300 focus:bg-slate-700 focus:text-white'
                                     >
                                         <div className='flex items-center gap-2 w-full min-w-[200px]'>
-                                            <span>{getModelIcon(model.key)}</span>
+                                            <span>
+                                                {getModelIcon(model.key)}
+                                            </span>
                                             <span>{model.name}</span>
-                                            {model.provider && model.provider in PROVIDER_BADGE_CONFIG && (
-                                                <ProviderBadge provider={model.provider as MediaProviderType} />
-                                            )}
+                                            {model.provider &&
+                                                model.provider in
+                                                    PROVIDER_BADGE_CONFIG && (
+                                                    <ProviderBadge
+                                                        provider={
+                                                            model.provider as MediaProviderType
+                                                        }
+                                                    />
+                                                )}
                                         </div>
                                     </SelectItem>
                                 ))}
@@ -215,9 +244,13 @@ export function ModelBadge({ model, showProvider = false }: ModelBadgeProps) {
                 <span className='mr-1'>{getModelIcon(model)}</span>
                 {modelInfo?.name || model}
             </Badge>
-            {showProvider && modelInfo?.provider && modelInfo.provider in PROVIDER_BADGE_CONFIG && (
-                <ProviderBadge provider={modelInfo.provider as MediaProviderType} />
-            )}
+            {showProvider &&
+                modelInfo?.provider &&
+                modelInfo.provider in PROVIDER_BADGE_CONFIG && (
+                    <ProviderBadge
+                        provider={modelInfo.provider as MediaProviderType}
+                    />
+                )}
         </div>
     );
 }
