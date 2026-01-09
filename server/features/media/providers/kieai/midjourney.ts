@@ -16,6 +16,7 @@ import type {
     KieAiStatusResponse,
     KieAiTaskStatus,
     KieAiAspectRatio,
+    KieAiApiResponse,
 } from './interfaces';
 
 // Маппинг статусов Kie.ai на внутренние статусы
@@ -32,7 +33,13 @@ function mapAspectRatio(
     aspectRatio?: '1:1' | '9:16' | '16:9'
 ): KieAiAspectRatio | undefined {
     if (!aspectRatio) return undefined;
-    return aspectRatio as KieAiAspectRatio;
+    // Маппинг наших форматов на форматы Kie.ai
+    const mapping: Record<string, KieAiAspectRatio> = {
+        '1:1': '1:1',
+        '9:16': '9:16',
+        '16:9': '16:9',
+    };
+    return mapping[aspectRatio];
 }
 
 export function createKieAiMidjourneyProvider(
@@ -48,16 +55,22 @@ export function createKieAiMidjourneyProvider(
             prompt: params.prompt.substring(0, 100),
         });
 
+        // Формируем тело запроса согласно документации
         const requestBody: KieAiCreateRequest = {
-            taskType: 'Text to Image',
-            speed: 'fast', // По умолчанию fast, можно сделать настраиваемым
+            taskType: 'mj_txt2img',
+            speed: 'fast', // По умолчанию fast
             prompt: params.prompt,
             aspectRatio: mapAspectRatio(params.aspectRatio),
-            version: 'Version 7', // По умолчанию Version 7, можно сделать настраиваемым
-            enableTranslation: false,
+            version: '7', // По умолчанию версия 7
         };
 
-        const response = await fetch(`${baseURL}/v1/midjourney`, {
+        // Добавляем fileUrls если есть входные изображения (для image-to-image)
+        if (params.inputFiles && params.inputFiles.length > 0) {
+            requestBody.fileUrls = params.inputFiles;
+            requestBody.taskType = 'mj_img2img';
+        }
+
+        const response = await fetch(`${baseURL}/api/v1/mj/generate`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -92,21 +105,50 @@ export function createKieAiMidjourneyProvider(
             );
         }
 
-        const data = (await response.json()) as KieAiCreateResponse;
+        const responseData = (await response.json()) as KieAiApiResponse<KieAiCreateResponse>;
+
+        console.log('[Kie.ai Midjourney] Полный ответ API:', JSON.stringify(responseData, null, 2));
+
+        // Проверяем код ответа
+        if (responseData.code !== 200) {
+            throw new Error(
+                `Kie.ai Midjourney API error: ${responseData.code} - ${responseData.msg}`
+            );
+        }
+
+        // Извлекаем taskId из data
+        if (!responseData.data || !responseData.data.taskId) {
+            console.error('[Kie.ai Midjourney] Не удалось найти taskId в ответе:', responseData);
+            throw new Error(
+                `Не удалось получить taskId из ответа API. Ответ: ${JSON.stringify(responseData)}`
+            );
+        }
+
+        const taskId = responseData.data.taskId;
 
         console.log('[Kie.ai Midjourney] Задача создана:', {
-            taskId: data.taskId,
-            status: data.status,
+            taskId,
+            code: responseData.code,
+            msg: responseData.msg,
         });
 
-        return data;
+        return {
+            taskId,
+        };
     }
 
     // Получение результата задачи
     async function getTaskResultFromAPI(
         taskId: string
     ): Promise<KieAiStatusResponse> {
-        const response = await fetch(`${baseURL}/v1/midjourney/${taskId}`, {
+        if (!taskId || taskId === 'undefined') {
+            throw new Error(`Некорректный taskId: ${taskId}`);
+        }
+
+        console.log('[Kie.ai Midjourney] Проверка статуса задачи:', taskId);
+
+        // Используем эндпоинт для получения деталей задачи (taskId в query параметре)
+        const response = await fetch(`${baseURL}/api/v1/mj/record-info?taskId=${encodeURIComponent(taskId)}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -132,7 +174,57 @@ export function createKieAiMidjourneyProvider(
             );
         }
 
-        return (await response.json()) as KieAiStatusResponse;
+        const responseData = (await response.json()) as KieAiApiResponse<KieAiStatusResponse>;
+
+        console.log('[Kie.ai Midjourney] Полный ответ статуса:', JSON.stringify(responseData, null, 2));
+
+        // Проверяем код ответа
+        if (responseData.code !== 200) {
+            throw new Error(
+                `Kie.ai Midjourney API error: ${responseData.code} - ${responseData.msg}`
+            );
+        }
+
+        if (!responseData.data) {
+            throw new Error(
+                `Kie.ai Midjourney API: данные отсутствуют в ответе. Ответ: ${JSON.stringify(responseData)}`
+            );
+        }
+
+        const data = responseData.data;
+
+        // Извлекаем URL из resultInfoJson.resultUrls
+        let resultUrls: string[] = [];
+        if (data.resultInfoJson?.resultUrls) {
+            resultUrls = data.resultInfoJson.resultUrls.map(
+                (item) => item.resultUrl
+            );
+        }
+
+        // Определяем статус на основе successFlag и наличия результатов
+        let status: KieAiTaskStatus = 'pending';
+        if (data.successFlag === 1 && resultUrls.length > 0) {
+            status = 'completed';
+        } else if (data.successFlag === 0 || !data.resultInfoJson) {
+            status = 'processing';
+        } else if (data.errorMessage || data.errorCode) {
+            status = 'failed';
+        }
+
+        console.log('[Kie.ai Midjourney] Парсинг статуса:', {
+            taskId: data.taskId,
+            successFlag: data.successFlag,
+            resultUrlsCount: resultUrls.length,
+            resultUrls: resultUrls, // Логируем все URL для отладки
+            status,
+        });
+
+        return {
+            ...data,
+            promptJson: data.paramJson || data.promptJson,
+            resultUrls, // Извлеченные URL для обратной совместимости
+            status,
+        };
     }
 
     return {
@@ -142,13 +234,9 @@ export function createKieAiMidjourneyProvider(
         async generate(params: GenerateParams): Promise<TaskCreatedResult> {
             const result = await createImagineTask(params);
 
-            // Маппим статус на внутренний формат
-            const mappedStatus =
-                KIEAI_STATUS_MAP[result.status] || 'pending';
-
             return {
                 taskId: result.taskId,
-                status: mappedStatus === 'pending' ? 'pending' : 'processing',
+                status: 'pending', // Задача только создана
             };
         },
 
@@ -158,6 +246,10 @@ export function createKieAiMidjourneyProvider(
             const mappedStatus =
                 KIEAI_STATUS_MAP[result.status] || 'pending';
 
+            // Получаем сообщение об ошибке
+            const errorMessage =
+                result.errorMessage || result.errorCode || undefined;
+
             // Логируем ошибки при статусе failed
             if (result.status === 'failed') {
                 console.warn(
@@ -166,7 +258,8 @@ export function createKieAiMidjourneyProvider(
                         taskId,
                         status: result.status,
                         mappedStatus,
-                        error: result.error,
+                        errorMessage,
+                        errorCode: result.errorCode,
                     }
                 );
             } else {
@@ -174,54 +267,46 @@ export function createKieAiMidjourneyProvider(
                     taskId,
                     status: result.status,
                     mappedStatus,
-                    hasResult: !!result.result,
-                    error: result.error || undefined,
+                    resultUrlsCount: result.resultUrls?.length || 0,
+                    successFlag: result.successFlag,
                 });
             }
 
-            // Получаем URL результата (может быть один или массив)
-            const resultUrl =
-                result.result?.url ||
-                (result.result?.urls && result.result.urls[0]) ||
-                undefined;
+            // Получаем URL результата из массива resultUrls
+            const resultUrl = result.resultUrls && result.resultUrls.length > 0
+                ? result.resultUrls[0]
+                : undefined;
 
             return {
                 status: mappedStatus,
                 url: resultUrl,
-                error: result.error || undefined,
+                error: errorMessage,
             };
         },
 
         async getTaskResult(taskId: string): Promise<SavedFileInfo[]> {
             const result = await getTaskResultFromAPI(taskId);
 
-            if (result.status !== 'completed' && result.status !== 'done') {
+            if (!result.resultUrls || result.resultUrls.length === 0) {
                 throw new Error(
-                    `Задача Kie.ai Midjourney не завершена: status=${result.status}, error=${result.error}`
+                    `Задача Kie.ai Midjourney не завершена или результаты отсутствуют: status=${result.status}, taskId=${taskId}`
                 );
             }
 
             const files: SavedFileInfo[] = [];
 
-            // Обрабатываем один URL
-            if (result.result?.url) {
-                console.log('[Kie.ai Midjourney] Скачивание результата:', {
-                    taskId,
-                    url: result.result.url,
-                });
-                const savedFile = await saveFileFromUrl(result.result.url);
-                files.push(savedFile);
-            }
-
-            // Обрабатываем массив URL (если есть)
-            if (result.result?.urls && result.result.urls.length > 0) {
+            // Обрабатываем массив URL результатов
+            if (result.resultUrls && result.resultUrls.length > 0) {
                 console.log(
-                    '[Kie.ai Midjourney] Скачивание результатов:',
-                    result.result.urls.length
+                    `[Kie.ai Midjourney] Скачивание ${result.resultUrls.length} результатов:`,
+                    result.resultUrls
                 );
-                for (const url of result.result.urls) {
+                for (let i = 0; i < result.resultUrls.length; i++) {
+                    const url = result.resultUrls[i];
+                    console.log(`[Kie.ai Midjourney] Скачивание файла ${i + 1}/${result.resultUrls.length}: ${url}`);
                     const savedFile = await saveFileFromUrl(url);
                     files.push(savedFile);
+                    console.log(`[Kie.ai Midjourney] Файл ${i + 1} сохранён: ${savedFile.filename}`);
                 }
             }
 

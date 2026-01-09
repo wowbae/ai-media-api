@@ -57,8 +57,8 @@ export function createProviderManager(): ProviderManager {
         providers.gptunnel = createGPTunnelMediaProvider(gptunnelConfig);
     }
 
-    // Kie.ai провайдеры создаются динамически в getProvider по модели
-    // Не создаем их здесь, так как для разных моделей нужны разные провайдеры
+    // Kie.ai провайдеры - кешируем по модели, чтобы сохранять состояние (например, recordId Map)
+    const kieaiProviders: Record<string, MediaProvider> = {};
 
     // LaoZhang провайдер (Nano Banana Pro, Sora 2, Veo 3.1)
     const laozhangApiKey = process.env.LAOZHANG_API_KEY || '';
@@ -78,6 +78,11 @@ export function createProviderManager(): ProviderManager {
 
             // Для kieai провайдера выбираем правильный подпровайдер по модели
             if (modelConfig.provider === 'kieai') {
+                // Кешируем провайдеры, чтобы сохранять состояние между вызовами
+                if (kieaiProviders[model]) {
+                    return kieaiProviders[model];
+                }
+
                 const kieaiApiKey = process.env.KIEAI_API_KEY || '';
                 if (!kieaiApiKey) {
                     throw new Error('KIEAI_API_KEY не настроен');
@@ -90,11 +95,13 @@ export function createProviderManager(): ProviderManager {
 
                 // Для Kling 2.6 используем kling провайдер
                 if (model === 'KLING_2_6') {
-                    return createKieAiKlingProvider(kieaiConfig);
+                    kieaiProviders[model] = createKieAiKlingProvider(kieaiConfig);
+                    return kieaiProviders[model];
                 }
 
                 // Для остальных моделей kieai (Midjourney) используем midjourney провайдер
-                return createKieAiMidjourneyProvider(kieaiConfig);
+                kieaiProviders[model] = createKieAiMidjourneyProvider(kieaiConfig);
+                return kieaiProviders[model];
             }
 
             const provider = providers[modelConfig.provider];

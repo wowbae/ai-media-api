@@ -2,7 +2,7 @@
 import { Router, Request, Response } from 'express';
 import path from 'path';
 import { prisma } from 'prisma/client';
-import { MediaModel, RequestStatus } from '@prisma/client';
+import { MediaModel, RequestStatus, Prisma } from '@prisma/client';
 import { generateMedia, getAvailableModels } from './openrouter.service';
 import { initMediaStorage, deleteFile, copyFile } from './file.service';
 import { initTelegramNotifier, notifyTelegramGroup } from './telegram.notifier';
@@ -79,7 +79,10 @@ mediaRouter.get('/chats', async (_req: Request, res: Response) => {
         res.json({ success: true, data: chatsWithFileCount });
     } catch (error) {
         console.error('Ошибка получения чатов:', error);
-        res.status(500).json({ success: false, error: 'Ошибка получения чатов' });
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка получения чатов',
+        });
     }
 });
 
@@ -87,8 +90,21 @@ mediaRouter.get('/chats', async (_req: Request, res: Response) => {
 mediaRouter.get('/chats/:id', async (req: Request, res: Response) => {
     try {
         const chatId = parseInt(req.params.id);
+        if (isNaN(chatId)) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Некорректный ID чата' });
+        }
+
         // Параметр limit для ограничения количества загружаемых запросов (по умолчанию 3 для быстрой загрузки)
-        const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+        const limit = req.query.limit
+            ? parseInt(req.query.limit as string)
+            : undefined;
+        if (limit !== undefined && (isNaN(limit) || limit < 1)) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Некорректный параметр limit' });
+        }
 
         const chat = await prisma.mediaChat.findUnique({
             where: { id: chatId },
@@ -109,11 +125,16 @@ mediaRouter.get('/chats/:id', async (req: Request, res: Response) => {
         });
 
         if (!chat) {
-            return res.status(404).json({ success: false, error: 'Чат не найден' });
+            return res
+                .status(404)
+                .json({ success: false, error: 'Чат не найден' });
         }
 
         // Логируем информацию о файлах для отладки
-        const totalFiles = chat.requests.reduce((sum, req) => sum + req.files.length, 0);
+        const totalFiles = chat.requests.reduce(
+            (sum, req) => sum + req.files.length,
+            0
+        );
         const loadedRequests = chat.requests.length;
         const totalRequests = chat._count.requests;
         console.log(
@@ -123,7 +144,10 @@ mediaRouter.get('/chats/:id', async (req: Request, res: Response) => {
         res.json({ success: true, data: chat });
     } catch (error) {
         console.error('Ошибка получения чата:', error);
-        res.status(500).json({ success: false, error: 'Ошибка получения чата' });
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка получения чата',
+        });
     }
 });
 
@@ -133,14 +157,16 @@ mediaRouter.post('/chats', async (req: Request, res: Response) => {
         const { name, model, settings } = req.body as CreateChatRequest;
 
         if (!name || name.trim().length === 0) {
-            return res.status(400).json({ success: false, error: 'Название чата обязательно' });
+            return res
+                .status(400)
+                .json({ success: false, error: 'Название чата обязательно' });
         }
 
         const chat = await prisma.mediaChat.create({
             data: {
                 name: name.trim(),
                 model: model || 'NANO_BANANA',
-                settings: settings || {},
+                settings: (settings || {}) as Prisma.InputJsonValue,
             },
         });
 
@@ -155,6 +181,12 @@ mediaRouter.post('/chats', async (req: Request, res: Response) => {
 mediaRouter.patch('/chats/:id', async (req: Request, res: Response) => {
     try {
         const chatId = parseInt(req.params.id);
+        if (isNaN(chatId)) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Некорректный ID чата' });
+        }
+
         const { name, model, settings } = req.body as UpdateChatRequest;
 
         // Проверяем существование чата
@@ -163,7 +195,9 @@ mediaRouter.patch('/chats/:id', async (req: Request, res: Response) => {
         });
 
         if (!existingChat) {
-            return res.status(404).json({ success: false, error: 'Чат не найден' });
+            return res
+                .status(404)
+                .json({ success: false, error: 'Чат не найден' });
         }
 
         const chat = await prisma.mediaChat.update({
@@ -171,7 +205,9 @@ mediaRouter.patch('/chats/:id', async (req: Request, res: Response) => {
             data: {
                 ...(name && { name: name.trim() }),
                 ...(model && { model }),
-                ...(settings && { settings }),
+                ...(settings && {
+                    settings: settings as Prisma.InputJsonValue,
+                }),
             },
         });
 
@@ -181,7 +217,10 @@ mediaRouter.patch('/chats/:id', async (req: Request, res: Response) => {
 
         // Обработка ошибок Prisma
         if (error && typeof error === 'object' && 'code' in error) {
-            const prismaError = error as { code: string; meta?: { target?: string[] } };
+            const prismaError = error as {
+                code: string;
+                meta?: { target?: string[] };
+            };
 
             // Ошибка невалидного значения enum
             if (prismaError.code === 'P2007') {
@@ -200,7 +239,8 @@ mediaRouter.patch('/chats/:id', async (req: Request, res: Response) => {
             }
         }
 
-        const errorMessage = error instanceof Error ? error.message : 'Ошибка обновления чата';
+        const errorMessage =
+            error instanceof Error ? error.message : 'Ошибка обновления чата';
         res.status(500).json({ success: false, error: errorMessage });
     }
 });
@@ -209,6 +249,11 @@ mediaRouter.patch('/chats/:id', async (req: Request, res: Response) => {
 mediaRouter.delete('/chats/:id', async (req: Request, res: Response) => {
     try {
         const chatId = parseInt(req.params.id);
+        if (isNaN(chatId)) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Некорректный ID чата' });
+        }
 
         // Сначала получаем все файлы для удаления
         const requests = await prisma.mediaRequest.findMany({
@@ -220,9 +265,17 @@ mediaRouter.delete('/chats/:id', async (req: Request, res: Response) => {
         // Преобразуем относительные пути в абсолютные
         for (const request of requests) {
             for (const file of request.files) {
-                const absolutePath = path.join(process.cwd(), mediaStorageConfig.basePath, file.path);
+                const absolutePath = path.join(
+                    process.cwd(),
+                    mediaStorageConfig.basePath,
+                    file.path
+                );
                 const absolutePreviewPath = file.previewPath
-                    ? path.join(process.cwd(), mediaStorageConfig.basePath, file.previewPath)
+                    ? path.join(
+                          process.cwd(),
+                          mediaStorageConfig.basePath,
+                          file.previewPath
+                      )
                     : null;
                 await deleteFile(absolutePath, absolutePreviewPath);
             }
@@ -245,7 +298,18 @@ mediaRouter.delete('/chats/:id', async (req: Request, res: Response) => {
 // Отправить запрос на генерацию
 mediaRouter.post('/generate', async (req: Request, res: Response) => {
     try {
-        const { chatId, prompt, model, inputFiles, format, quality, videoQuality, duration, ar, sound } = req.body as GenerateMediaRequest;
+        const {
+            chatId,
+            prompt,
+            model,
+            inputFiles,
+            format,
+            quality,
+            videoQuality,
+            duration,
+            ar,
+            sound,
+        } = req.body as GenerateMediaRequest;
 
         console.log('[API] POST /generate - получен запрос:', {
             chatId,
@@ -260,12 +324,17 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             timestamp: new Date().toISOString(),
         });
 
-        if (!chatId) {
-            return res.status(400).json({ success: false, error: 'chatId обязателен' });
+        if (!chatId || typeof chatId !== 'number' || isNaN(chatId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'chatId обязателен и должен быть числом',
+            });
         }
 
         if (!prompt || prompt.trim().length === 0) {
-            return res.status(400).json({ success: false, error: 'Промпт обязателен' });
+            return res
+                .status(400)
+                .json({ success: false, error: 'Промпт обязателен' });
         }
 
         // Проверяем существование чата
@@ -274,7 +343,9 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
         });
 
         if (!chat) {
-            return res.status(404).json({ success: false, error: 'Чат не найден' });
+            return res
+                .status(404)
+                .json({ success: false, error: 'Чат не найден' });
         }
 
         // Определяем модель (из запроса или из настроек чата)
@@ -341,7 +412,7 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             mediaRequest.id,
             prompt.trim(),
             selectedModel,
-            inputFiles,
+            inputFiles || [],
             format,
             quality,
             videoQuality,
@@ -362,7 +433,10 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Ошибка создания запроса:', error);
-        res.status(500).json({ success: false, error: 'Ошибка создания запроса' });
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка создания запроса',
+        });
     }
 });
 
@@ -370,21 +444,32 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
 // ВАЖНО: Этот эндпоинт НЕ вызывает generateMedia() и НЕ отправляет запросы в API нейронки
 mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
     try {
-        const { chatId, prompt } = req.body as { chatId: number; prompt: string };
+        const { chatId, prompt } = req.body as {
+            chatId: number;
+            prompt: string;
+        };
 
-        console.log('[API] 🧪 POST /generate-test - ТЕСТОВЫЙ РЕЖИМ (заглушка, БЕЗ вызова нейронки):', {
-            chatId,
-            prompt: prompt?.substring(0, 50),
-            note: 'Используется последний файл из чата, запрос в API нейронки НЕ отправляется',
-            timestamp: new Date().toISOString(),
-        });
+        console.log(
+            '[API] 🧪 POST /generate-test - ТЕСТОВЫЙ РЕЖИМ (заглушка, БЕЗ вызова нейронки):',
+            {
+                chatId,
+                prompt: prompt?.substring(0, 50),
+                note: 'Используется последний файл из чата, запрос в API нейронки НЕ отправляется',
+                timestamp: new Date().toISOString(),
+            }
+        );
 
-        if (!chatId) {
-            return res.status(400).json({ success: false, error: 'chatId обязателен' });
+        if (!chatId || typeof chatId !== 'number' || isNaN(chatId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'chatId обязателен и должен быть числом',
+            });
         }
 
         if (!prompt || prompt.trim().length === 0) {
-            return res.status(400).json({ success: false, error: 'Промпт обязателен' });
+            return res
+                .status(400)
+                .json({ success: false, error: 'Промпт обязателен' });
         }
 
         // Проверяем существование чата
@@ -393,7 +478,9 @@ mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
         });
 
         if (!chat) {
-            return res.status(404).json({ success: false, error: 'Чат не найден' });
+            return res
+                .status(404)
+                .json({ success: false, error: 'Чат не найден' });
         }
 
         // Находим последний файл в чате
@@ -435,10 +522,8 @@ mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
         });
 
         // Копируем файл
-        const { path: newFilePath, previewPath: newPreviewPath } = await copyFile(
-            lastFile.path,
-            lastFile.previewPath
-        );
+        const { path: newFilePath, previewPath: newPreviewPath } =
+            await copyFile(lastFile.path, lastFile.previewPath);
 
         // Получаем размер исходного файла
         const { stat } = await import('fs/promises');
@@ -456,7 +541,7 @@ mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
                 path: newFilePath,
                 previewPath: newPreviewPath,
                 size: fileStat.size,
-                metadata: lastFile.metadata as Record<string, unknown>,
+                metadata: lastFile.metadata as Prisma.InputJsonValue,
             },
         });
 
@@ -483,7 +568,9 @@ mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
         });
 
         // Отправляем уведомление в Telegram асинхронно (не ждем, чтобы не блокировать ответ)
-        console.log('[API] 🧪 Тестовый режим: отправка уведомления в Telegram (асинхронно)');
+        console.log(
+            '[API] 🧪 Тестовый режим: отправка уведомления в Telegram (асинхронно)'
+        );
         notifyTelegramGroup(newMediaFile, chat.name, prompt.trim())
             .then((telegramResult) => {
                 console.log(
@@ -491,12 +578,21 @@ mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
                 );
             })
             .catch((telegramError) => {
-                console.error('[API] 🧪 Тестовый режим: ошибка отправки в Telegram:', telegramError);
+                console.error(
+                    '[API] 🧪 Тестовый режим: ошибка отправки в Telegram:',
+                    telegramError
+                );
                 // Не прерываем выполнение если Telegram не работает
             });
     } catch (error) {
-        console.error('[API] 🧪 Тестовый режим: ошибка создания запроса:', error);
-        res.status(500).json({ success: false, error: 'Ошибка создания тестового запроса' });
+        console.error(
+            '[API] 🧪 Тестовый режим: ошибка создания запроса:',
+            error
+        );
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка создания тестового запроса',
+        });
     }
 });
 
@@ -506,6 +602,11 @@ mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
 mediaRouter.get('/requests/:id', async (req: Request, res: Response) => {
     try {
         const requestId = parseInt(req.params.id);
+        if (isNaN(requestId)) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Некорректный ID запроса' });
+        }
 
         const request = await prisma.mediaRequest.findUnique({
             where: { id: requestId },
@@ -517,62 +618,130 @@ mediaRouter.get('/requests/:id', async (req: Request, res: Response) => {
         });
 
         if (!request) {
-            return res.status(404).json({ success: false, error: 'Запрос не найден' });
+            return res
+                .status(404)
+                .json({ success: false, error: 'Запрос не найден' });
         }
 
-        console.log(`[API] Запрос /requests/${requestId}: статус=${request.status}, файлов=${request.files.length}`);
+        console.log(
+            `[API] Запрос /requests/${requestId}: статус=${request.status}, файлов=${request.files.length}`
+        );
         if (request.files.length > 0) {
-            console.log(`[API] Файлы в запросе:`, request.files.map(f => ({ id: f.id, filename: f.filename, path: f.path })));
+            console.log(
+                `[API] Файлы в запросе:`,
+                request.files.map((f) => ({
+                    id: f.id,
+                    filename: f.filename,
+                    path: f.path,
+                }))
+            );
         }
 
         res.json({ success: true, data: request });
     } catch (error) {
         console.error('Ошибка получения запроса:', error);
-        res.status(500).json({ success: false, error: 'Ошибка получения запроса' });
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка получения запроса',
+        });
     }
 });
 
 // Получить все запросы чата
-mediaRouter.get('/chats/:chatId/requests', async (req: Request, res: Response) => {
-    try {
-        const chatId = parseInt(req.params.chatId);
-        const { page = 1, limit = 20 } = req.query as unknown as PaginationParams;
+mediaRouter.get(
+    '/chats/:chatId/requests',
+    async (req: Request, res: Response) => {
+        try {
+            const chatId = parseInt(req.params.chatId);
+            if (isNaN(chatId)) {
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'Некорректный ID чата' });
+            }
 
-        const skip = (page - 1) * limit;
+            const pageParam = req.query.page
+                ? parseInt(req.query.page as string)
+                : 1;
+            const limitParam = req.query.limit
+                ? parseInt(req.query.limit as string)
+                : 20;
 
-        const [requests, total] = await Promise.all([
-            prisma.mediaRequest.findMany({
-                where: { chatId },
-                orderBy: { createdAt: 'desc' },
-                skip,
-                take: limit,
-                include: { files: true },
-            }),
-            prisma.mediaRequest.count({ where: { chatId } }),
-        ]);
+            if (isNaN(pageParam) || pageParam < 1) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Некорректный параметр page',
+                });
+            }
 
-        res.json({
-            success: true,
-            data: requests,
-            pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-            },
-        });
-    } catch (error) {
-        console.error('Ошибка получения запросов:', error);
-        res.status(500).json({ success: false, error: 'Ошибка получения запросов' });
+            if (isNaN(limitParam) || limitParam < 1 || limitParam > 100) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Некорректный параметр limit (должен быть от 1 до 100)',
+                });
+            }
+
+            const page = pageParam;
+            const limit = limitParam;
+            const skip = (page - 1) * limit;
+
+            const [requests, total] = await Promise.all([
+                prisma.mediaRequest.findMany({
+                    where: { chatId },
+                    orderBy: { createdAt: 'desc' },
+                    skip,
+                    take: limit,
+                    include: { files: true },
+                }),
+                prisma.mediaRequest.count({ where: { chatId } }),
+            ]);
+
+            res.json({
+                success: true,
+                data: requests,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages: Math.ceil(total / limit),
+                },
+            });
+        } catch (error) {
+            console.error('Ошибка получения запросов:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Ошибка получения запросов',
+            });
+        }
     }
-});
+);
 
 // ==================== Файлы ====================
 
 // Получить все файлы с пагинацией
 mediaRouter.get('/files', async (req: Request, res: Response) => {
     try {
-        const { page = 1, limit = 20 } = req.query as unknown as PaginationParams;
+        const pageParam = req.query.page
+            ? parseInt(req.query.page as string)
+            : 1;
+        const limitParam = req.query.limit
+            ? parseInt(req.query.limit as string)
+            : 20;
+
+        if (isNaN(pageParam) || pageParam < 1) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Некорректный параметр page' });
+        }
+
+        if (isNaN(limitParam) || limitParam < 1 || limitParam > 100) {
+            return res.status(400).json({
+                success: false,
+                error: 'Некорректный параметр limit (должен быть от 1 до 100)',
+            });
+        }
+
+        const page = pageParam;
+        const limit = limitParam;
         const skip = (page - 1) * limit;
 
         const [files, total] = await Promise.all([
@@ -606,7 +775,10 @@ mediaRouter.get('/files', async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Ошибка получения файлов:', error);
-        res.status(500).json({ success: false, error: 'Ошибка получения файлов' });
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка получения файлов',
+        });
     }
 });
 
@@ -614,19 +786,34 @@ mediaRouter.get('/files', async (req: Request, res: Response) => {
 mediaRouter.delete('/files/:id', async (req: Request, res: Response) => {
     try {
         const fileId = parseInt(req.params.id);
+        if (isNaN(fileId)) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Некорректный ID файла' });
+        }
 
         const file = await prisma.mediaFile.findUnique({
             where: { id: fileId },
         });
 
         if (!file) {
-            return res.status(404).json({ success: false, error: 'Файл не найден' });
+            return res
+                .status(404)
+                .json({ success: false, error: 'Файл не найден' });
         }
 
         // Преобразуем относительные пути в абсолютные для удаления
-        const absolutePath = path.join(process.cwd(), mediaStorageConfig.basePath, file.path);
+        const absolutePath = path.join(
+            process.cwd(),
+            mediaStorageConfig.basePath,
+            file.path
+        );
         const absolutePreviewPath = file.previewPath
-            ? path.join(process.cwd(), mediaStorageConfig.basePath, file.previewPath)
+            ? path.join(
+                  process.cwd(),
+                  mediaStorageConfig.basePath,
+                  file.previewPath
+              )
             : null;
 
         // Удаляем физический файл
@@ -640,98 +827,133 @@ mediaRouter.delete('/files/:id', async (req: Request, res: Response) => {
         res.json({ success: true, message: 'Файл удален' });
     } catch (error) {
         console.error('Ошибка удаления файла:', error);
-        res.status(500).json({ success: false, error: 'Ошибка удаления файла' });
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка удаления файла',
+        });
     }
 });
 
 // ==================== Thumbnail ====================
 
 // Сохранить thumbnail для видео (генерируется на клиенте через canvas)
-mediaRouter.post('/files/:id/thumbnail', async (req: Request, res: Response) => {
-    try {
-        const fileId = parseInt(req.params.id);
-        const { thumbnail } = req.body as { thumbnail: string }; // base64 image
+mediaRouter.post(
+    '/files/:id/thumbnail',
+    async (req: Request, res: Response) => {
+        try {
+            const fileId = parseInt(req.params.id);
+            if (isNaN(fileId)) {
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'Некорректный ID файла' });
+            }
 
-        if (!thumbnail) {
-            return res.status(400).json({ success: false, error: 'thumbnail обязателен' });
-        }
+            const { thumbnail } = req.body as { thumbnail: string }; // base64 image
 
-        // Проверяем существование файла
-        const file = await prisma.mediaFile.findUnique({
-            where: { id: fileId },
-        });
+            if (!thumbnail) {
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'thumbnail обязателен' });
+            }
 
-        if (!file) {
-            return res.status(404).json({ success: false, error: 'Файл не найден' });
-        }
+            // Проверяем существование файла
+            const file = await prisma.mediaFile.findUnique({
+                where: { id: fileId },
+            });
 
-        // Проверяем, что это видео
-        if (file.type !== 'VIDEO') {
-            return res.status(400).json({ success: false, error: 'Thumbnail можно создать только для видео' });
-        }
+            if (!file) {
+                return res
+                    .status(404)
+                    .json({ success: false, error: 'Файл не найден' });
+            }
 
-        // Если превью уже существует - не перезаписываем
-        if (file.previewPath) {
-            return res.json({
+            // Проверяем, что это видео
+            if (file.type !== 'VIDEO') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Thumbnail можно создать только для видео',
+                });
+            }
+
+            // Если превью уже существует - не перезаписываем
+            if (file.previewPath) {
+                return res.json({
+                    success: true,
+                    data: { previewPath: file.previewPath },
+                    message: 'Превью уже существует',
+                });
+            }
+
+            // Извлекаем base64 данные (убираем data:image/jpeg;base64, prefix)
+            const base64Data = thumbnail.replace(
+                /^data:image\/\w+;base64,/,
+                ''
+            );
+            const buffer = Buffer.from(base64Data, 'base64');
+
+            // Импортируем sharp для обработки изображения
+            let sharp: typeof import('sharp') | null = null;
+            try {
+                sharp = (await import('sharp')).default;
+            } catch {
+                console.warn(
+                    'Sharp не установлен - превью будет сохранено без обработки'
+                );
+            }
+
+            // Генерируем имя файла для превью
+            const previewFilename = `preview-${file.filename.replace(/\.[^.]+$/, '.jpg')}`;
+            const fullPreviewPath = path.join(
+                mediaStorageConfig.previewsPath,
+                previewFilename
+            );
+
+            // Сохраняем превью (с оптимизацией через sharp если доступен)
+            if (sharp) {
+                const { width, height } = mediaStorageConfig.previewSize;
+                await sharp(buffer)
+                    .resize(width, height, {
+                        fit: 'cover',
+                        position: 'center',
+                    })
+                    .jpeg({ quality: 80 })
+                    .toFile(fullPreviewPath);
+            } else {
+                // Fallback: сохраняем как есть
+                const { writeFile } = await import('fs/promises');
+                await writeFile(fullPreviewPath, buffer);
+            }
+
+            // Формируем относительный путь
+            const relativePreviewPath = path.relative(
+                mediaStorageConfig.basePath,
+                fullPreviewPath
+            );
+
+            // Обновляем запись в БД
+            await prisma.mediaFile.update({
+                where: { id: fileId },
+                data: { previewPath: relativePreviewPath },
+            });
+
+            console.log(
+                `[API] ✅ Thumbnail создан для файла ${fileId}: ${relativePreviewPath}`
+            );
+
+            res.json({
                 success: true,
-                data: { previewPath: file.previewPath },
-                message: 'Превью уже существует'
+                data: { previewPath: relativePreviewPath },
+                message: 'Превью успешно создано',
+            });
+        } catch (error) {
+            console.error('Ошибка создания превью:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Ошибка создания превью',
             });
         }
-
-        // Извлекаем base64 данные (убираем data:image/jpeg;base64, prefix)
-        const base64Data = thumbnail.replace(/^data:image\/\w+;base64,/, '');
-        const buffer = Buffer.from(base64Data, 'base64');
-
-        // Импортируем sharp для обработки изображения
-        let sharp: typeof import('sharp') | null = null;
-        try {
-            sharp = (await import('sharp')).default;
-        } catch {
-            console.warn('Sharp не установлен - превью будет сохранено без обработки');
-        }
-
-        // Генерируем имя файла для превью
-        const previewFilename = `preview-${file.filename.replace(/\.[^.]+$/, '.jpg')}`;
-        const fullPreviewPath = path.join(mediaStorageConfig.previewsPath, previewFilename);
-
-        // Сохраняем превью (с оптимизацией через sharp если доступен)
-        if (sharp) {
-            const { width, height } = mediaStorageConfig.previewSize;
-            await sharp(buffer)
-                .resize(width, height, {
-                    fit: 'cover',
-                    position: 'center',
-                })
-                .jpeg({ quality: 80 })
-                .toFile(fullPreviewPath);
-        } else {
-            // Fallback: сохраняем как есть
-            const { writeFile } = await import('fs/promises');
-            await writeFile(fullPreviewPath, buffer);
-        }
-
-        // Формируем относительный путь
-        const relativePreviewPath = path.relative(mediaStorageConfig.basePath, fullPreviewPath);
-
-        // Обновляем запись в БД
-        await prisma.mediaFile.update({
-            where: { id: fileId },
-            data: { previewPath: relativePreviewPath },
-        });
-
-        console.log(`[API] ✅ Thumbnail создан для файла ${fileId}: ${relativePreviewPath}`);
-
-        res.json({
-            success: true,
-            data: { previewPath: relativePreviewPath },
-            message: 'Превью успешно создано'
-        });
-    } catch (error) {
-        console.error('Ошибка создания превью:', error);
-        res.status(500).json({ success: false, error: 'Ошибка создания превью' });
     }
-});
+);
 
 // ==================== Модели ====================
 
@@ -742,7 +964,9 @@ mediaRouter.get('/models', (_req: Request, res: Response) => {
         res.json({ success: true, data: models });
     } catch (error) {
         console.error('Ошибка получения моделей:', error);
-        res.status(500).json({ success: false, error: 'Ошибка получения моделей' });
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка получения моделей',
+        });
     }
 });
-

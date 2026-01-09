@@ -1,7 +1,6 @@
 // Сервис для работы с медиа-генерацией через абстракцию провайдеров
-import { MediaModel, RequestStatus, Prisma } from '@prisma/client';
+import { MediaModel, RequestStatus } from '@prisma/client';
 import { prisma } from 'prisma/client';
-import { notifyTelegramGroup } from './telegram.notifier';
 import {
     getProviderManager,
     isTaskCreatedResult,
@@ -9,6 +8,7 @@ import {
     type TaskStatusResult,
 } from './providers';
 import type { SavedFileInfo } from './file.service';
+import { saveFilesToDatabase } from './database.service';
 
 // Интервал polling для async провайдеров (5 секунд)
 const POLLING_INTERVAL = 5000;
@@ -124,11 +124,18 @@ export async function generateMedia(
             errorMessage
         );
 
+        // Форматируем сообщение об ошибке с информацией о модели и провайдере
+        const formattedErrorMessage = formatErrorMessage(
+            errorMessage,
+            model,
+            provider.name
+        );
+
         await prisma.mediaRequest.update({
             where: { id: requestId },
             data: {
                 status: RequestStatus.FAILED,
-                errorMessage,
+                errorMessage: formattedErrorMessage,
             },
         });
 
@@ -146,14 +153,53 @@ async function pollTaskResult(
     const startTime = Date.now();
     const providerManager = getProviderManager();
 
-    console.log(`[MediaService] 🔄 Начало polling: requestId=${requestId}, taskId=${taskId}`);
+    console.log(
+        `[MediaService] 🔄 Начало polling: requestId=${requestId}, taskId=${taskId}`
+    );
+
+    // Проверяем текущий статус запроса перед началом polling
+    // Если запрос уже завершен, не начинаем polling
+    const initialRequest = await prisma.mediaRequest.findUnique({
+        where: { id: requestId },
+        select: { status: true },
+    });
+
+    if (!initialRequest) {
+        console.error(
+            `[MediaService] Request не найден при старте polling: requestId=${requestId}`
+        );
+        activePollingTasks.delete(requestId);
+        return;
+    }
+
+    // Если запрос уже в финальном статусе, не начинаем polling
+    if (
+        initialRequest.status === RequestStatus.COMPLETED ||
+        initialRequest.status === RequestStatus.FAILED
+    ) {
+        console.log(
+            `[MediaService] Запрос уже завершен, polling не требуется: requestId=${requestId}, status=${initialRequest.status}`
+        );
+        activePollingTasks.delete(requestId);
+        return;
+    }
 
     while (Date.now() - startTime < MAX_POLLING_TIME) {
         await sleep(POLLING_INTERVAL);
 
         // Проверяем, не была ли задача отменена
         if (!activePollingTasks.has(requestId)) {
-            console.log(`[MediaService] Polling отменён: requestId=${requestId}`);
+            console.log(
+                `[MediaService] Polling отменён: requestId=${requestId}`
+            );
+            // Обновляем статус на FAILED при отмене
+            await prisma.mediaRequest.update({
+                where: { id: requestId },
+                data: {
+                    status: RequestStatus.FAILED,
+                    errorMessage: 'Генерация отменена',
+                },
+            });
             return;
         }
 
@@ -170,7 +216,9 @@ async function pollTaskResult(
                 return;
             }
 
-            const provider = providerManager.getProvider(request.chat.model);
+            // Используем модель из запроса, а не из чата
+            const requestModel = request.model || request.chat.model;
+            const provider = providerManager.getProvider(requestModel);
 
             if (!provider.checkTaskStatus) {
                 throw new Error(
@@ -181,11 +229,14 @@ async function pollTaskResult(
             const status: TaskStatusResult =
                 await provider.checkTaskStatus(taskId);
 
-            console.log(`[MediaService] Polling статус: requestId=${requestId}`, {
-                status: status.status,
-                hasUrl: !!status.url,
-                error: status.error || undefined,
-            });
+            console.log(
+                `[MediaService] Polling статус: requestId=${requestId}`,
+                {
+                    status: status.status,
+                    hasUrl: !!status.url,
+                    error: status.error || undefined,
+                }
+            );
 
             if (status.status === 'done') {
                 if (!provider.getTaskResult) {
@@ -199,6 +250,9 @@ async function pollTaskResult(
                 // Сохраняем файлы в БД
                 await saveFilesToDatabase(requestId, savedFiles, prompt);
 
+                // Небольшая задержка для гарантии, что все файлы сохранены в БД и транзакции завершены
+                await new Promise((resolve) => setTimeout(resolve, 200));
+
                 // Обновляем статус на COMPLETED
                 await prisma.mediaRequest.update({
                     where: { id: requestId },
@@ -207,6 +261,9 @@ async function pollTaskResult(
                         completedAt: new Date(),
                     },
                 });
+
+                // Дополнительная задержка после обновления статуса для синхронизации БД
+                await new Promise((resolve) => setTimeout(resolve, 100));
 
                 activePollingTasks.delete(requestId);
 
@@ -217,40 +274,62 @@ async function pollTaskResult(
             }
 
             if (status.status === 'failed') {
-                const errorMessage =
+                const baseErrorMessage =
                     status.error ||
                     'Генерация не удалась. Детали ошибки не предоставлены провайдером.';
+
+                // Форматируем сообщение об ошибке с информацией о модели и провайдере
+                const formattedErrorMessage = formatErrorMessage(
+                    baseErrorMessage,
+                    requestModel,
+                    provider.name
+                );
+
                 console.error(
                     `[MediaService] ⚠️ Задача завершилась с ошибкой: requestId=${requestId}, taskId=${taskId}`,
                     {
                         error: status.error,
                         provider: provider.name,
+                        model: requestModel,
                     }
                 );
-                throw new Error(errorMessage);
+                throw new Error(formattedErrorMessage);
             }
 
             // pending или processing - продолжаем polling
         } catch (error) {
-            const errorMessage =
+            const baseErrorMessage =
                 error instanceof Error ? error.message : 'Polling error';
-            const errorStack =
-                error instanceof Error ? error.stack : undefined;
+            const errorStack = error instanceof Error ? error.stack : undefined;
 
             console.error(
                 `[MediaService] ❌ Ошибка polling: requestId=${requestId}, taskId=${taskId}:`,
-                errorMessage
+                baseErrorMessage
             );
 
             if (errorStack) {
                 console.error('[MediaService] Stack trace:', errorStack);
             }
 
+            // Получаем модель из запроса для форматирования ошибки
+            const request = await prisma.mediaRequest.findUnique({
+                where: { id: requestId },
+                select: { model: true },
+            });
+
+            const requestModel = request?.model || null;
+            const taskInfo = activePollingTasks.get(requestId);
+            const formattedErrorMessage = formatErrorMessage(
+                baseErrorMessage,
+                requestModel || taskInfo?.model || null,
+                taskInfo?.providerName
+            );
+
             await prisma.mediaRequest.update({
                 where: { id: requestId },
                 data: {
                     status: RequestStatus.FAILED,
-                    errorMessage,
+                    errorMessage: formattedErrorMessage,
                 },
             });
 
@@ -262,73 +341,29 @@ async function pollTaskResult(
     // Timeout
     console.error(`[MediaService] ⏱️ Timeout polling: requestId=${requestId}`);
 
+    // Получаем модель из запроса для форматирования ошибки
+    const request = await prisma.mediaRequest.findUnique({
+        where: { id: requestId },
+        select: { model: true },
+    });
+
+    const requestModel = request?.model || null;
+    const taskInfo = activePollingTasks.get(requestId);
+    const formattedErrorMessage = formatErrorMessage(
+        'Превышено время ожидания генерации',
+        requestModel || taskInfo?.model || null,
+        taskInfo?.providerName
+    );
+
     await prisma.mediaRequest.update({
         where: { id: requestId },
         data: {
             status: RequestStatus.FAILED,
-            errorMessage: 'Превышено время ожидания генерации',
+            errorMessage: formattedErrorMessage,
         },
     });
 
     activePollingTasks.delete(requestId);
-}
-
-// Сохранение файлов в БД и отправка уведомлений
-async function saveFilesToDatabase(
-    requestId: number,
-    savedFiles: SavedFileInfo[],
-    prompt: string
-): Promise<void> {
-    const request = await prisma.mediaRequest.findUnique({
-        where: { id: requestId },
-        include: { chat: true },
-    });
-
-    if (!request) {
-        throw new Error(`Request не найден: ${requestId}`);
-    }
-
-    // Удаляем дубликаты файлов по пути
-    const uniqueFiles = savedFiles.filter(
-        (file, index, self) =>
-            index === self.findIndex((f) => f.path === file.path)
-    );
-
-    console.log(
-        `[MediaService] Сохранение ${uniqueFiles.length} файлов для requestId=${requestId}`
-    );
-
-    for (const file of uniqueFiles) {
-        const mediaFile = await prisma.mediaFile.create({
-            data: {
-                requestId,
-                type: file.type,
-                filename: file.filename,
-                path: file.path,
-                previewPath: file.previewPath,
-                size: file.size,
-                metadata: file.metadata as Prisma.InputJsonValue,
-            },
-        });
-
-        console.log(`[MediaService] Файл сохранён: id=${mediaFile.id}`);
-
-        // Отправляем уведомление в Telegram
-        if (request.chat) {
-            try {
-                const telegramResult = await notifyTelegramGroup(
-                    mediaFile,
-                    request.chat.name,
-                    prompt
-                );
-                console.log(
-                    `[MediaService] Telegram: ${telegramResult ? 'отправлено' : 'не отправлено'}`
-                );
-            } catch (telegramError) {
-                console.error('[MediaService] Ошибка Telegram:', telegramError);
-            }
-        }
-    }
 }
 
 // Получение доступных моделей
@@ -340,6 +375,22 @@ export function getAvailableModels(): Array<{
 }> {
     const providerManager = getProviderManager();
     return providerManager.getAvailableModels();
+}
+
+// Вспомогательная функция для форматирования сообщения об ошибке с информацией о модели и провайдере
+function formatErrorMessage(
+    errorMessage: string,
+    model: MediaModel | null,
+    providerName?: string
+): string {
+    if (!model) return errorMessage;
+
+    const providerManager = getProviderManager();
+    const modelConfig = providerManager.getModelConfig(model);
+    const displayProviderName =
+        providerName || modelConfig?.provider || 'unknown';
+
+    return `[${modelConfig?.name || model} (${displayProviderName})] ${errorMessage}`;
 }
 
 // Вспомогательная функция для задержки
