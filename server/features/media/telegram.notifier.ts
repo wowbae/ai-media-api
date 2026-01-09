@@ -447,16 +447,6 @@ export async function deleteMediaFileFromTelegram(
     try {
         console.log(`[Telegram] Начало удаления файла ${fileId}`);
 
-        // Получаем файл из БД
-        const file = await prisma.mediaFile.findUnique({
-            where: { id: fileId },
-        });
-
-        if (!file) {
-            console.error(`[Telegram] Файл ${fileId} не найден в БД`);
-            return false;
-        }
-
         const bot = await getBot();
         if (!bot) {
             console.error('[Telegram] Бот не инициализирован для удаления');
@@ -479,6 +469,17 @@ export async function deleteMediaFileFromTelegram(
                 error.description || telegramError
             );
             // Продолжаем удаление, даже если сообщение не удалось удалить
+        }
+
+        // Получаем файл из БД
+        const file = await prisma.mediaFile.findUnique({
+            where: { id: fileId },
+        });
+
+        // Проверяем, что файл найден в БД
+        if (!file) {
+            console.error(`[Telegram] Файл ${fileId} не найден в БД`);
+            return false;
         }
 
         // Преобразуем относительные пути в абсолютные

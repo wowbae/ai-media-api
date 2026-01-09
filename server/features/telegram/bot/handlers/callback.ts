@@ -35,10 +35,10 @@ callbackComposer.on('callback_query:data', async (ctx, next) => {
 
         if (isNaN(fileId)) {
             await ctx.answerCallbackQuery({
-                text: '❌ Ошибка: неверный ID файла',
+                text: '⚠️ Ошибка: неверный ID файла',
                 show_alert: false,
             });
-            return;
+            // return;
         }
 
         if (!ctx.callbackQuery.message) {

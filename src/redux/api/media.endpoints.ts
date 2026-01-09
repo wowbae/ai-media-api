@@ -34,13 +34,18 @@ export const mediaEndpoints = baseApi.injectEndpoints({
     }),
 
     // Получить чат по ID
-    getChat: build.query<MediaChatWithRequests, { id: number; limit?: number }>(
-      {
-        query: ({ id, limit }) => {
-          const url = `/chats/${id}`;
-          const params = limit !== undefined ? `?limit=${limit}` : "";
-          return url + params;
-        },
+    getChat: build.query<
+      MediaChatWithRequests,
+      { id: number; limit?: number; includeInputFiles?: boolean }
+    >({
+      query: ({ id, limit, includeInputFiles }) => {
+        const url = `/chats/${id}`;
+        const params = new URLSearchParams();
+        if (limit !== undefined) params.append("limit", limit.toString());
+        if (includeInputFiles) params.append("includeInputFiles", "true");
+        const queryString = params.toString();
+        return url + (queryString ? `?${queryString}` : "");
+      },
         transformResponse: (response: ApiResponse<MediaChatWithRequests>) =>
           response.data,
         providesTags: (result, _error, { id }) => [

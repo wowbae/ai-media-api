@@ -184,6 +184,40 @@ function MessageItem({
                     <p className='whitespace-pre-wrap text-white'>
                         {request.prompt}
                     </p>
+                    {/* Превью прикрепленных файлов */}
+                    {request.inputFiles && request.inputFiles.length > 0 && (
+                        <div className='mt-2 flex flex-wrap gap-2'>
+                            {request.inputFiles.map((dataUrl, index) => {
+                                // Пропускаем некорректные data URL
+                                if (!dataUrl || !dataUrl.startsWith('data:')) {
+                                    return null;
+                                }
+
+                                const isVideo = isVideoDataUrl(dataUrl);
+
+                                return (
+                                    <div
+                                        key={index}
+                                        className='h-16 w-16 overflow-hidden rounded-lg border border-cyan-500/30'
+                                    >
+                                        {isVideo ? (
+                                            <video
+                                                src={dataUrl}
+                                                className='h-full w-full object-cover'
+                                                muted
+                                            />
+                                        ) : (
+                                            <img
+                                                src={dataUrl}
+                                                alt={`Прикрепленный файл ${index + 1}`}
+                                                className='h-full w-full object-cover'
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                     <div className='mt-1 flex items-center justify-end gap-2 text-xs text-cyan-200/70'>
                         {modelInfo && (
                             <span className='flex items-center gap-1'>
@@ -492,4 +526,15 @@ function getProviderDisplayName(provider: string): string {
         kieai: 'Kie.ai',
     };
     return providerNames[provider] || provider;
+}
+
+// Вспомогательные функции для работы с data URL
+function getMimeTypeFromDataUrl(dataUrl: string): string {
+    const match = dataUrl.match(/^data:([^;]+)/);
+    return match ? match[1] : 'image/png';
+}
+
+function isVideoDataUrl(dataUrl: string): boolean {
+    const mimeType = getMimeTypeFromDataUrl(dataUrl);
+    return mimeType.startsWith('video/');
 }

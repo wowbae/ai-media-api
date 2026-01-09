@@ -59,6 +59,41 @@ function MediaChatPage() {
     },
   );
 
+  // Фоновая загрузка inputFiles для превью прикрепленных файлов
+  const {
+    data: chatWithInputFiles,
+    refetch: refetchInputFiles,
+  } = useGetChatQuery(
+    { id: chatIdNum, limit: 10, includeInputFiles: true },
+    {
+      skip: isChatLoading || !chat, // Загружаем только после загрузки основного чата
+      refetchOnMountOrArgChange: false,
+    },
+  );
+
+  // Объединяем данные: используем chatWithInputFiles для inputFiles, остальное из chat
+  const chatWithMergedInputFiles = chat && chatWithInputFiles
+    ? {
+        ...chat,
+        requests: chat.requests.map((req) => {
+          const reqWithInputFiles = chatWithInputFiles.requests.find(
+            (r) => r.id === req.id,
+          );
+          return reqWithInputFiles
+            ? { ...req, inputFiles: reqWithInputFiles.inputFiles }
+            : req;
+        }),
+      }
+    : chat;
+
+  // Загружаем inputFiles фоном после загрузки основного чата
+  useEffect(() => {
+    if (chat && !chatWithInputFiles && !isChatLoading) {
+      console.log("[Chat] 📥 Фоновая загрузка inputFiles для превью");
+      refetchInputFiles();
+    }
+  }, [chat, chatWithInputFiles, isChatLoading, refetchInputFiles]);
+
   // Загружаем только последние 10 запросов для чата
   // MediaGallery загружает файлы отдельно через /files endpoint
 
@@ -403,7 +438,10 @@ function MediaChatPage() {
 
   // Убираем pending-сообщение если реальный запрос появился
   // ВАЖНО: Этот useEffect должен быть ДО early returns для соблюдения правил хуков
-  const activeRequests = useMemo(() => chat?.requests || [], [chat?.requests]);
+  const activeRequests = useMemo(
+    () => chatWithMergedInputFiles?.requests || [],
+    [chatWithMergedInputFiles?.requests],
+  );
 
   useEffect(() => {
     if (!pendingMessage?.requestId) return;
@@ -476,7 +514,8 @@ function MediaChatPage() {
   }
 
   // Используем данные с ограничением для оптимизации загрузки
-  const activeChat = chat;
+  // Используем chatWithMergedInputFiles если доступен, иначе chat
+  const activeChat = chatWithMergedInputFiles || chat;
 
   // Сортируем запросы по дате (старые сверху)
   const sortedRequests = [...(activeChat.requests || [])].sort(
