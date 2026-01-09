@@ -19,8 +19,17 @@ app.use(express.json({ limit: "50mb" })); // увеличиваем лимит �
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cors());
 
-// Статическая раздача медиа-файлов
-app.use("/media-files", express.static(path.join(process.cwd(), "ai-media")));
+// Статическая раздача медиа-файлов с агрессивным кешированием
+// Файлы уже локальные, поэтому кешируем их на год
+app.use(
+  "/media-files",
+  express.static(path.join(process.cwd(), "ai-media"), {
+    maxAge: "1y", // Кешируем на 1 год
+    immutable: true, // Файлы не изменяются (имена уникальные)
+    etag: true, // Используем ETag для валидации
+    lastModified: true, // Используем Last-Modified
+  }),
+);
 
 // Media API роуты
 app.use("/api/media", mediaRouter);

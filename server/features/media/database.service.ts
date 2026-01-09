@@ -1,5 +1,5 @@
 // Сервис для работы с базой данных медиа-файлов
-import { Prisma, MediaFile } from "@prisma/client";
+import { MediaFile } from "@prisma/client";
 import { prisma } from "prisma/client";
 import { notifyTelegramGroupBatch } from "./telegram.notifier";
 import type { SavedFileInfo } from "./file.service";
@@ -43,7 +43,8 @@ export async function saveFilesToDatabase(
         path: file.path,
         previewPath: file.previewPath,
         size: file.size,
-        metadata: file.metadata as Prisma.InputJsonValue,
+        width: file.width,
+        height: file.height,
       },
     });
 

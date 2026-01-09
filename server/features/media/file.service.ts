@@ -41,7 +41,8 @@ export interface SavedFileInfo {
     previewPath: string | null;
     size: number;
     type: MediaType;
-    metadata: Record<string, unknown>;
+    width?: number;  // Ширина изображения (только для IMAGE)
+    height?: number; // Высота изображения (только для IMAGE)
 }
 
 // Инициализация директорий для хранения файлов
@@ -235,8 +236,8 @@ async function saveBufferToFile(
     // Создаем превью
     const previewPath = await createPreview(filePath, filename, mediaType);
 
-    // Получаем метаданные
-    const metadata = await getFileMetadata(filePath, mediaType);
+    // Получаем размеры изображения (только width и height)
+    const dimensions = await getImageDimensions(filePath, mediaType);
 
     // Формируем относительные пути
     const relativePath = path.relative(mediaStorageConfig.basePath, filePath);
@@ -250,7 +251,8 @@ async function saveBufferToFile(
         previewPath: relativePreviewPath,
         size: buffer.length,
         type: mediaType,
-        metadata,
+        width: dimensions.width,
+        height: dimensions.height,
     };
 }
 
@@ -276,32 +278,25 @@ export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
     return saveBufferToFile(buffer, contentType);
 }
 
-// Получение метаданных файла
-async function getFileMetadata(
+// Получение размеров изображения (только width и height для оптимизации)
+async function getImageDimensions(
     filePath: string,
     type: MediaType
-): Promise<Record<string, unknown>> {
-    const metadata: Record<string, unknown> = {};
-
-    try {
-        const fileStat = await stat(filePath);
-        metadata.createdAt = fileStat.birthtime;
-        metadata.modifiedAt = fileStat.mtime;
-
-        // Для изображений получаем размеры через sharp
-        if (type === 'IMAGE' && sharp) {
+): Promise<{ width?: number; height?: number }> {
+    // Для изображений получаем размеры через sharp
+    if (type === 'IMAGE' && sharp) {
+        try {
             const imageInfo = await sharp(filePath).metadata();
-            metadata.width = imageInfo.width;
-            metadata.height = imageInfo.height;
-            metadata.format = imageInfo.format;
-            metadata.space = imageInfo.space;
-            metadata.hasAlpha = imageInfo.hasAlpha;
+            return {
+                width: imageInfo.width ?? undefined,
+                height: imageInfo.height ?? undefined,
+            };
+        } catch (error) {
+            console.error('Ошибка получения размеров изображения:', error);
         }
-    } catch (error) {
-        console.error('Ошибка получения метаданных:', error);
     }
 
-    return metadata;
+    return {};
 }
 
 // Удаление файла и его превью

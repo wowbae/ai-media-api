@@ -40,7 +40,8 @@ export interface MediaFileInfo {
   path: string;
   previewPath: string | null;
   size: number;
-  metadata: Record<string, unknown>;
+  width: number | null;
+  height: number | null;
   createdAt: Date;
 }
 

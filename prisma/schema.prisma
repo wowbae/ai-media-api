@@ -50,7 +50,8 @@ model MediaFile {
   path        String
   previewPath String?
   size        Int
-  metadata    Json         @default("{}")
+  width       Int?         // Ширина изображения (только для IMAGE)
+  height      Int?         // Высота изображения (только для IMAGE)
   createdAt   DateTime     @default(now())
 
   @@index([requestId])

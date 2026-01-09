@@ -18,6 +18,68 @@ export const mediaRouter = Router();
 
 // Инициализация при загрузке модуля
 initMediaStorage().catch(console.error);
+
+// ==================== In-Memory Cache ====================
+// Простой кеш для ускорения запросов к удаленной БД
+interface ChatCacheEntry {
+  data: any;
+  timestamp: number;
+  limit?: number;
+}
+
+const chatCache = new Map<string, ChatCacheEntry>();
+const CACHE_TTL = 30000; // 30 секунд
+
+function getCachedChat(chatId: number, limit?: number): any | null {
+  const cacheKey = `${chatId}-${limit || "all"}`;
+  const cached = chatCache.get(cacheKey);
+
+  if (!cached) return null;
+
+  // Проверяем TTL
+  if (Date.now() - cached.timestamp > CACHE_TTL) {
+    chatCache.delete(cacheKey);
+    return null;
+  }
+
+  return cached.data;
+}
+
+function setCachedChat(chatId: number, data: any, limit?: number): void {
+  const cacheKey = `${chatId}-${limit || "all"}`;
+  chatCache.set(cacheKey, {
+    data,
+    timestamp: Date.now(),
+    limit,
+  });
+}
+
+function invalidateChatCache(chatId: number): void {
+  // Удаляем все варианты кеша для этого чата
+  const keysToDelete: string[] = [];
+  for (const key of chatCache.keys()) {
+    if (key.startsWith(`${chatId}-`)) {
+      keysToDelete.push(key);
+    }
+  }
+  keysToDelete.forEach((key) => chatCache.delete(key));
+  console.log(`[Cache] Invalidated cache for chat ${chatId}`);
+}
+
+// Очистка старого кеша каждые 60 секунд
+setInterval(() => {
+  const now = Date.now();
+  let deletedCount = 0;
+  for (const [key, entry] of chatCache.entries()) {
+    if (now - entry.timestamp > CACHE_TTL) {
+      chatCache.delete(key);
+      deletedCount++;
+    }
+  }
+  if (deletedCount > 0) {
+    console.log(`[Cache] Cleaned up ${deletedCount} expired entries`);
+  }
+}, 60000);
 initTelegramNotifier().catch(console.error);
 
 // ==================== Чаты ====================
@@ -111,14 +173,47 @@ mediaRouter.get("/chats/:id", async (req: Request, res: Response) => {
     );
     const startTime = Date.now();
 
+    // Проверяем кеш
+    const cachedChat = getCachedChat(chatId, limit);
+    if (cachedChat) {
+      const totalTime = Date.now() - startTime;
+      console.log(`[API] ✅ /chats/${chatId}: из КЕША, время=${totalTime}ms`);
+      return res.json({ success: true, data: cachedChat });
+    }
+
+    // Замеряем время отдельных частей запроса
+    console.log(`[API] ⏱️  Начало Prisma запроса...`);
+    const prismaStartTime = Date.now();
+
     const chat = await prisma.mediaChat.findUnique({
       where: { id: chatId },
       include: {
         requests: {
           orderBy: { createdAt: "desc" },
           ...(limit ? { take: limit } : {}), // Применяем limit только если указан
-          include: {
-            files: true,
+          select: {
+            id: true,
+            chatId: true,
+            prompt: true,
+            status: true,
+            model: true,
+            errorMessage: true,
+            createdAt: true,
+            completedAt: true,
+            files: {
+              select: {
+                id: true,
+                filename: true,
+                path: true,
+                previewPath: true,
+                type: true,
+                size: true,
+                width: true,
+                height: true,
+                createdAt: true,
+                // НЕ загружаем: requestId
+              },
+            },
           },
         },
         _count: {
@@ -129,8 +224,11 @@ mediaRouter.get("/chats/:id", async (req: Request, res: Response) => {
       },
     });
 
+    const prismaTime = Date.now() - prismaStartTime;
+    console.log(`[API] ⏱️  Prisma запрос завершен за ${prismaTime}ms`);
+
     const queryTime = Date.now() - startTime;
-    console.log(`[API] ⏱️  Запрос к БД выполнен за ${queryTime}ms`);
+    console.log(`[API] ⏱️  Общее время запроса: ${queryTime}ms`);
 
     if (!chat) {
       return res.status(404).json({ success: false, error: "Чат не найден" });
@@ -144,10 +242,25 @@ mediaRouter.get("/chats/:id", async (req: Request, res: Response) => {
     const loadedRequests = chat.requests.length;
     const totalRequests = chat._count.requests;
 
+    const processingTime = Date.now() - startTime - prismaTime;
     const totalTime = Date.now() - startTime;
+
     console.log(
-      `[API] ✅ /chats/${chatId}: загружено запросов=${loadedRequests}${limit ? ` (limit=${limit})` : ""}, всего=${totalRequests}, файлов=${totalFiles}, время=${totalTime}ms`,
+      `[API] ✅ /chats/${chatId}: загружено запросов=${loadedRequests}${limit ? ` (limit=${limit})` : ""}, всего=${totalRequests}, файлов=${totalFiles}`,
     );
+    console.log(
+      `[API] ⏱️  Breakdown: DB=${prismaTime}ms, Processing=${processingTime}ms, Total=${totalTime}ms`,
+    );
+
+    // Предупреждение если запрос очень медленный
+    if (totalTime > 5000) {
+      console.warn(
+        `[API] ⚠️  SLOW QUERY DETECTED: ${totalTime}ms for chat ${chatId} with ${loadedRequests} requests and ${totalFiles} files`,
+      );
+    }
+
+    // Сохраняем в кеш
+    setCachedChat(chatId, chat, limit);
 
     res.json({ success: true, data: chat });
   } catch (error) {
@@ -288,6 +401,10 @@ mediaRouter.delete("/chats/:id", async (req: Request, res: Response) => {
     }
 
     // Удаляем чат (каскадное удаление requests и files)
+    // Инвалидируем кеш перед удалением
+    invalidateChatCache(chatId);
+
+    // Удаляем все файлы чата физически
     await prisma.mediaChat.delete({
       where: { id: chatId },
     });
@@ -400,6 +517,9 @@ mediaRouter.post("/generate", async (req: Request, res: Response) => {
         status: "PENDING",
       },
     });
+
+    // Инвалидируем кеш чата (новый запрос создан)
+    invalidateChatCache(chatId);
 
     console.log("[API] ✅ Создан новый запрос на генерацию:", {
       requestId: mediaRequest.id,
@@ -548,7 +668,8 @@ mediaRouter.post("/generate-test", async (req: Request, res: Response) => {
         path: newFilePath,
         previewPath: newPreviewPath,
         size: fileStat.size,
-        metadata: lastFile.metadata as Prisma.InputJsonValue,
+        width: lastFile.width,
+        height: lastFile.height,
       },
     });
 
@@ -614,9 +735,29 @@ mediaRouter.get("/requests/:id", async (req: Request, res: Response) => {
 
     const request = await prisma.mediaRequest.findUnique({
       where: { id: requestId },
-      include: {
+      select: {
+        id: true,
+        chatId: true,
+        prompt: true,
+        status: true,
+        model: true,
+        errorMessage: true,
+        createdAt: true,
+        completedAt: true,
+        // Не возвращаем inputFiles, чтобы не тянуть base64
         files: {
           orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            filename: true,
+            path: true,
+            previewPath: true,
+            type: true,
+            size: true,
+            width: true,
+            height: true,
+            createdAt: true,
+          },
         },
       },
     });
@@ -692,7 +833,30 @@ mediaRouter.get(
           orderBy: { createdAt: "desc" },
           skip,
           take: limit,
-          include: { files: true },
+          select: {
+            id: true,
+            chatId: true,
+            prompt: true,
+            status: true,
+            model: true,
+            errorMessage: true,
+            createdAt: true,
+            completedAt: true,
+            // Не возвращаем inputFiles, чтобы не тянуть base64
+            files: {
+              select: {
+                id: true,
+                filename: true,
+                path: true,
+                previewPath: true,
+                type: true,
+                size: true,
+                width: true,
+                height: true,
+                createdAt: true,
+              },
+            },
+          },
         }),
         prisma.mediaRequest.count({ where: { chatId } }),
       ]);
@@ -749,15 +913,17 @@ mediaRouter.get("/files", async (req: Request, res: Response) => {
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
-        include: {
-          request: {
-            select: {
-              prompt: true,
-              chat: {
-                select: { name: true },
-              },
-            },
-          },
+        select: {
+          id: true,
+          filename: true,
+          path: true,
+          previewPath: true,
+          type: true,
+          createdAt: true,
+          size: true,
+          width: true,
+          height: true,
+          // Не загружаем request - только минимум для отображения
         },
       }),
       prisma.mediaFile.count(),
@@ -828,6 +994,17 @@ mediaRouter.delete("/files/:id", async (req: Request, res: Response) => {
     await prisma.mediaFile.delete({
       where: { id: fileId },
     });
+
+    // Инвалидируем кеш чата (файл удален)
+    if (file.requestId) {
+      const request = await prisma.mediaRequest.findUnique({
+        where: { id: file.requestId },
+        select: { chatId: true },
+      });
+      if (request) {
+        invalidateChatCache(request.chatId);
+      }
+    }
 
     res.json({
       success: true,
