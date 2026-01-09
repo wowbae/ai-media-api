@@ -250,6 +250,16 @@ function MediaChatPage() {
 
     useEffect(() => {
         if (pollingRequest) {
+            // ВАЖНО: Проверяем, что pollingRequest соответствует текущему pollingRequestId
+            // При смене pollingRequestId, pollingRequest какое-то время содержит данные старого запроса
+            if (pollingRequest.id !== pollingRequestId) {
+                console.log('[Chat] ⚠️ pollingRequest.id не совпадает с pollingRequestId, игнорируем:', {
+                    pollingRequestId: pollingRequest.id,
+                    expectedId: pollingRequestId,
+                });
+                return;
+            }
+
             const currentStatus = pollingRequest.status;
             const previousStatus = previousStatusRef.current;
 
@@ -355,7 +365,7 @@ function MediaChatPage() {
                 previousStatusRef.current = currentStatus;
             }
         }
-    }, [pollingRequest, refetch, maxPollingTime]);
+    }, [pollingRequest, pollingRequestId, refetch, maxPollingTime]);
 
     // Убираем pending-сообщение если реальный запрос появился
     // ВАЖНО: Этот useEffect должен быть ДО early returns для соблюдения правил хуков

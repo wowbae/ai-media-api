@@ -257,7 +257,7 @@ function VideoPreview({ previewUrl, originalUrl, filename }: VideoPreviewProps) 
                     src={originalUrl}
                     poster={previewUrl}
                     controls
-                    autoPlay
+                    // autoPlay
                     className="h-full w-full object-cover video-controls-on-hover"
                 />
             </div>

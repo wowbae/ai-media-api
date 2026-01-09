@@ -10,6 +10,7 @@ import { PROVIDER_STATUS_MAP } from '../interfaces';
 import type { SavedFileInfo } from '../../file.service';
 import { saveFileFromUrl } from '../../file.service';
 import { MEDIA_MODELS } from '../../config';
+import { uploadToImgbb, isImgbbConfigured } from '../../imgbb.service';
 import type {
     GPTunnelConfig,
     GPTunnelMediaCreateResponse,
@@ -34,8 +35,22 @@ export function createGPTunnelMediaProvider(config: GPTunnelConfig): MediaProvid
         };
 
         // Добавляем изображение для первого кадра (image-to-video)
+        // GPTunnel требует публичные URL, поэтому загружаем на imgbb
         if (params.inputFiles && params.inputFiles.length > 0) {
-            body.images = [params.inputFiles[0]];
+            const inputImage = params.inputFiles[0];
+
+            // Если это data URL (base64) - загружаем на imgbb
+            if (inputImage.startsWith('data:')) {
+                if (!isImgbbConfigured()) {
+                    throw new Error('IMGBB_API_KEY не настроен. Для image-to-video нужен imgbb.');
+                }
+                console.log('[GPTunnel Media] Загрузка изображения на imgbb...');
+                const publicUrl = await uploadToImgbb(inputImage);
+                body.images = [publicUrl];
+            } else {
+                // Уже URL - используем как есть
+                body.images = [inputImage];
+            }
         }
 
         // Добавляем соотношение сторон
@@ -62,10 +77,21 @@ export function createGPTunnelMediaProvider(config: GPTunnelConfig): MediaProvid
             }
         }
 
+        // Логируем детали для отладки
+        const imageInfo = body.images
+            ? {
+                  count: (body.images as string[]).length,
+                  firstImagePreview: (body.images as string[])[0]?.substring(0, 100),
+                  isDataUrl: (body.images as string[])[0]?.startsWith('data:'),
+                  isHttpUrl: (body.images as string[])[0]?.startsWith('http'),
+              }
+            : null;
+
         console.log('[GPTunnel Media] Создание задачи:', {
             model: modelId,
             prompt: params.prompt.substring(0, 50),
             hasImages: !!body.images,
+            imageInfo,
             ar: body.ar,
             quality: body.quality,
             duration: body.duration,
