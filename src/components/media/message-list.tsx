@@ -1,5 +1,5 @@
 // Список сообщений (запросов и результатов)
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import {
     Loader2,
     AlertCircle,
@@ -47,6 +47,13 @@ export function MessageList({
     const scrollRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // Мемоизируем строку статусов для предотвращения бесконечных ре-рендеров
+    // Используем стабильную строку на основе ID и статуса (без errorMessage для уменьшения частоты обновлений)
+    const requestsStatusKey = useMemo(
+        () => requests.map((r) => `${r.id}-${r.status}`).join('|'),
+        [requests]
+    );
+
     // Автопрокрутка к последнему сообщению
     // Используем scrollIntoView на элементе-маркере в конце списка
     useEffect(() => {
@@ -60,13 +67,7 @@ export function MessageList({
                 }
             });
         });
-    }, [
-        requests.length,
-        // Добавляем зависимости от статусов и наличия ошибок для автоскролла при изменении статуса
-        requests
-            .map((r) => `${r.id}:${r.status}:${r.errorMessage || ''}`)
-            .join(','),
-    ]);
+    }, [requests.length, requestsStatusKey]);
 
     if (isLoading) {
         return (

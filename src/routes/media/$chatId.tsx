@@ -225,7 +225,7 @@ function MediaChatPage() {
   const shouldSkipPolling = !pollingRequestId || isTestMode;
   const { data: pollingRequest } = useGetRequestQuery(pollingRequestId!, {
     skip: shouldSkipPolling, // Не опрашиваем в тестовом режиме
-    pollingInterval: isTestMode ? 0 : 1500, // Опрос каждые 1.5 секунды для более быстрого обновления
+    pollingInterval: isTestMode ? 0 : 3000, // Опрос каждые 3 секунды (увеличено с 1.5 для снижения нагрузки на память)
     // Принудительно обновляем данные при каждом запросе
     refetchOnMountOrArgChange: true,
   });

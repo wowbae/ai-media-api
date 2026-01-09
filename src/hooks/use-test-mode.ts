@@ -30,6 +30,7 @@ export function useTestMode(): UseTestModeReturn {
     }, []);
 
     // Периодическая проверка для синхронизации в той же вкладке
+    // Увеличен интервал с 1 до 3 секунд для снижения нагрузки на память
     useEffect(() => {
         const interval = setInterval(() => {
             const currentTestMode = loadTestMode();
@@ -39,7 +40,7 @@ export function useTestMode(): UseTestModeReturn {
                 }
                 return prev;
             });
-        }, 1000);
+        }, 3000); // Увеличено с 1000ms до 3000ms для экономии ресурсов
 
         return () => clearInterval(interval);
     }, []);

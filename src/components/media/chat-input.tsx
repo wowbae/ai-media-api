@@ -65,7 +65,7 @@ interface AttachedFile {
     id: string;
     file: File;
     preview: string;
-    base64: string;
+    // base64 удален - конвертируем только при отправке для экономии памяти
 }
 
 export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
@@ -112,6 +112,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const fileInputRef = useRef<HTMLInputElement>(null);
         const textareaRef = useRef<HTMLTextAreaElement>(null);
         const submitInProgressRef = useRef(false);
+        // Ref для отслеживания всех созданных preview URLs для очистки при размонтировании
+        const previewUrlsRef = useRef<Set<string>>(new Set());
 
         const [generateMedia, { isLoading: isGenerating }] =
             useGenerateMediaMutation();
@@ -231,16 +233,16 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         return;
                     }
 
-                    // Конвертируем в base64
-                    const base64 = await fileToBase64(file);
+                    // Создаем preview URL (base64 конвертируем только при отправке)
                     const preview = URL.createObjectURL(file);
+                    // Сохраняем URL для последующей очистки
+                    previewUrlsRef.current.add(preview);
 
                     // Добавляем в список прикрепленных файлов
                     const newFile: AttachedFile = {
                         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                         file,
                         preview,
-                        base64,
                     };
 
                     setAttachedFiles((prev) => [...prev, newFile]);
@@ -303,6 +305,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             setIsLockEnabled(lockState);
         }, [currentModel]);
 
+        // Очистка URL.createObjectURL при размонтировании компонента для предотвращения утечек памяти
+        useEffect(() => {
+            return () => {
+                // Освобождаем все Object URLs из ref при размонтировании
+                previewUrlsRef.current.forEach((url) => {
+                    URL.revokeObjectURL(url);
+                });
+                previewUrlsRef.current.clear();
+            };
+        }, []); // Запускаем только при размонтировании
+
         // Конвертация файла в base64
         const fileToBase64 = useCallback((file: File): Promise<string> => {
             return new Promise((resolve, reject) => {
@@ -340,14 +353,15 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     }
 
                     try {
-                        const base64 = await fileToBase64(file);
+                        // Создаем preview URL (base64 конвертируем только при отправке)
                         const preview = URL.createObjectURL(file);
+                        // Сохраняем URL для последующей очистки
+                        previewUrlsRef.current.add(preview);
 
                         newFiles.push({
                             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                             file,
                             preview,
-                            base64,
                         });
                     } catch (error) {
                         console.error(
@@ -361,7 +375,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
                 return newFiles;
             },
-            [fileToBase64]
+            [] // fileToBase64 больше не нужен в зависимостях
         );
 
         // Обработка выбора файлов из input
@@ -386,6 +400,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 const file = prev.find((f) => f.id === fileId);
                 if (file) {
                     URL.revokeObjectURL(file.preview);
+                    // Удаляем URL из ref
+                    previewUrlsRef.current.delete(file.preview);
                 }
                 return prev.filter((f) => f.id !== fileId);
             });
@@ -581,6 +597,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     );
                 } else {
                     // Обычный режим: отправляем реальный запрос
+                    // Конвертируем файлы в base64 только при отправке для экономии памяти
                     console.log(
                         '[ChatInput] ✅ Обычный режим: отправка запроса на генерацию в нейронку:',
                         {
@@ -594,11 +611,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             timestamp: new Date().toISOString(),
                         }
                     );
+
+                    // Конвертируем файлы в base64 только при отправке
+                    const inputFilesBase64 = await Promise.all(
+                        attachedFiles.map((f) => fileToBase64(f.file))
+                    );
+
                     result = await generateMedia({
                         chatId,
                         prompt: finalPrompt,
                         model: currentModel,
-                        inputFiles: attachedFiles.map((f) => f.base64),
+                        inputFiles: inputFilesBase64,
                         ...((isNanoBanana ||
                             isNanoBananaPro ||
                             isNanoBananaProKieai) &&
@@ -633,9 +656,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 // Сохраняем промпт и изображения, если кнопка замочка активна
                 if (isLockEnabled) {
                     // Сохраняем оригинальный промпт (без добавленных параметров формата и качества)
+                    // Конвертируем файлы в base64 только для сохранения
+                    const savedFilesBase64 = await Promise.all(
+                        attachedFiles.map((f) => fileToBase64(f.file))
+                    );
                     savePrompt(
                         prompt.trim(),
-                        attachedFiles.map((f) => f.base64),
+                        savedFilesBase64,
                         chatId,
                         currentModel
                     );
@@ -643,9 +670,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 } else {
                     // Очищаем форму только если режим сохранения не активен
                     setPrompt('');
-                    attachedFiles.forEach((f) =>
-                        URL.revokeObjectURL(f.preview)
-                    );
+                    // Освобождаем все preview URLs и очищаем ref
+                    attachedFiles.forEach((f) => {
+                        URL.revokeObjectURL(f.preview);
+                        previewUrlsRef.current.delete(f.preview);
+                    });
                     setAttachedFiles([]);
                 }
 
