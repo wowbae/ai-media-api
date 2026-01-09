@@ -385,7 +385,7 @@ function formatCaption(
 
     // let caption = `🎨 <b>AI Media Generated</b>\n\n`;
     let caption = `📁 <b>Чат:</b> ${escapeHtml(chatName)}\n`;
-    caption += `📝 <b>Промпт:\n</b> <blockquote expandable><code>${escapeHtml(truncatedPrompt)}</code></blockquote>\n\n`;
+    caption += `📝 <b>Промпт:</b> <blockquote expandable><code>${escapeHtml(truncatedPrompt)}</code></blockquote>\n\n`;
     // caption += `📊 <b>Тип:</b> ${file.type}\n`;
     // caption += `💾 <b>Размер:</b> ${formatFileSize(file.size)}\n`;
 
