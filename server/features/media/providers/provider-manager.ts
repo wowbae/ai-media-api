@@ -101,7 +101,6 @@ export function createProviderManager(): ProviderManager {
         }
 
         // Для Nano Banana Pro используем nano-banana провайдер
-        // @ts-expect-error - NANO_BANANA_PRO_KIEAI добавлен в schema.prisma, TypeScript кеш обновится после перезапуска
         if (model === "NANO_BANANA_PRO_KIEAI") {
           kieaiProviders[model] = createKieAiNanoBananaProvider(kieaiConfig);
           return kieaiProviders[model];
