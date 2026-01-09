@@ -2,7 +2,7 @@
 // Единственный источник истины для всех провайдеров
 import 'dotenv/config';
 
-export type MediaProviderType = 'openrouter' | 'gptunnel' | 'midjourney' | 'laozhang';
+export type MediaProviderType = 'openrouter' | 'gptunnel' | 'laozhang' | 'kieai';
 
 export interface MediaModelConfig {
     id: string;
@@ -36,7 +36,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         types: ['IMAGE'] as const,
         maxPromptLength: 4000,
         supportsImageInput: false,
-        provider: 'midjourney', // Отдельный провайдер через GPTunnel /midjourney API
+        provider: 'kieai', // Провайдер через Kie.ai API
         pricing: {
             output: 18,
         },

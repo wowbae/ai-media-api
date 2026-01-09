@@ -483,14 +483,13 @@ function formatTime(dateString: string): string {
 }
 
 // Получить отображаемое название провайдера
-// Провайдеры: openrouter, gptunnel, laozhang
-// midjourney - это внутренний провайдер, который использует GPTunnel API, поэтому показываем GPTunnel
+// Провайдеры: openrouter, gptunnel, laozhang, kieai
 function getProviderDisplayName(provider: string): string {
     const providerNames: Record<string, string> = {
         openrouter: 'OpenRouter',
         gptunnel: 'GPTunnel',
-        midjourney: 'GPTunnel', // Midjourney использует GPTunnel API
         laozhang: 'LaoZhang',
+        kieai: 'Kie.ai',
     };
     return providerNames[provider] || provider;
 }

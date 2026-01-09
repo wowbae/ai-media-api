@@ -2,8 +2,9 @@
 import type { MediaModel } from '@prisma/client';
 import type { MediaProvider } from './interfaces';
 import { createOpenRouterProvider } from './openrouter';
-import { createGPTunnelMediaProvider, createMidjourneyProvider } from './gptunnel';
+import { createGPTunnelMediaProvider } from './gptunnel';
 import { createLaoZhangProvider } from './laozhang';
+import { createKieAiMidjourneyProvider } from './kieai';
 import { MEDIA_MODELS, type MediaModelConfig } from '../config';
 import 'dotenv/config';
 
@@ -51,9 +52,15 @@ export function createProviderManager(): ProviderManager {
 
         // Media провайдер (для Veo 3.1 Fast и других моделей /v1/media API)
         providers.gptunnel = createGPTunnelMediaProvider(gptunnelConfig);
+    }
 
-        // Midjourney провайдер (использует /v1/midjourney API GPTunnel)
-        providers.midjourney = createMidjourneyProvider(gptunnelConfig);
+    // Kie.ai провайдер (Midjourney через Kie.ai API)
+    const kieaiApiKey = process.env.KIEAI_API_KEY || '';
+    if (kieaiApiKey) {
+        providers.kieai = createKieAiMidjourneyProvider({
+            apiKey: kieaiApiKey,
+            baseURL: 'https://api.kie.ai', // TODO: уточнить точный URL
+        });
     }
 
     // LaoZhang провайдер (Nano Banana Pro, Sora 2, Veo 3.1)

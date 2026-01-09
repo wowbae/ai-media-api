@@ -3,10 +3,9 @@
 // Общие интерфейсы
 export * from './interfaces';
 
-// GPTunnel провайдеры (Media API + Midjourney API)
+// GPTunnel провайдеры (Media API)
 export {
     createGPTunnelMediaProvider,
-    createMidjourneyProvider,
     type GPTunnelConfig,
 } from './gptunnel';
 
@@ -24,6 +23,12 @@ export {
     createLaoZhangVideoProvider,
     type LaoZhangConfig,
 } from './laozhang';
+
+// Kie.ai провайдер (Midjourney через Kie.ai API)
+export {
+    createKieAiMidjourneyProvider,
+    type KieAiConfig,
+} from './kieai';
 
 // Менеджер провайдеров
 export {

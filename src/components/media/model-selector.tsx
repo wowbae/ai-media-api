@@ -34,13 +34,13 @@ const PROVIDER_BADGE_CONFIG: Record<MediaProviderType, { label: string; classNam
         label: 'OpenRouter',
         className: 'bg-violet-900/50 text-violet-400 border-violet-700/50',
     },
-    midjourney: {
-        label: 'GPTunnel',
-        className: 'bg-emerald-900/50 text-emerald-400 border-emerald-700/50',
-    },
     laozhang: {
         label: 'LaoZhang',
         className: 'bg-orange-900/50 text-orange-400 border-orange-700/50',
+    },
+    kieai: {
+        label: 'Kie.ai',
+        className: 'bg-blue-900/50 text-blue-400 border-blue-700/50',
     },
 };
 

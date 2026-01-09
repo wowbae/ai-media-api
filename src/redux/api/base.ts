@@ -16,7 +16,7 @@ export type MediaModel =
 
 export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
 export type RequestStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-export type MediaProviderType = 'openrouter' | 'gptunnel' | 'midjourney' | 'laozhang';
+export type MediaProviderType = 'openrouter' | 'gptunnel' | 'laozhang' | 'kieai';
 
 // ==================== Интерфейсы сущностей ====================
 
