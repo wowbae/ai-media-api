@@ -498,6 +498,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 {/* Прикрепленные файлы */}
                 {attachedFiles.length > 0 && (
                     <div className='mb-3 flex flex-wrap gap-2'>
+                        {/* Невидимый элемент для выравнивания с кнопками слева */}
+                        <div className='w-8 shrink-0' aria-hidden='true' />
                         {attachedFiles.map((file) => (
                             <div
                                 key={file.id}
