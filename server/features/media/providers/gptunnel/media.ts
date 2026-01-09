@@ -39,7 +39,10 @@ export function createGPTunnelMediaProvider(config: GPTunnelConfig): MediaProvid
         }
 
         // Добавляем соотношение сторон
-        if (params.aspectRatio) {
+        // Для Veo используем ar, для других моделей aspectRatio
+        if (modelId === 'glabs-veo-3-1-fast' && params.ar) {
+            body.ar = params.ar;
+        } else if (params.aspectRatio) {
             body.ar = params.aspectRatio;
         }
 

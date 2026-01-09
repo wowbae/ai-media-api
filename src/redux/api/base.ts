@@ -96,6 +96,7 @@ export interface GenerateMediaRequest {
     quality?: '1k' | '2k' | '4k';
     videoQuality?: '480p' | '720p' | '1080p';
     duration?: number;
+    ar?: '16:9' | '9:16'; // Формат видео для Veo
 }
 
 export interface GenerateMediaResponse {

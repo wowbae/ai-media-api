@@ -5,6 +5,7 @@ const STORAGE_KEY = 'ai-media-settings';
 export interface MediaSettings {
     format?: '9:16' | '16:9';
     quality?: '1k' | '2k' | '4k';
+    videoFormat?: '16:9' | '9:16'; // Формат видео для Veo
 }
 
 // Загрузить настройки из localStorage
@@ -20,6 +21,7 @@ export function loadMediaSettings(): MediaSettings {
             return {
                 format: parsed.format,
                 quality: parsed.quality,
+                videoFormat: parsed.videoFormat,
             };
         }
     } catch (error) {
@@ -37,7 +39,7 @@ export function saveMediaSettings(settings: MediaSettings): void {
 
     try {
         const current = loadMediaSettings();
-        const updated = {
+        const updated: MediaSettings = {
             ...current,
             ...settings,
         };

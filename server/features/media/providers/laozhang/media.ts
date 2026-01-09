@@ -380,7 +380,10 @@ export function createLaoZhangVideoProvider(
         };
 
         // Добавляем aspect_ratio для видео
-        if (params.aspectRatio) {
+        // Для Veo используем ar, для других моделей aspectRatio
+        if (modelConfig.id === 'veo-3.1-720p-async' && params.ar) {
+            requestBody.ar = params.ar;
+        } else if (params.aspectRatio) {
             requestBody.aspect_ratio = params.aspectRatio;
         }
 

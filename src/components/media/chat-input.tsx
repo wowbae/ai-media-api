@@ -26,7 +26,11 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { loadMediaSettings, saveMediaSettings } from '@/lib/media-settings';
+import {
+    loadMediaSettings,
+    saveMediaSettings,
+    type MediaSettings,
+} from '@/lib/media-settings';
 import {
     loadLockButtonState,
     saveLockButtonState,
@@ -89,6 +93,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             '480p' | '720p' | '1080p' | undefined
         >(undefined);
         const [duration, setDuration] = useState<number | undefined>(undefined);
+        const [videoFormat, setVideoFormat] = useState<
+            '16:9' | '9:16' | undefined
+        >(undefined);
         const [isSubmitting, setIsSubmitting] = useState(false);
         const [isLockEnabled, setIsLockEnabled] = useState(false);
         const { isTestMode } = useTestMode();
@@ -105,6 +112,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             disabled || isGenerating || isGeneratingTest || isSubmitting;
         const isNanoBanana = currentModel === 'NANO_BANANA';
         const isSora = currentModel === 'SORA';
+        const isVeo =
+            currentModel === 'VEO_3_1_FAST' || currentModel === 'VEO_3_1';
 
         // Очистка таймера при размонтировании
         useEffect(() => {
@@ -195,6 +204,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             }
             if (settings.quality) {
                 setQuality(settings.quality);
+            }
+            const videoFormatValue = (
+                settings as { videoFormat?: '16:9' | '9:16' }
+            ).videoFormat;
+            if (videoFormatValue) {
+                setVideoFormat(videoFormatValue);
             }
 
             // Загружаем состояние кнопки замочка
@@ -390,6 +405,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             model: currentModel,
                             format,
                             quality,
+                            videoFormat: isVeo ? videoFormat : undefined,
                             inputFilesCount: attachedFiles.length,
                             timestamp: new Date().toISOString(),
                         }
@@ -403,6 +419,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         ...(isNanoBanana && quality && { quality }),
                         ...(isSora && videoQuality && { videoQuality }),
                         ...(isSora && duration && { duration }),
+                        ...(isVeo && videoFormat && { ar: videoFormat }),
                     }).unwrap();
                     console.log(
                         '[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:',
@@ -620,6 +637,52 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 </SelectContent>
                             </Select>
                         </>
+                    )}
+
+                    {/* Настройки для Veo */}
+                    {isVeo && (
+                        <Select
+                            value={videoFormat || 'default'}
+                            onValueChange={(value) => {
+                                const newVideoFormat =
+                                    value === 'default'
+                                        ? undefined
+                                        : (value as '16:9' | '9:16');
+                                setVideoFormat(newVideoFormat);
+                                saveMediaSettings({
+                                    format,
+                                    quality,
+                                    videoFormat: newVideoFormat,
+                                } as MediaSettings);
+                            }}
+                            disabled={isDisabled}
+                        >
+                            <SelectTrigger className='w-[120px] border-slate-600 bg-slate-700 text-white'>
+                                <SelectValue placeholder='Формат'>
+                                    {videoFormat || 'Формат'}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className='border-slate-700 bg-slate-800'>
+                                <SelectItem
+                                    value='default'
+                                    className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                >
+                                    По умолчанию
+                                </SelectItem>
+                                <SelectItem
+                                    value='16:9'
+                                    className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                >
+                                    16:9 (Горизонтальный)
+                                </SelectItem>
+                                <SelectItem
+                                    value='9:16'
+                                    className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                >
+                                    9:16 (Вертикальный)
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
                     )}
                 </div>
 

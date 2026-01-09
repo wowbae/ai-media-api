@@ -10,6 +10,7 @@ export interface GenerateMediaRequest {
     quality?: '1k' | '2k' | '4k'; // Качество изображения для NANO_BANANA
     videoQuality?: '480p' | '720p' | '1080p'; // Качество видео для Sora и других видео-моделей
     duration?: number; // Длина видео в секундах (1-20) для Sora
+    ar?: '16:9' | '9:16'; // Формат видео для Veo
 }
 
 export interface GenerateMediaResponse {
