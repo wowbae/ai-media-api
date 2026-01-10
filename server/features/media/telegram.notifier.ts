@@ -39,13 +39,6 @@ export async function initTelegramNotifier(): Promise<void> {
     await getBot();
 }
 
-// Форматирование размера файла
-function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 // Нормализация chat_id - преобразование в число, если это строка с числом
 function normalizeChatId(chatId: string): string | number {
     // Если строка начинается с минуса и содержит только цифры (или минус и цифры), преобразуем в число
@@ -204,6 +197,7 @@ export async function notifyTelegramGroupBatch(
             type: 'photo' | 'document';
             media: string | InputFile;
             caption?: string;
+            parse_mode?: 'HTML';
         }> = [];
 
         // Telegram позволяет максимум 10 файлов в media group
@@ -239,6 +233,8 @@ export async function notifyTelegramGroupBatch(
                 media: inputFile,
                 // Caption только для первого файла
                 caption: i === 0 ? caption : undefined,
+                // parse_mode только для элементов с caption
+                parse_mode: i === 0 ? 'HTML' : undefined,
             });
         }
 
