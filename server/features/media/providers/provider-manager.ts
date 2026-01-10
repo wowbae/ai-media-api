@@ -8,6 +8,7 @@ import {
   createKieAiMidjourneyProvider,
   createKieAiKlingProvider,
   createKieAiNanoBananaProvider,
+  createKieAiImagen4Provider,
 } from "./kieai";
 import { MEDIA_MODELS, type MediaModelConfig } from "../config";
 import "dotenv/config";
@@ -103,6 +104,12 @@ export function createProviderManager(): ProviderManager {
         // Для Nano Banana Pro используем nano-banana провайдер
         if (model === "NANO_BANANA_PRO_KIEAI") {
           kieaiProviders[model] = createKieAiNanoBananaProvider(kieaiConfig);
+          return kieaiProviders[model];
+        }
+
+        // Для Google Imagen4 используем imagen4 провайдер
+        if (model === "IMAGEN4_KIEAI") {
+          kieaiProviders[model] = createKieAiImagen4Provider(kieaiConfig);
           return kieaiProviders[model];
         }
 

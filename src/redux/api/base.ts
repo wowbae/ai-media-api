@@ -12,7 +12,10 @@ export type MediaModel =
   | "VEO_3_1_FAST"
   | "NANO_BANANA_PRO"
   | "SORA_2"
-  | "VEO_3_1";
+  | "VEO_3_1"
+  | "KLING_2_6"
+  | "NANO_BANANA_PRO_KIEAI"
+  | "IMAGEN4_KIEAI";
 
 export type MediaType = "IMAGE" | "VIDEO" | "AUDIO";
 export type RequestStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
@@ -103,6 +106,8 @@ export interface GenerateMediaRequest {
   ar?: "16:9" | "9:16"; // Формат видео для Veo
   sound?: boolean; // Звук для Kling 2.6
   outputFormat?: "png" | "jpg"; // Формат выходного файла для Nano Banana Pro (Kie.ai)
+  negativePrompt?: string; // Негативный промпт для Imagen4
+  seed?: string | number; // Seed для Imagen4
 }
 
 export interface GenerateMediaResponse {

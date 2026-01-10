@@ -47,9 +47,11 @@ model MediaFile {
   request     MediaRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   type        MediaType
   filename    String
-  path        String
-  previewPath String?
-  size        Int
+  path        String?      // Локальный путь (для VIDEO и отображения IMAGE)
+  url         String?      // URL на imgbb (для IMAGE, используется для отправки в нейросеть)
+  previewPath String?      // Локальный путь превью (для VIDEO и отображения IMAGE)
+  previewUrl  String?      // URL превью на imgbb (для IMAGE, создается асинхронно)
+  size        Int?
   width       Int?         // Ширина изображения (только для IMAGE)
   height      Int?         // Высота изображения (только для IMAGE)
   createdAt   DateTime     @default(now())
@@ -71,6 +73,7 @@ enum MediaModel {
   // Kie.ai провайдер
   KLING_2_6
   NANO_BANANA_PRO_KIEAI
+  IMAGEN4_KIEAI
 }
 
 enum MediaType {

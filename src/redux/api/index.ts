@@ -35,6 +35,7 @@ export {
     useGetFilesQuery,
     useUploadThumbnailMutation,
     useDeleteFileMutation,
+    useUploadToImgbbMutation,
 } from './media.endpoints';
 
 // Хуки для моделей

@@ -22,11 +22,16 @@ export async function saveFilesToDatabase(
     throw new Error(`Request не найден: ${requestId}`);
   }
 
-  // Удаляем дубликаты файлов по пути
-  const uniqueFiles = savedFiles.filter(
-    (file, index, self) =>
-      index === self.findIndex((f) => f.path === file.path),
-  );
+  // Удаляем дубликаты файлов по пути или URL
+  const uniqueFiles = savedFiles.filter((file, index, self) => {
+    const firstIndex = self.findIndex(
+      (f) =>
+        (f.path && f.path === file.path) ||
+        (f.url && f.url === file.url) ||
+        (!f.path && !f.url && !file.path && !file.url)
+    );
+    return index === firstIndex;
+  });
 
   console.log(
     `[MediaDatabase] Сохранение ${uniqueFiles.length} файлов для requestId=${requestId}`,
@@ -35,21 +40,42 @@ export async function saveFilesToDatabase(
   const savedMediaFiles: MediaFile[] = [];
 
   for (const file of uniqueFiles) {
+    // Для IMAGE: сохраняем и url (imgbb) и path (локально) - оба равноценны и важны
+    // Для VIDEO: сохраняем только path (локально), url остается null
     const mediaFile = await prisma.mediaFile.create({
       data: {
         requestId,
         type: file.type,
         filename: file.filename,
-        path: file.path,
-        previewPath: file.previewPath,
-        size: file.size,
-        width: file.width,
-        height: file.height,
+        path: file.path, // Локальный путь (для VIDEO и отображения IMAGE)
+        url: file.url || null, // URL на imgbb (для IMAGE, используется для отправки в нейросеть)
+        previewPath: file.previewPath || null, // Локальный путь превью (для VIDEO и отображения IMAGE)
+        previewUrl: null, // Превью URL будет загружен асинхронно в фоне
+        size: file.size || null,
+        width: file.width || null,
+        height: file.height || null,
       },
     });
 
-    console.log(`[MediaDatabase] Файл сохранён: id=${mediaFile.id}`);
+    console.log(`[MediaDatabase] Файл сохранён: id=${mediaFile.id}`, {
+      type: file.type,
+      path: file.path ? 'есть' : 'нет',
+      url: file.url ? 'есть' : 'нет',
+      previewPath: file.previewPath ? 'есть' : 'нет',
+    });
     savedMediaFiles.push(mediaFile);
+
+    // Для изображений: асинхронно загружаем превью на imgbb в фоне (не блокирует ответ)
+    if (file.type === "IMAGE" && file.previewPath && !file.previewUrl) {
+      // Загружаем превью на imgbb асинхронно в фоне
+      uploadPreviewToImgbb(mediaFile.id, file.previewPath).catch((error) => {
+        console.error(
+          `[MediaDatabase] ❌ Ошибка загрузки превью на imgbb (fileId=${mediaFile.id}):`,
+          error
+        );
+        // Не прерываем процесс, просто previewUrl останется null
+      });
+    }
   }
 
   // Отправляем все файлы группой в Telegram (если есть файлы и чат)
@@ -66,6 +92,53 @@ export async function saveFilesToDatabase(
     } catch (telegramError) {
       console.error("[MediaDatabase] Ошибка Telegram:", telegramError);
     }
+  }
+}
+
+// Асинхронная загрузка превью на imgbb в фоне
+async function uploadPreviewToImgbb(
+  fileId: number,
+  previewPath: string
+): Promise<void> {
+  try {
+    const { uploadToImgbb, isImgbbConfigured } = await import("./imgbb.service");
+    const { readFile } = await import("fs/promises");
+    const { join } = await import("path");
+
+    if (!isImgbbConfigured()) {
+      console.log(
+        `[MediaDatabase] IMGBB_API_KEY не настроен, пропускаем загрузку превью для fileId=${fileId}`
+      );
+      return;
+    }
+
+    // Читаем файл превью
+    const absolutePreviewPath = join(
+      process.cwd(),
+      mediaStorageConfig.basePath,
+      previewPath
+    );
+
+    const previewBuffer = await readFile(absolutePreviewPath);
+
+    // Загружаем на imgbb
+    const previewUrl = await uploadToImgbb(previewBuffer);
+
+    // Обновляем запись в БД
+    await prisma.mediaFile.update({
+      where: { id: fileId },
+      data: { previewUrl },
+    });
+
+    console.log(
+      `[MediaDatabase] ✅ Превью загружено на imgbb: fileId=${fileId}, url=${previewUrl}`
+    );
+  } catch (error) {
+    console.error(
+      `[MediaDatabase] ❌ Ошибка загрузки превью на imgbb (fileId=${fileId}):`,
+      error
+    );
+    // Не выбрасываем ошибку, просто логируем
   }
 }
 
@@ -87,8 +160,13 @@ async function performSync(): Promise<void> {
   );
 
   try {
-    // Получаем все медиа-файлы из БД
+    // Получаем все медиа-файлы из БД (только те, у которых есть path для проверки)
     const allFiles = await prisma.mediaFile.findMany({
+      where: {
+        path: {
+          not: null,
+        },
+      },
       select: {
         id: true,
         filename: true,
@@ -112,6 +190,12 @@ async function performSync(): Promise<void> {
       const batch = allFiles.slice(i, i + BATCH_SIZE);
 
       for (const file of batch) {
+        // Проверяем только файлы с path (видео и изображения без url)
+        // Изображения с url могут не иметь локального файла (хранятся только на imgbb)
+        if (!file.path) {
+          continue; // Пропускаем файлы без локального пути
+        }
+
         const absolutePath = path.join(
           process.cwd(),
           mediaStorageConfig.basePath,
@@ -122,7 +206,7 @@ async function performSync(): Promise<void> {
 
         if (!fileExists) {
           console.log(
-            `[MediaDatabase] ❌ Файл не найден: ${file.filename} (id=${file.id})`,
+            `[MediaDatabase] ❌ Файл не найден: ${file.filename} (id=${file.id}, path=${file.path})`,
           );
           filesToDelete.push(file.id);
         }

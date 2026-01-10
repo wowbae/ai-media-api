@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -40,6 +41,7 @@ import { ModelSelector } from './model-selector';
 import {
     useGenerateMediaMutation,
     useGenerateMediaTestMutation,
+    useUploadToImgbbMutation,
     type MediaModel,
 } from '@/redux/media-api';
 import { useTestMode } from '@/hooks/use-test-mode';
@@ -65,7 +67,7 @@ interface AttachedFile {
     id: string;
     file: File;
     preview: string;
-    // base64 удален - конвертируем только при отправке для экономии памяти
+    imgbbUrl?: string; // URL на imgbb для изображений (загружается при добавлении)
 }
 
 export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
@@ -104,6 +106,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const [outputFormat, setOutputFormat] = useState<
             'png' | 'jpg' | undefined
         >(undefined);
+        const [negativePrompt, setNegativePrompt] = useState<string>('');
+        const [seed, setSeed] = useState<string | number | undefined>(
+            undefined
+        );
         const [isSubmitting, setIsSubmitting] = useState(false);
         const [isLockEnabled, setIsLockEnabled] = useState(false);
         const [needsScrollbar, setNeedsScrollbar] = useState(false);
@@ -119,6 +125,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             useGenerateMediaMutation();
         const [generateMediaTest, { isLoading: isGeneratingTest }] =
             useGenerateMediaTestMutation();
+        const [uploadToImgbb] = useUploadToImgbbMutation();
 
         // Поле не блокируется на время выполнения запроса для поддержки параллельных запросов
         const isDisabled = disabled;
@@ -129,6 +136,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const isVeo =
             currentModel === 'VEO_3_1_FAST' || currentModel === 'VEO_3_1';
         const isKling = (currentModel as string) === 'KLING_2_6';
+        const isImagen4 = (currentModel as string) === 'IMAGEN4_KIEAI';
 
         // Функция для обновления высоты textarea
         const adjustTextareaHeight = useCallback(() => {
@@ -218,34 +226,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             },
             addFileFromUrl: async (url: string, filename: string) => {
                 try {
-                    // Загружаем файл по URL
+                    // Загружаем файл по URL и обрабатываем через processFiles
+                    // (который автоматически загрузит изображения на imgbb)
                     const file = await urlToFile(url, filename);
-
-                    // Проверяем тип файла (только изображения)
-                    // if (!file.type.startsWith('image/')) {
-                    //     alert('Можно прикреплять только изображения');
-                    //     return;
-                    // }
-
-                    // Проверяем размер (макс 10MB)
-                    if (file.size > 10 * 1024 * 1024) {
-                        alert('Размер файла не должен превышать 10MB');
-                        return;
-                    }
-
-                    // Создаем preview URL (base64 конвертируем только при отправке)
-                    const preview = URL.createObjectURL(file);
-                    // Сохраняем URL для последующей очистки
-                    previewUrlsRef.current.add(preview);
-
-                    // Добавляем в список прикрепленных файлов
-                    const newFile: AttachedFile = {
-                        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                        file,
-                        preview,
-                    };
-
-                    setAttachedFiles((prev) => [...prev, newFile]);
+                    const processedFiles = await processFiles([file]);
+                    setAttachedFiles((prev) => [...prev, ...processedFiles]);
                 } catch (error) {
                     console.error(
                         '[ChatInput] Ошибка прикрепления файла:',
@@ -260,12 +245,16 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         useEffect(() => {
             const settings = loadMediaSettings();
             const isNanoBananaProModel = currentModel === 'NANO_BANANA_PRO';
+            const isImagen4Model = (currentModel as string) === 'IMAGEN4_KIEAI';
 
             if (settings.format) {
                 setFormat(settings.format);
             } else if (isNanoBananaProModel) {
                 // Значение по умолчанию для NANO_BANANA_PRO
                 setFormat('16:9');
+            } else if (isImagen4Model) {
+                // Значение по умолчанию для IMAGEN4_KIEAI
+                setFormat('1:1');
             }
             if (settings.quality) {
                 setQuality(settings.quality);
@@ -330,7 +319,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const processFiles = useCallback(
             async (files: File[]): Promise<AttachedFile[]> => {
                 const newFiles: AttachedFile[] = [];
+                const imageFiles: File[] = [];
+                const videoFiles: File[] = [];
 
+                // Разделяем файлы на изображения и видео
                 for (const file of files) {
                     // Проверяем тип файла (только изображения и видео)
                     if (
@@ -352,10 +344,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         continue;
                     }
 
+                    if (file.type.startsWith('image/')) {
+                        imageFiles.push(file);
+                    } else {
+                        videoFiles.push(file);
+                    }
+                }
+
+                // Создаем preview URL для всех файлов
+                for (const file of [...imageFiles, ...videoFiles]) {
                     try {
-                        // Создаем preview URL (base64 конвертируем только при отправке)
                         const preview = URL.createObjectURL(file);
-                        // Сохраняем URL для последующей очистки
                         previewUrlsRef.current.add(preview);
 
                         newFiles.push({
@@ -373,9 +372,52 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     }
                 }
 
+                // Загружаем изображения на imgbb параллельно
+                if (imageFiles.length > 0) {
+                    try {
+                        // Конвертируем изображения в base64 для загрузки на imgbb
+                        const base64Images = await Promise.all(
+                            imageFiles.map((file) => fileToBase64(file))
+                        );
+
+                        console.log(
+                            '[ChatInput] Загрузка изображений на imgbb...',
+                            { count: imageFiles.length }
+                        );
+
+                        const result = await uploadToImgbb({
+                            files: base64Images,
+                        }).unwrap();
+
+                        // Связываем загруженные URL с файлами
+                        let imageIndex = 0;
+                        for (let i = 0; i < newFiles.length; i++) {
+                            if (newFiles[i].file.type.startsWith('image/')) {
+                                if (result.urls[imageIndex]) {
+                                    newFiles[i].imgbbUrl =
+                                        result.urls[imageIndex];
+                                    imageIndex++;
+                                }
+                            }
+                        }
+
+                        console.log(
+                            '[ChatInput] ✅ Изображения загружены на imgbb:',
+                            { uploaded: result.uploaded, total: result.total }
+                        );
+                    } catch (error) {
+                        console.error(
+                            '[ChatInput] ❌ Ошибка загрузки изображений на imgbb:',
+                            error
+                        );
+                        // Не прерываем процесс, просто не будет imgbbUrl
+                        // Файлы можно будет использовать с base64 (fallback)
+                    }
+                }
+
                 return newFiles;
             },
-            [] // fileToBase64 больше не нужен в зависимостях
+            [uploadToImgbb, fileToBase64]
         );
 
         // Обработка выбора файлов из input
@@ -597,7 +639,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     );
                 } else {
                     // Обычный режим: отправляем реальный запрос
-                    // Конвертируем файлы в base64 только при отправке для экономии памяти
+                    // Используем imgbbUrl для изображений (уже загружены при добавлении), base64 только для fallback
                     console.log(
                         '[ChatInput] ✅ Обычный режим: отправка запроса на генерацию в нейронку:',
                         {
@@ -612,19 +654,40 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         }
                     );
 
-                    // Конвертируем файлы в base64 только при отправке
-                    const inputFilesBase64 = await Promise.all(
-                        attachedFiles.map((f) => fileToBase64(f.file))
+                    // Формируем inputFiles: используем imgbbUrl для изображений, если есть, иначе base64 (fallback)
+                    // Видео не отправляются как inputFiles
+                    const imageFiles = attachedFiles.filter((f) =>
+                        f.file.type.startsWith('image/')
                     );
+                    const inputFilesUrls: string[] = [];
+
+                    for (const file of imageFiles) {
+                        if (file.imgbbUrl) {
+                            // Используем уже загруженный URL на imgbb
+                            inputFilesUrls.push(file.imgbbUrl);
+                        } else {
+                            // Fallback: конвертируем в base64 если imgbbUrl нет
+                            console.warn(
+                                '[ChatInput] ⚠️ imgbbUrl отсутствует, используем base64 (fallback)',
+                                file.file.name
+                            );
+                            const base64 = await fileToBase64(file.file);
+                            inputFilesUrls.push(base64);
+                        }
+                    }
 
                     result = await generateMedia({
                         chatId,
                         prompt: finalPrompt,
                         model: currentModel,
-                        inputFiles: inputFilesBase64,
+                        inputFiles:
+                            inputFilesUrls.length > 0
+                                ? inputFilesUrls
+                                : undefined,
                         ...((isNanoBanana ||
                             isNanoBananaPro ||
-                            isNanoBananaProKieai) &&
+                            isNanoBananaProKieai ||
+                            isImagen4) &&
                             format && { format }),
                         ...((isNanoBanana ||
                             isNanoBananaPro ||
@@ -641,6 +704,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             klingDuration && { duration: klingDuration }),
                         ...(isKling &&
                             klingSound !== undefined && { sound: klingSound }),
+                        ...(isImagen4 &&
+                            negativePrompt &&
+                            negativePrompt.trim() && {
+                                negativePrompt: negativePrompt.trim(),
+                            }),
+                        ...(isImagen4 &&
+                            seed !== undefined &&
+                            seed !== '' && { seed }),
                     }).unwrap();
                     console.log(
                         '[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:',
@@ -656,13 +727,23 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 // Сохраняем промпт и изображения, если кнопка замочка активна
                 if (isLockEnabled) {
                     // Сохраняем оригинальный промпт (без добавленных параметров формата и качества)
-                    // Конвертируем файлы в base64 только для сохранения
-                    const savedFilesBase64 = await Promise.all(
-                        attachedFiles.map((f) => fileToBase64(f.file))
-                    );
+                    // Сохраняем URL для изображений (если есть), иначе base64 (fallback)
+                    const savedFilesData: string[] = [];
+                    for (const file of attachedFiles) {
+                        if (
+                            file.file.type.startsWith('image/') &&
+                            file.imgbbUrl
+                        ) {
+                            savedFilesData.push(file.imgbbUrl);
+                        } else {
+                            // Fallback: base64 для видео или если imgbbUrl отсутствует
+                            const base64 = await fileToBase64(file.file);
+                            savedFilesData.push(base64);
+                        }
+                    }
                     savePrompt(
                         prompt.trim(),
-                        savedFilesBase64,
+                        savedFilesData,
                         chatId,
                         currentModel
                     );
@@ -670,6 +751,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 } else {
                     // Очищаем форму только если режим сохранения не активен
                     setPrompt('');
+                    // Очищаем поля imagen4
+                    if (isImagen4) {
+                        setNegativePrompt('');
+                        setSeed(undefined);
+                    }
                     // Освобождаем все preview URLs и очищаем ref
                     attachedFiles.forEach((f) => {
                         URL.revokeObjectURL(f.preview);
@@ -768,7 +854,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 )}
 
                 {/* Верхняя панель с выбором модели и настроек */}
-                <div className='mb-3 flex flex-wrap items-center gap-3'>
+                <div className='mb-2 flex flex-wrap items-center gap-3'>
                     <ModelSelector
                         value={currentModel}
                         onChange={onModelChange}
@@ -1221,7 +1307,85 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             </Select>
                         </>
                     )}
+
+                    {/* Настройки для IMAGEN4_KIEAI */}
+                    {isImagen4 && (
+                        <>
+                            <Select
+                                value={format || '1:1'}
+                                onValueChange={(value) => {
+                                    const newFormat = value as
+                                        | '1:1'
+                                        | '9:16'
+                                        | '16:9';
+                                    setFormat(newFormat);
+                                    saveMediaSettings({
+                                        format: newFormat,
+                                        quality,
+                                    });
+                                }}
+                                disabled={isDisabled}
+                            >
+                                <SelectTrigger className='w-[140px] border-slate-600 bg-slate-700 text-white'>
+                                    <SelectValue placeholder='Формат'>
+                                        {format || '1:1'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className='border-slate-700 bg-slate-800'>
+                                    <SelectItem
+                                        value='1:1'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        1:1 (Квадрат)
+                                    </SelectItem>
+                                    <SelectItem
+                                        value='16:9'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        16:9 (Горизонтальный)
+                                    </SelectItem>
+                                    <SelectItem
+                                        value='9:16'
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        9:16 (Вертикальный)
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </>
+                    )}
                 </div>
+
+                {/* Поля для Imagen4: negativePrompt и seed */}
+                {isImagen4 && (
+                    <div className='flex gap-2 mb-2'>
+                        <Input
+                            type='text'
+                            placeholder='Негативный промпт (опционально)'
+                            value={negativePrompt}
+                            onChange={(e) => setNegativePrompt(e.target.value)}
+                            disabled={isDisabled}
+                            className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500'
+                        />
+                        <Input
+                            type='text'
+                            placeholder='Seed (опционально)'
+                            value={seed === undefined ? '' : String(seed)}
+                            onChange={(e) => {
+                                const value = e.target.value.trim();
+                                if (value === '') {
+                                    setSeed(undefined);
+                                } else if (!isNaN(Number(value))) {
+                                    setSeed(Number(value));
+                                } else {
+                                    setSeed(value);
+                                }
+                            }}
+                            disabled={isDisabled}
+                            className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500'
+                        />
+                    </div>
+                )}
 
                 {/* Поле ввода с кнопками внутри */}
                 <div

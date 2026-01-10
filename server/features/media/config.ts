@@ -23,98 +23,109 @@ export interface MediaModelConfig {
 
 // ИСХОДНЫЙ СПИСОК ВСЕХ МОДЕЛЕЙ
 export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
-    NANO_BANANA: {
-        id: 'google/gemini-3-pro-image-preview',
-        name: 'Nano Banana Pro',
-        types: ['IMAGE'] as const,
-        maxPromptLength: 8192,
-        supportsImageInput: true,
-        provider: 'openrouter',
-        pricing: {
-            input: 0.1,
-            output: 0.4,
-        },
+  NANO_BANANA: {
+    id: "google/gemini-3-pro-image-preview",
+    name: "Nano Banana Pro",
+    types: ["IMAGE"] as const,
+    maxPromptLength: 8192,
+    supportsImageInput: true,
+    provider: "openrouter",
+    pricing: {
+      input: 0.1,
+      output: 0.4,
     },
-    KLING_2_6: {
-        id: 'kling-2-6',
-        name: 'Kling 2.6',
-        types: ['VIDEO'] as const,
-        maxPromptLength: 4096,
-        supportsImageInput: true,
-        provider: 'kieai',
-        pricing: {
-            output: 0.1, // стоимость за видео (уточнить)
-        },
+  },
+  KLING_2_6: {
+    id: "kling-2-6",
+    name: "Kling 2.6",
+    types: ["VIDEO"] as const,
+    maxPromptLength: 4096,
+    supportsImageInput: true,
+    provider: "kieai",
+    pricing: {
+      output: 0.1, // стоимость за видео (уточнить)
     },
-    // Kie.ai провайдер - модель для генерации изображений
-    NANO_BANANA_PRO_KIEAI: {
-        id: 'nano-banana-pro',
-        name: 'Nano Banana Pro',
-        types: ['IMAGE'] as const,
-        maxPromptLength: 8192,
-        supportsImageInput: true, // Поддерживает image-to-image
-        provider: 'kieai',
-        pricing: {
-            output: 0.09, // $0.09 за изображение
-        },
+  },
+  // Kie.ai провайдер - модель для генерации изображений
+  NANO_BANANA_PRO_KIEAI: {
+    id: "nano-banana-pro",
+    name: "Nano Banana Pro",
+    types: ["IMAGE"] as const,
+    maxPromptLength: 8192,
+    supportsImageInput: true, // Поддерживает image-to-image
+    provider: "kieai",
+    pricing: {
+      output: 0.09, // $0.09 за изображение
     },
-    // пока выключил, не нужны
-    // MIDJOURNEY: {
-    //   id: "midjourney/imagine",
-    //   name: "Midjourney",
-    //   types: ["IMAGE"] as const,
-    //   maxPromptLength: 4000,
-    //   supportsImageInput: false,
-    //   provider: "kieai", // Провайдер через Kie.ai API
-    //   pricing: {
-    //     output: 18,
-    //   },
-    // },
-    // VEO_3_1_FAST: {
-    //   id: "glabs-veo-3-1-fast",
-    //   name: "Veo 3.1 Fast",
-    //   types: ["VIDEO"] as const,
-    //   maxPromptLength: 4096,
-    //   supportsImageInput: true,
-    //   provider: "gptunnel",
-    //   pricing: {
-    //     output: 0.1,
-    //   },
-    // },
-    // // LaoZhang провайдер - модели для генерации изображений и видео
-    // NANO_BANANA_PRO: {
-    //   id: "gemini-3-pro-image-preview",
-    //   name: "Nano Banana Pro",
-    //   types: ["IMAGE"] as const,
-    //   maxPromptLength: 8192,
-    //   supportsImageInput: true,
-    //   provider: "laozhang",
-    //   pricing: {
-    //     output: 0.05, // $0.05 за изображение 4K
-    //   },
-    // },
-    // SORA_2: {
-    //   id: "sora-2-540p-10s",
-    //   name: "Sora 2",
-    //   types: ["VIDEO"] as const,
-    //   maxPromptLength: 4096,
-    //   supportsImageInput: true,
-    //   provider: "laozhang",
-    //   pricing: {
-    //     output: 0.3, // стоимость за видео
-    //   },
-    // },
-    // VEO_3_1: {
-    //   id: "veo-3.1-720p-async",
-    //   name: "Veo 3.1",
-    //   types: ["VIDEO"] as const,
-    //   maxPromptLength: 4096,
-    //   supportsImageInput: true,
-    //   provider: "laozhang",
-    //   pricing: {
-    //     output: 0.5, // стоимость за видео
-    //   },
-    // },
+  },
+  IMAGEN4_KIEAI: {
+    id: "google/imagen4",
+    name: "Google Imagen4",
+    types: ["IMAGE"] as const,
+    maxPromptLength: 8192,
+    supportsImageInput: false,
+    provider: "kieai",
+    pricing: {
+      output: 0.1, // стоимость за изображение (уточнить)
+    },
+  },
+  // пока выключил, не нужны
+  // MIDJOURNEY: {
+  //   id: "midjourney/imagine",
+  //   name: "Midjourney",
+  //   types: ["IMAGE"] as const,
+  //   maxPromptLength: 4000,
+  //   supportsImageInput: false,
+  //   provider: "kieai", // Провайдер через Kie.ai API
+  //   pricing: {
+  //     output: 18,
+  //   },
+  // },
+  // VEO_3_1_FAST: {
+  //   id: "glabs-veo-3-1-fast",
+  //   name: "Veo 3.1 Fast",
+  //   types: ["VIDEO"] as const,
+  //   maxPromptLength: 4096,
+  //   supportsImageInput: true,
+  //   provider: "gptunnel",
+  //   pricing: {
+  //     output: 0.1,
+  //   },
+  // },
+  // // LaoZhang провайдер - модели для генерации изображений и видео
+  // NANO_BANANA_PRO: {
+  //   id: "gemini-3-pro-image-preview",
+  //   name: "Nano Banana Pro",
+  //   types: ["IMAGE"] as const,
+  //   maxPromptLength: 8192,
+  //   supportsImageInput: true,
+  //   provider: "laozhang",
+  //   pricing: {
+  //     output: 0.05, // $0.05 за изображение 4K
+  //   },
+  // },
+  // SORA_2: {
+  //   id: "sora-2-540p-10s",
+  //   name: "Sora 2",
+  //   types: ["VIDEO"] as const,
+  //   maxPromptLength: 4096,
+  //   supportsImageInput: true,
+  //   provider: "laozhang",
+  //   pricing: {
+  //     output: 0.3, // стоимость за видео
+  //   },
+  // },
+  // VEO_3_1: {
+  //   id: "veo-3.1-720p-async",
+  //   name: "Veo 3.1",
+  //   types: ["VIDEO"] as const,
+  //   maxPromptLength: 4096,
+  //   supportsImageInput: true,
+  //   provider: "laozhang",
+  //   pricing: {
+  //     output: 0.5, // стоимость за видео
+  //   },
+  // },
 };
 
 export type MediaModelKey = keyof typeof MEDIA_MODELS;

@@ -37,9 +37,11 @@ async function checkFFmpeg(): Promise<boolean> {
 
 export interface SavedFileInfo {
     filename: string;
-    path: string;
-    previewPath: string | null;
-    size: number;
+    path: string | null;      // Локальный путь (для VIDEO и отображения IMAGE)
+    url: string | null;       // URL на imgbb (для IMAGE, используется для отправки в нейросеть)
+    previewPath: string | null; // Локальный путь превью (для VIDEO и отображения IMAGE)
+    previewUrl: string | null;  // URL превью на imgbb (для IMAGE, создается асинхронно)
+    size: number | null;
     type: MediaType;
     width?: number;  // Ширина изображения (только для IMAGE)
     height?: number; // Высота изображения (только для IMAGE)
@@ -248,7 +250,9 @@ async function saveBufferToFile(
     return {
         filename,
         path: relativePath,
+        url: null, // URL будет загружен позже, если это изображение
         previewPath: relativePreviewPath,
+        previewUrl: null, // Превью URL будет загружен асинхронно в фоне
         size: buffer.length,
         type: mediaType,
         width: dimensions.width,
@@ -257,15 +261,27 @@ async function saveBufferToFile(
 }
 
 // Сохранение файла из base64
+// Для изображений: сохраняет локально + загружает на imgbb
+// Для видео: только локально
 export async function saveBase64File(
     base64Data: string,
     mimeType: string
 ): Promise<SavedFileInfo> {
     const buffer = Buffer.from(base64Data, 'base64');
+    const isImage = mimeType.startsWith('image/');
+
+    // Для изображений используем гибридное сохранение (локально + imgbb)
+    if (isImage) {
+        return saveImageWithImgbb(buffer, mimeType);
+    }
+
+    // Для видео и других типов - только локально
     return saveBufferToFile(buffer, mimeType);
 }
 
 // Сохранение файла из URL (скачивание)
+// Для изображений: сохраняет локально + загружает на imgbb синхронно
+// Для видео: только локально
 export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
     const response = await fetch(url);
     if (!response.ok) {
@@ -274,8 +290,61 @@ export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
 
     const contentType = response.headers.get('content-type') || 'image/png';
     const buffer = Buffer.from(await response.arrayBuffer());
+    const isImage = contentType.startsWith('image/');
 
-    return saveBufferToFile(buffer, contentType);
+    // Сохраняем локально
+    const savedFile = await saveBufferToFile(buffer, contentType);
+
+    // Для изображений: загружаем на imgbb синхронно (сразу при получении результата)
+    if (isImage) {
+        try {
+            const { uploadToImgbb, isImgbbConfigured } = await import('./imgbb.service');
+            if (isImgbbConfigured()) {
+                // Загружаем на imgbb синхронно (параллельно с сохранением локально)
+                const imgbbUrl = await uploadToImgbb(buffer);
+                savedFile.url = imgbbUrl;
+                console.log('[file.service] ✅ Изображение сохранено локально и загружено на imgbb:', {
+                    filename: savedFile.filename,
+                    path: savedFile.path,
+                    url: imgbbUrl,
+                });
+            }
+        } catch (error) {
+            console.error('[file.service] ❌ Ошибка загрузки на imgbb (продолжаем с локальным сохранением):', error);
+            // Не прерываем процесс, просто url останется null
+        }
+    }
+
+    return savedFile;
+}
+
+// Сохранение изображения с загрузкой на imgbb (гибридное сохранение)
+// Сохраняет локально + загружает на imgbb, возвращает оба пути
+export async function saveImageWithImgbb(
+    buffer: Buffer,
+    mimeType: string
+): Promise<SavedFileInfo> {
+    // Сохраняем локально
+    const savedFile = await saveBufferToFile(buffer, mimeType);
+
+    // Загружаем на imgbb
+    try {
+        const { uploadToImgbb, isImgbbConfigured } = await import('./imgbb.service');
+        if (isImgbbConfigured()) {
+            const imgbbUrl = await uploadToImgbb(buffer);
+            savedFile.url = imgbbUrl;
+            console.log('[file.service] ✅ Изображение сохранено локально и загружено на imgbb:', {
+                filename: savedFile.filename,
+                path: savedFile.path,
+                url: imgbbUrl,
+            });
+        }
+    } catch (error) {
+        console.error('[file.service] ❌ Ошибка загрузки на imgbb (продолжаем с локальным сохранением):', error);
+        // Не прерываем процесс, просто url останется null
+    }
+
+    return savedFile;
 }
 
 // Получение размеров изображения (только width и height для оптимизации)

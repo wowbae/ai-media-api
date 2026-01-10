@@ -36,5 +36,6 @@ export {
     useGetFilesQuery,
     useUploadThumbnailMutation,
     useDeleteFileMutation,
+    useUploadToImgbbMutation,
     useGetModelsQuery,
 } from './api/index';

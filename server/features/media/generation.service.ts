@@ -40,6 +40,8 @@ export async function generateMedia(
   ar?: "16:9" | "9:16",
   sound?: boolean,
   outputFormat?: "png" | "jpg",
+  negativePrompt?: string,
+  seed?: string | number,
 ): Promise<SavedFileInfo[]> {
   const providerManager = getProviderManager();
   const provider = providerManager.getProvider(model);
@@ -80,6 +82,8 @@ export async function generateMedia(
       ar,
       sound,
       outputFormat,
+      negativePrompt,
+      seed,
     };
 
     const result = await provider.generate(generateParams);
@@ -111,9 +115,69 @@ export async function generateMedia(
     }
 
     // Sync провайдер - файлы уже готовы
-    const savedFiles = result;
+    let savedFiles = result;
 
-    // Сохраняем файлы в БД
+    // Для изображений: если провайдер вернул файлы без url, загружаем на imgbb
+    // (если они были сохранены локально через saveBase64File/saveFileFromUrl, url уже должен быть)
+    // Но проверяем и загружаем для тех, у кого url еще нет
+    const imageFilesWithoutUrl = savedFiles.filter(
+      (file) => file.type === "IMAGE" && !file.url && file.path
+    );
+
+    if (imageFilesWithoutUrl.length > 0) {
+      console.log(
+        `[MediaService] 🔄 Загрузка ${imageFilesWithoutUrl.length} изображений на imgbb...`
+      );
+
+      try {
+        const { uploadMultipleToImgbb, isImgbbConfigured } = await import(
+          "./imgbb.service"
+        );
+        const { readFile } = await import("fs/promises");
+        const { join } = await import("path");
+        const { mediaStorageConfig } = await import("./config");
+
+        if (isImgbbConfigured()) {
+          // Читаем файлы и загружаем на imgbb
+          const fileBuffers = await Promise.all(
+            imageFilesWithoutUrl.map(async (file) => {
+              const absolutePath = join(
+                process.cwd(),
+                mediaStorageConfig.basePath,
+                file.path
+              );
+              return readFile(absolutePath);
+            })
+          );
+
+          const urls = await uploadMultipleToImgbb(fileBuffers);
+
+          // Обновляем savedFiles с загруженными URL
+          let urlIndex = 0;
+          savedFiles = savedFiles.map((file) => {
+            if (file.type === "IMAGE" && !file.url && file.path) {
+              return {
+                ...file,
+                url: urls[urlIndex++] || null,
+              };
+            }
+            return file;
+          });
+
+          console.log(
+            `[MediaService] ✅ Загружено на imgbb: ${urls.length} изображений`
+          );
+        }
+      } catch (error) {
+        console.error(
+          "[MediaService] ❌ Ошибка загрузки изображений на imgbb (продолжаем с локальными файлами):",
+          error
+        );
+        // Не прерываем процесс, просто url останется null
+      }
+    }
+
+    // Сохраняем файлы в БД (с url если есть)
     await saveFilesToDatabase(requestId, savedFiles, prompt);
 
     // Обновляем статус на COMPLETED
@@ -253,9 +317,67 @@ async function pollTaskResult(
           );
         }
 
-        const savedFiles = await provider.getTaskResult(taskId);
+        let savedFiles = await provider.getTaskResult(taskId);
 
-        // Сохраняем файлы в БД
+        // Для изображений: если провайдер вернул файлы без url, загружаем на imgbb
+        const imageFilesWithoutUrl = savedFiles.filter(
+          (file) => file.type === "IMAGE" && !file.url && file.path
+        );
+
+        if (imageFilesWithoutUrl.length > 0) {
+          console.log(
+            `[MediaService] 🔄 Загрузка ${imageFilesWithoutUrl.length} изображений на imgbb (async результат)...`
+          );
+
+          try {
+            const { uploadMultipleToImgbb, isImgbbConfigured } = await import(
+              "./imgbb.service"
+            );
+            const { readFile } = await import("fs/promises");
+            const { join } = await import("path");
+            const { mediaStorageConfig } = await import("./config");
+
+            if (isImgbbConfigured()) {
+              // Читаем файлы и загружаем на imgbb
+              const fileBuffers = await Promise.all(
+                imageFilesWithoutUrl.map(async (file) => {
+                  const absolutePath = join(
+                    process.cwd(),
+                    mediaStorageConfig.basePath,
+                    file.path
+                  );
+                  return readFile(absolutePath);
+                })
+              );
+
+              const urls = await uploadMultipleToImgbb(fileBuffers);
+
+              // Обновляем savedFiles с загруженными URL
+              let urlIndex = 0;
+              savedFiles = savedFiles.map((file) => {
+                if (file.type === "IMAGE" && !file.url && file.path) {
+                  return {
+                    ...file,
+                    url: urls[urlIndex++] || null,
+                  };
+                }
+                return file;
+              });
+
+              console.log(
+                `[MediaService] ✅ Загружено на imgbb (async): ${urls.length} изображений`
+              );
+            }
+          } catch (error) {
+            console.error(
+              "[MediaService] ❌ Ошибка загрузки изображений на imgbb (продолжаем с локальными файлами):",
+              error
+            );
+            // Не прерываем процесс, просто url останется null
+          }
+        }
+
+        // Сохраняем файлы в БД (с url если есть)
         await saveFilesToDatabase(requestId, savedFiles, prompt);
 
         // Небольшая задержка для гарантии, что все файлы сохранены в БД и транзакции завершены

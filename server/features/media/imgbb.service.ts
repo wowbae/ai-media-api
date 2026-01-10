@@ -17,23 +17,31 @@ interface ImgbbResponse {
 }
 
 /**
- * Загружает изображение на imgbb и возвращает публичный URL
- * @param imageData - base64 строка (с или без data URL префикса)
+ * Загружает одно изображение на imgbb и возвращает публичный URL
+ * @param imageData - base64 строка (с или без data URL префикса) или Buffer
  * @returns публичный URL изображения
  */
-export async function uploadToImgbb(imageData: string): Promise<string> {
+export async function uploadToImgbb(imageData: string | Buffer): Promise<string> {
     if (!IMGBB_API_KEY) {
         throw new Error('IMGBB_API_KEY не настроен в .env');
     }
 
-    // Убираем data URL префикс если есть (data:image/...;base64,)
-    let base64Data = imageData;
-    if (imageData.includes(',')) {
-        base64Data = imageData.split(',')[1];
+    let base64Data: string;
+
+    if (Buffer.isBuffer(imageData)) {
+        // Конвертируем Buffer в base64
+        base64Data = imageData.toString('base64');
+    } else {
+        // Убираем data URL префикс если есть (data:image/...;base64,)
+        if (imageData.includes(',')) {
+            base64Data = imageData.split(',')[1];
+        } else {
+            base64Data = imageData;
+        }
     }
 
     console.log('[imgbb] Загрузка изображения...', {
-        originalLength: imageData.length,
+        isBuffer: Buffer.isBuffer(imageData),
         base64Length: base64Data.length,
     });
 
@@ -68,6 +76,42 @@ export async function uploadToImgbb(imageData: string): Promise<string> {
     });
 
     return result.data.display_url;
+}
+
+/**
+ * Универсальная функция для загрузки одного или нескольких изображений на imgbb
+ * @param files - массив base64 строк или Buffer
+ * @returns массив публичных URL изображений в том же порядке
+ */
+export async function uploadMultipleToImgbb(
+    files: Array<string | Buffer>
+): Promise<Array<string>> {
+    if (!IMGBB_API_KEY) {
+        throw new Error('IMGBB_API_KEY не настроен в .env');
+    }
+
+    if (files.length === 0) {
+        return [];
+    }
+
+    console.log(`[imgbb] Загрузка ${files.length} изображений...`);
+
+    // Загружаем все файлы параллельно
+    const uploadPromises = files.map((file, index) => {
+        return uploadToImgbb(file).catch((error) => {
+            console.error(`[imgbb] Ошибка загрузки файла ${index + 1}:`, error);
+            throw error;
+        });
+    });
+
+    try {
+        const urls = await Promise.all(uploadPromises);
+        console.log(`[imgbb] ✅ Успешно загружено ${urls.length} изображений`);
+        return urls;
+    } catch (error) {
+        console.error('[imgbb] ❌ Ошибка при пакетной загрузке:', error);
+        throw error;
+    }
 }
 
 /**

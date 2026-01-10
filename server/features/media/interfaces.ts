@@ -13,6 +13,8 @@ export interface GenerateMediaRequest {
   ar?: "16:9" | "9:16"; // Формат видео для Veo
   sound?: boolean; // Звук для Kling 2.6
   outputFormat?: "png" | "jpg"; // Формат выходного файла для Nano Banana Pro (Kie.ai)
+  negativePrompt?: string; // Негативный промпт для Imagen4
+  seed?: string | number; // Seed для Imagen4
 }
 
 export interface GenerateMediaResponse {
@@ -37,9 +39,11 @@ export interface MediaFileInfo {
   id: number;
   type: MediaType;
   filename: string;
-  path: string;
-  previewPath: string | null;
-  size: number;
+  path: string | null;      // Локальный путь (для VIDEO и отображения IMAGE)
+  url: string | null;       // URL на imgbb (для IMAGE, используется для отправки в нейросеть)
+  previewPath: string | null; // Локальный путь превью (для VIDEO и отображения IMAGE)
+  previewUrl: string | null;  // URL превью на imgbb (для IMAGE, создается асинхронно)
+  size: number | null;
   width: number | null;
   height: number | null;
   createdAt: Date;

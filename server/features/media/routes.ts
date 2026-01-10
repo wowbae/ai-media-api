@@ -430,6 +430,60 @@ mediaRouter.delete('/chats/:id', async (req: Request, res: Response) => {
     }
 });
 
+// ==================== Загрузка на imgbb ====================
+
+// Загрузить файлы на imgbb (для inputFiles)
+// Принимает массив base64 строк в JSON body
+mediaRouter.post('/upload-to-imgbb', async (req: Request, res: Response) => {
+    try {
+        const { files } = req.body as { files: string[] }; // массив base64 строк
+
+        if (!files || !Array.isArray(files) || files.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Массив файлов (base64) обязателен',
+            });
+        }
+
+        console.log('[API] POST /upload-to-imgbb - получено файлов:', files.length);
+
+        // Импортируем сервис imgbb
+        const { uploadMultipleToImgbb, isImgbbConfigured } = await import('./imgbb.service');
+
+        if (!isImgbbConfigured()) {
+            return res.status(500).json({
+                success: false,
+                error: 'IMGBB_API_KEY не настроен',
+            });
+        }
+
+        // Загружаем файлы на imgbb
+        const urls = await uploadMultipleToImgbb(files);
+
+        console.log('[API] ✅ POST /upload-to-imgbb - успешно загружено:', {
+            uploaded: urls.length,
+            total: files.length,
+        });
+
+        res.json({
+            success: true,
+            data: {
+                urls,
+                uploaded: urls.length,
+                total: files.length,
+            },
+        });
+    } catch (error) {
+        console.error('[API] ❌ Ошибка загрузки на imgbb:', error);
+        const errorMessage =
+            error instanceof Error ? error.message : 'Ошибка загрузки на imgbb';
+        res.status(500).json({
+            success: false,
+            error: errorMessage,
+        });
+    }
+});
+
 // ==================== Генерация ====================
 
 // Отправить запрос на генерацию
@@ -447,6 +501,8 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             ar,
             sound,
             outputFormat,
+            negativePrompt,
+            seed,
         } = req.body as GenerateMediaRequest;
 
         console.log('[API] POST /generate - получен запрос:', {
@@ -459,6 +515,8 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             duration,
             ar,
             outputFormat,
+            negativePrompt: negativePrompt?.substring(0, 50),
+            seed,
             inputFilesCount: inputFiles?.length || 0,
             timestamp: new Date().toISOString(),
         });
@@ -489,6 +547,65 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
 
         // Определяем модель (из запроса или из настроек чата)
         const selectedModel: MediaModel = model || chat.model;
+
+        // Обрабатываем inputFiles: конвертируем base64 в URL для обратной совместимости
+        // По умолчанию файлы уже загружены на imgbb и приходят как URL
+        let processedInputFiles: string[] = inputFiles || [];
+        if (inputFiles && inputFiles.length > 0) {
+          const base64Files = inputFiles.filter((file) =>
+            file.startsWith("data:image") || file.startsWith("data:video")
+          );
+
+          if (base64Files.length > 0) {
+            console.log(
+              `[API] ⚠️ Обнаружены base64 файлы (${base64Files.length}), конвертируем в URL для обратной совместимости...`
+            );
+
+            try {
+              const { uploadMultipleToImgbb, isImgbbConfigured } = await import(
+                "./imgbb.service"
+              );
+
+              if (isImgbbConfigured()) {
+                // Загружаем только изображения на imgbb (видео не поддерживаются imgbb)
+                const imageFiles = base64Files.filter((file) =>
+                  file.startsWith("data:image")
+                );
+                const videoFiles = base64Files.filter((file) =>
+                  file.startsWith("data:video")
+                );
+
+                if (imageFiles.length > 0) {
+                  const urls = await uploadMultipleToImgbb(imageFiles);
+                  // Заменяем base64 на URL для изображений
+                  let urlIndex = 0;
+                  processedInputFiles = inputFiles.map((file) => {
+                    if (file.startsWith("data:image")) {
+                      return urls[urlIndex++] || file; // Fallback на base64 если загрузка не удалась
+                    }
+                    return file;
+                  });
+                  console.log(
+                    `[API] ✅ Конвертировано ${urls.length} base64 изображений в URL`
+                  );
+                }
+
+                // Видео остаются как base64 (imgbb их не поддерживает)
+                if (videoFiles.length > 0) {
+                  console.log(
+                    `[API] ℹ️ Видео файлы (${videoFiles.length}) остаются как base64 (imgbb их не поддерживает)`
+                  );
+                }
+              }
+            } catch (error) {
+              console.error(
+                "[API] ❌ Ошибка конвертации base64 в URL (используем исходные файлы):",
+                error
+              );
+              // Продолжаем с исходными файлами (base64)
+            }
+          }
+        }
 
         // Проверяем, нет ли активных запросов с таким же промптом (защита от дубликатов)
         const recentRequest = await prisma.mediaRequest.findFirst({
@@ -523,13 +640,13 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             });
         }
 
-        // Создаем запрос в БД
+        // Создаем запрос в БД (сохраняем обработанные inputFiles - URL для изображений, base64 для видео)
         const mediaRequest = await prisma.mediaRequest.create({
             data: {
                 chatId,
                 prompt: prompt.trim(),
                 model: selectedModel, // Сохраняем модель, использованную для этого запроса
-                inputFiles: inputFiles || [],
+                inputFiles: processedInputFiles,
                 status: 'PENDING',
             },
         });
@@ -549,19 +666,21 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             data: { updatedAt: new Date() },
         });
 
-        // Запускаем генерацию асинхронно
+        // Запускаем генерацию асинхронно (передаем обработанные inputFiles - URL для изображений)
         generateMedia(
             mediaRequest.id,
             prompt.trim(),
             selectedModel,
-            inputFiles || [],
+            processedInputFiles,
             format,
             quality,
             videoQuality,
             duration,
             ar,
             sound,
-            outputFormat
+            outputFormat,
+            negativePrompt,
+            seed
         ).catch((error) => {
             console.error('Ошибка генерации:', error);
         });
