@@ -45,16 +45,17 @@ export function MediaPreview({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
 
-  // Получаем URL оригинала файла для скачивания и полноэкранного просмотра
-  // Приоритет: url (imgbb для изображений) > path (локальный)
-  const fileUrl = file.url || (file.path ? getMediaFileUrl(file.path) : null);
+  // Для полноэкранного просмотра и скачивания ВСЕГДА используем оригинальный локальный файл
+  // file.url (imgbb) может быть сжатым (display_url), а file.path - оригиналом
+  // Приоритет: path (локальный оригинал) > url (imgbb как fallback)
+  const originalFileUrl = file.path ? getMediaFileUrl(file.path) : (file.url || null);
 
   // previewUrl для изображений (для видео логика внутри VideoPreview)
-  // Приоритет: previewUrl (imgbb) > previewPath (локальный) > url (imgbb fallback)
+  // Приоритет: previewUrl (imgbb) > previewPath (локальный) > url (imgbb fallback) > path (локальный оригинал)
   const imagePreviewUrl = file.previewUrl ||
     (file.previewPath ? getMediaFileUrl(file.previewPath) : null) ||
     file.url ||
-    fileUrl;
+    originalFileUrl;
 
   async function handleDelete() {
     try {
@@ -65,8 +66,8 @@ export function MediaPreview({
   }
 
   function handleDownload() {
-    if (fileUrl) {
-      downloadFile(fileUrl, file.filename);
+    if (originalFileUrl) {
+      downloadFile(originalFileUrl, file.filename);
     } else {
       console.warn('[MediaPreview] Невозможно скачать файл: нет URL или path', file);
     }
@@ -93,13 +94,13 @@ export function MediaPreview({
           <VideoPreview
             fileId={file.id}
             previewUrl={file.previewUrl || file.previewPath}
-            originalUrl={fileUrl || ''}
+            originalUrl={originalFileUrl || ''}
             filename={file.filename}
           />
         )}
 
         {file.type === "AUDIO" && (
-          <AudioPreview originalUrl={fileUrl} filename={file.filename} />
+          <AudioPreview originalUrl={originalFileUrl || ''} filename={file.filename} />
         )}
 
         {/* Overlay с действиями (не показываем для видео, чтобы не перекрывать нативные контролы) */}
@@ -177,7 +178,7 @@ export function MediaPreview({
             </DialogTitle>
             <div className="relative">
               <img
-                src={fileUrl}
+                src={originalFileUrl || file.url || ''}
                 alt={file.filename}
                 className="max-h-[90vh] w-full object-contain"
               />
