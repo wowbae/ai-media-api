@@ -316,9 +316,9 @@ function ChatItem({ chat, isActive, onDelete, onEdit }: ChatItemProps) {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                         onClick={onDelete}
-                        className='text-red-400 focus:bg-red-900/50 focus:text-red-300'
+                        className='text-slate-300 focus:bg-red-900/50 focus:text-red-300'
                     >
-                        <Trash2 className='mr-2 h-4 w-4' />
+                        <Trash2 className='mr-2 h-4 w-4 focus:text-red-300' />
                         Удалить
                     </DropdownMenuItem>
                 </DropdownMenuContent>
