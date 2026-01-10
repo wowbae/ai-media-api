@@ -45,12 +45,16 @@ export function MediaPreview({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
 
-  // Получаем URL файла для отображения
-  const fileUrl = getMediaFileUrl(file.path);
+  // Получаем URL оригинала файла для скачивания и полноэкранного просмотра
+  // Приоритет: url (imgbb для изображений) > path (локальный)
+  const fileUrl = file.url || (file.path ? getMediaFileUrl(file.path) : null);
+
   // previewUrl для изображений (для видео логика внутри VideoPreview)
-  const imagePreviewUrl = file.previewPath
-    ? getMediaFileUrl(file.previewPath)
-    : fileUrl;
+  // Приоритет: previewUrl (imgbb) > previewPath (локальный) > url (imgbb fallback)
+  const imagePreviewUrl = file.previewUrl ||
+    (file.previewPath ? getMediaFileUrl(file.previewPath) : null) ||
+    file.url ||
+    fileUrl;
 
   async function handleDelete() {
     try {
@@ -61,7 +65,11 @@ export function MediaPreview({
   }
 
   function handleDownload() {
-    downloadFile(fileUrl, file.filename);
+    if (fileUrl) {
+      downloadFile(fileUrl, file.filename);
+    } else {
+      console.warn('[MediaPreview] Невозможно скачать файл: нет URL или path', file);
+    }
   }
 
   return (
@@ -84,8 +92,8 @@ export function MediaPreview({
         {file.type === "VIDEO" && (
           <VideoPreview
             fileId={file.id}
-            previewUrl={file.previewPath}
-            originalUrl={fileUrl}
+            previewUrl={file.previewUrl || file.previewPath}
+            originalUrl={fileUrl || ''}
             filename={file.filename}
           />
         )}
@@ -331,11 +339,13 @@ function VideoPreview({
   }
 
   // Определяем какой URL использовать для превью
-  // Если previewUrl начинается с data: - это base64 из оптимистичного обновления
+  // Приоритет: base64 (data:) > HTTP URL (imgbb) > локальный путь
   const displayPreviewUrl = actualPreviewUrl
     ? actualPreviewUrl.startsWith("data:")
-      ? actualPreviewUrl
-      : getMediaFileUrl(actualPreviewUrl)
+      ? actualPreviewUrl // base64 из оптимистичного обновления
+      : actualPreviewUrl.startsWith("http://") || actualPreviewUrl.startsWith("https://")
+        ? actualPreviewUrl // HTTP URL на imgbb
+        : getMediaFileUrl(actualPreviewUrl) // локальный путь
     : localThumbnail;
 
   // Если пользователь хочет воспроизвести - показываем оригинал

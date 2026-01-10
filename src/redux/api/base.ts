@@ -58,9 +58,11 @@ export interface MediaFile {
   requestId: number;
   type: MediaType;
   filename: string;
-  path: string;
+  path: string | null;
+  url: string | null; // URL на imgbb (для IMAGE, используется для отправки в нейросеть)
   previewPath: string | null;
-  size: number;
+  previewUrl: string | null; // URL превью на imgbb (для IMAGE, создается асинхронно)
+  size: number | null;
   width: number | null;
   height: number | null;
   createdAt: string;

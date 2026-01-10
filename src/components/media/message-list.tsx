@@ -196,13 +196,31 @@ function MessageItem({
                     {/* Превью прикрепленных файлов */}
                     {request.inputFiles && request.inputFiles.length > 0 && (
                         <div className='mt-2 flex flex-wrap gap-2'>
-                            {request.inputFiles.map((dataUrl, index) => {
-                                // Пропускаем некорректные data URL
-                                if (!dataUrl || !dataUrl.startsWith('data:')) {
+                            {request.inputFiles.map((fileUrl, index) => {
+                                // Пропускаем пустые значения
+                                if (!fileUrl) {
                                     return null;
                                 }
 
-                                const isVideo = isVideoDataUrl(dataUrl);
+                                // Поддерживаем data URL (base64) и HTTP/HTTPS URL (imgbb)
+                                const isDataUrl = fileUrl.startsWith('data:');
+                                const isHttpUrl = fileUrl.startsWith('http://') || fileUrl.startsWith('https://');
+
+                                // Если это не data URL и не HTTP URL - пропускаем
+                                if (!isDataUrl && !isHttpUrl) {
+                                    return null;
+                                }
+
+                                // Определяем, является ли это видео
+                                // Для data URL проверяем MIME type
+                                // Для HTTP URL - предполагаем изображение (imgbb не поддерживает видео)
+                                let isVideo = false;
+                                if (isDataUrl) {
+                                    isVideo = isVideoDataUrl(fileUrl);
+                                } else if (isHttpUrl) {
+                                    // HTTP URL от imgbb - всегда изображения (видео остаются как base64)
+                                    isVideo = false;
+                                }
 
                                 return (
                                     <div
@@ -211,15 +229,16 @@ function MessageItem({
                                     >
                                         {isVideo ? (
                                             <video
-                                                src={dataUrl}
+                                                src={fileUrl}
                                                 className='h-full w-full object-cover'
                                                 muted
                                             />
                                         ) : (
                                             <img
-                                                src={dataUrl}
+                                                src={fileUrl}
                                                 alt={`Прикрепленный файл ${index + 1}`}
                                                 className='h-full w-full object-cover'
+                                                crossOrigin='anonymous'
                                             />
                                         )}
                                     </div>

@@ -168,24 +168,23 @@ mediaRouter.get('/chats/:id', async (req: Request, res: Response) => {
                 .json({ success: false, error: 'Некорректный параметр limit' });
         }
 
-        // Параметр includeInputFiles для загрузки inputFiles (по умолчанию false для экономии трафика)
+        // ВАЖНО: includeInputFiles теперь всегда включены (для превью прикрепленных файлов)
+        // Параметр оставлен для обратной совместимости, но игнорируется
         const includeInputFiles = req.query.includeInputFiles === 'true';
 
         console.log(
-            `[API] 🔍 Начало запроса /chats/${chatId} (limit=${limit || 'none'}, includeInputFiles=${includeInputFiles})`
+            `[API] 🔍 Начало запроса /chats/${chatId} (limit=${limit || 'none'}, inputFiles всегда включены)`
         );
         const startTime = Date.now();
 
-        // Проверяем кеш только если не запрашиваем inputFiles (они большие и не критичны для первоначальной загрузки)
-        if (!includeInputFiles) {
-            const cachedChat = getCachedChat(chatId, limit);
-            if (cachedChat) {
-                const totalTime = Date.now() - startTime;
-                console.log(
-                    `[API] ✅ /chats/${chatId}: из КЕША, время=${totalTime}ms`
-                );
-                return res.json({ success: true, data: cachedChat });
-            }
+        // Проверяем кеш (inputFiles теперь всегда включены в кеш)
+        const cachedChat = getCachedChat(chatId, limit);
+        if (cachedChat) {
+            const totalTime = Date.now() - startTime;
+            console.log(
+                `[API] ✅ /chats/${chatId}: из КЕША, время=${totalTime}ms`
+            );
+            return res.json({ success: true, data: cachedChat });
         }
 
         // Замеряем время отдельных частей запроса
@@ -207,13 +206,15 @@ mediaRouter.get('/chats/:id', async (req: Request, res: Response) => {
                         errorMessage: true,
                         createdAt: true,
                         completedAt: true,
-                        ...(includeInputFiles && { inputFiles: true }),
+                        inputFiles: true, // ВАЖНО: Всегда включаем для отображения превью
                         files: {
                             select: {
                                 id: true,
                                 filename: true,
                                 path: true,
                                 previewPath: true,
+                                url: true, // URL на imgbb для изображений
+                                previewUrl: true, // Превью URL на imgbb
                                 type: true,
                                 size: true,
                                 width: true,
@@ -269,10 +270,8 @@ mediaRouter.get('/chats/:id', async (req: Request, res: Response) => {
             );
         }
 
-        // Сохраняем в кеш только если не запрашивали inputFiles
-        if (!includeInputFiles) {
-            setCachedChat(chatId, chat, limit);
-        }
+        // Сохраняем в кеш (inputFiles теперь всегда включены)
+        setCachedChat(chatId, chat, limit);
 
         res.json({ success: true, data: chat });
     } catch (error) {
