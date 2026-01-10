@@ -81,7 +81,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
     },
   },
   SEEDREAM_4_5: {
-    id: "seedream/4.5",
+    id: "seedream/4.5-text-to-image",
     name: "Seedream 4.5",
     types: ["IMAGE"] as const,
     maxPromptLength: 8192,

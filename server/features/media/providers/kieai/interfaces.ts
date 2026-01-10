@@ -218,7 +218,7 @@ export type KieAiSeedreamQuality = "basic" | "high";
 
 // Запрос на создание задачи Seedream 4.5 (Text-to-Image)
 export interface KieAiSeedreamTextToImageRequest {
-  model: "seedream/4.5";
+  model: "seedream/4.5-text-to-image";
   callBackUrl?: string;
   input: {
     prompt: string;

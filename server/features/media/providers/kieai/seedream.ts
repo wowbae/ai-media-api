@@ -182,7 +182,7 @@ export function createKieAiSeedreamProvider(
       };
     } else {
       requestBody = {
-        model: "seedream/4.5",
+        model: "seedream/4.5-text-to-image",
         input: {
           prompt: prompt,
           aspect_ratio: mapAspectRatio(aspectRatio),
