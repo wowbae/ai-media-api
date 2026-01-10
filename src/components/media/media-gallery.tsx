@@ -40,22 +40,57 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
   const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null);
   const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
   const [page, setPage] = useState(1);
+  const [accumulatedFiles, setAccumulatedFiles] = useState<MediaFile[]>([]);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
   const [isVideoExpanded, setIsVideoExpanded] = useState(true);
   const [isImageExpanded, setIsImageExpanded] = useState(true);
   const [attachingFile, setAttachingFile] = useState(false);
 
-  // Загружаем файлы с пагинацией
+  // Сбрасываем страницу и накопленные файлы при смене чата
+  useEffect(() => {
+    setPage(1);
+    setAccumulatedFiles([]);
+  }, [chatId]);
+
+  // Загружаем файлы с пагинацией и фильтрацией по chatId
   const {
     data: filesData,
     isLoading,
     isFetching,
-  } = useGetFilesQuery({
-    page,
-    limit: 50, // Загружаем по 50 файлов за раз
-  });
+  } = useGetFilesQuery(
+    {
+      page,
+      limit: 50, // Загружаем по 50 файлов за раз
+      chatId: chatId, // Передаем chatId для фильтрации
+    },
+    {
+      // Пропускаем запрос, если chatId не указан
+      skip: chatId === undefined,
+    },
+  );
 
-  const allFiles = useMemo(() => filesData?.data || [], [filesData]);
+  // Накопление файлов из всех загруженных страниц
+  useEffect(() => {
+    // Пропускаем, если нет данных
+    if (!filesData?.data) {
+      return;
+    }
+
+    if (page === 1) {
+      // Для первой страницы заменяем все файлы
+      // Это гарантирует, что при смене чата мы показываем только файлы нового чата
+      setAccumulatedFiles(filesData.data);
+    } else {
+      // Для последующих страниц добавляем новые файлы
+      setAccumulatedFiles((prev) => {
+        const existingIds = new Set(prev.map((f) => f.id));
+        const newFiles = filesData.data.filter((f) => !existingIds.has(f.id));
+        return [...prev, ...newFiles];
+      });
+    }
+  }, [filesData, page]);
+
+  const allFiles = useMemo(() => accumulatedFiles, [accumulatedFiles]);
 
   // Разделяем файлы на видео и изображения
   const { videoFiles, imageFiles } = useMemo(() => {
@@ -114,10 +149,13 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
 
   async function handleDeleteFile(event: React.MouseEvent, fileId: number) {
     event.stopPropagation();
+    // Оптимистичное обновление - удаляем файл из локального состояния сразу
+    setAccumulatedFiles((prev) => prev.filter((f) => f.id !== fileId));
     try {
       await deleteFile(fileId).unwrap();
     } catch (error) {
       console.error("Ошибка удаления файла:", error);
+      // В случае ошибки файл будет восстановлен при следующем обновлении данных
     }
   }
 

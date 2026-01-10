@@ -1032,6 +1032,9 @@ mediaRouter.get('/files', async (req: Request, res: Response) => {
         const limitParam = req.query.limit
             ? parseInt(req.query.limit as string)
             : 20;
+        const chatIdParam = req.query.chatId
+            ? parseInt(req.query.chatId as string)
+            : undefined;
 
         if (isNaN(pageParam) || pageParam < 1) {
             return res
@@ -1046,12 +1049,29 @@ mediaRouter.get('/files', async (req: Request, res: Response) => {
             });
         }
 
+        if (chatIdParam !== undefined && isNaN(chatIdParam)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Некорректный параметр chatId',
+            });
+        }
+
         const page = pageParam;
         const limit = limitParam;
         const skip = (page - 1) * limit;
 
+        // Формируем условие where для фильтрации по chatId
+        const whereCondition = chatIdParam
+            ? {
+                  request: {
+                      chatId: chatIdParam,
+                  },
+              }
+            : {};
+
         const [files, total] = await Promise.all([
             prisma.mediaFile.findMany({
+                where: whereCondition,
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: limit,
@@ -1065,10 +1085,21 @@ mediaRouter.get('/files', async (req: Request, res: Response) => {
                     size: true,
                     width: true,
                     height: true,
-                    // Не загружаем request - только минимум для отображения
+                    request: {
+                        select: {
+                            prompt: true,
+                            chat: {
+                                select: {
+                                    name: true,
+                                },
+                            },
+                        },
+                    },
                 },
             }),
-            prisma.mediaFile.count(),
+            prisma.mediaFile.count({
+                where: whereCondition,
+            }),
         ]);
 
         res.json({

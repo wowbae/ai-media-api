@@ -239,10 +239,17 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                     request: { prompt: string; chat: { name: string } };
                 }
             >,
-            { page?: number; limit?: number }
+            { page?: number; limit?: number; chatId?: number }
         >({
-            query: ({ page = 1, limit = 20 }) =>
-                `/files?page=${page}&limit=${limit}`,
+            query: ({ page = 1, limit = 20, chatId }) => {
+                const params = new URLSearchParams();
+                params.append('page', page.toString());
+                params.append('limit', limit.toString());
+                if (chatId !== undefined) {
+                    params.append('chatId', chatId.toString());
+                }
+                return `/files?${params.toString()}`;
+            },
             transformResponse: (
                 response: ApiResponse<MediaFile[]> & {
                     pagination: PaginatedResponse<unknown>['pagination'];
@@ -253,7 +260,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 })[],
                 pagination: response.pagination,
             }),
-            providesTags: (result) =>
+            providesTags: (result, _error, { chatId }) =>
                 result
                     ? [
                           ...result.data.map(({ id }) => ({
@@ -261,8 +268,17 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                               id,
                           })),
                           { type: 'File', id: 'LIST' },
+                          // Добавляем тег чата для инвалидации при изменении чата
+                          ...(chatId !== undefined
+                              ? [{ type: 'Chat' as const, id: chatId }]
+                              : []),
                       ]
-                    : [{ type: 'File', id: 'LIST' }],
+                    : [
+                          { type: 'File', id: 'LIST' },
+                          ...(chatId !== undefined
+                              ? [{ type: 'Chat' as const, id: chatId }]
+                              : []),
+                      ],
         }),
 
         // Загрузить thumbnail для видео
