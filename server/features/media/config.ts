@@ -21,7 +21,7 @@ export interface MediaModelConfig {
   };
 }
 
-// ИСХОДНЫЙ СПИСОК ВСЕХ МОДЕЛЕЙ
+// ИСХОДНЫЙ ОСНОВНОЙ ГЛАВНЫЙ СПИСОК ВСЕХ МОДЕЛЕЙ
 export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
     KLING_2_6: {
         id: 'kling-2-6',
@@ -90,7 +90,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.1, // TODO: уточнить цену для Seedream 4.5 Edit
         },
     },
-    // пока выключил, не нужны
+    // пока выключил, не нужны, НО НЕ УДАЛЯТЬ ИХ
     // NANO_BANANA: {
     //     id: 'google/gemini-3-pro-image-preview',
     //     name: 'Nano Banana Pro',
