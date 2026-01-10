@@ -16,7 +16,9 @@ export type MediaModel =
   | "KLING_2_6"
   | "KLING_2_5_TURBO_PRO"
   | "NANO_BANANA_PRO_KIEAI"
-  | "IMAGEN4_KIEAI";
+  | "IMAGEN4_KIEAI"
+  | "SEEDREAM_4_5"
+  | "SEEDREAM_4_5_EDIT";
 
 export type MediaType = "IMAGE" | "VIDEO" | "AUDIO";
 export type RequestStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
@@ -103,7 +105,7 @@ export interface GenerateMediaRequest {
   prompt: string;
   model?: MediaModel;
   inputFiles?: string[];
-  format?: "1:1" | "9:16" | "16:9";
+  format?: "1:1" | "4:3" | "3:4" | "9:16" | "16:9" | "2:3" | "3:2" | "21:9";
   quality?: "1k" | "2k" | "4k";
   videoQuality?: "480p" | "720p" | "1080p";
   duration?: number;

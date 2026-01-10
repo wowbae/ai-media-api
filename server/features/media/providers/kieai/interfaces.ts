@@ -199,6 +199,46 @@ export interface KieAiNanoBananaRequest {
   };
 }
 
+// Интерфейсы для Seedream 4.5 API
+// Документация: https://kie.ai/seedream-4-5
+
+// Соотношение сторон для Seedream 4.5
+export type KieAiSeedreamAspectRatio =
+  | "1:1"
+  | "4:3"
+  | "3:4"
+  | "16:9"
+  | "9:16"
+  | "2:3"
+  | "3:2"
+  | "21:9";
+
+// Качество для Seedream 4.5
+export type KieAiSeedreamQuality = "basic" | "high";
+
+// Запрос на создание задачи Seedream 4.5 (Text-to-Image)
+export interface KieAiSeedreamTextToImageRequest {
+  model: "seedream/4.5";
+  callBackUrl?: string;
+  input: {
+    prompt: string;
+    aspect_ratio: KieAiSeedreamAspectRatio;
+    quality: KieAiSeedreamQuality;
+  };
+}
+
+// Запрос на создание задачи Seedream 4.5 (Edit/Image-to-Image)
+export interface KieAiSeedreamEditRequest {
+  model: "seedream/4.5-edit";
+  callBackUrl?: string;
+  input: {
+    prompt: string;
+    image_urls: string[]; // Массив URL изображений (до 14 файлов)
+    aspect_ratio: KieAiSeedreamAspectRatio;
+    quality: KieAiSeedreamQuality;
+  };
+}
+
 // Ответ на создание задачи (общий формат для Kie.ai)
 export interface KieAiUnifiedCreateResponse {
   code: number;

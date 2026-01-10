@@ -11,7 +11,15 @@ export interface GenerateParams {
   prompt: string;
   model: MediaModel;
   inputFiles?: string[];
-  aspectRatio?: "1:1" | "9:16" | "16:9";
+  aspectRatio?:
+    | "1:1"
+    | "4:3"
+    | "3:4"
+    | "9:16"
+    | "16:9"
+    | "2:3"
+    | "3:2"
+    | "21:9";
   quality?: "1k" | "2k" | "4k" | "LOW" | "MEDIUM" | "HIGH" | "ULTRA";
   videoQuality?: "480p" | "720p" | "1080p";
   duration?: number;

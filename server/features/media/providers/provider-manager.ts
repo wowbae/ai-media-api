@@ -10,6 +10,7 @@ import {
     createKieAiKling25Provider,
     createKieAiNanoBananaProvider,
     createKieAiImagen4Provider,
+    createKieAiSeedreamProvider,
 } from './kieai';
 import { MEDIA_MODELS, type MediaModelConfig } from '../config';
 import 'dotenv/config';
@@ -121,6 +122,13 @@ export function createProviderManager(): ProviderManager {
                 if (model === 'IMAGEN4_KIEAI') {
                     kieaiProviders[model] =
                         createKieAiImagen4Provider(kieaiConfig);
+                    return kieaiProviders[model];
+                }
+
+                // Для Seedream 4.5 (Text-to-Image и Edit) используем seedream провайдер
+                if (model === 'SEEDREAM_4_5' || model === 'SEEDREAM_4_5_EDIT') {
+                    kieaiProviders[model] =
+                        createKieAiSeedreamProvider(kieaiConfig);
                     return kieaiProviders[model];
                 }
 

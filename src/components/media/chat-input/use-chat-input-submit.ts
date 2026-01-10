@@ -24,7 +24,7 @@ interface UseChatInputSubmitParams {
 interface SubmitParams {
     prompt: string;
     attachedFiles: AttachedFile[];
-    format: '1:1' | '9:16' | '16:9' | undefined;
+    format: '1:1' | '4:3' | '3:4' | '9:16' | '16:9' | '2:3' | '3:2' | '21:9' | undefined;
     quality: '1k' | '2k' | '4k' | undefined;
     videoFormat: '16:9' | '9:16' | undefined;
     klingAspectRatio: '16:9' | '9:16' | undefined;
@@ -40,6 +40,8 @@ interface SubmitParams {
     isKling: boolean;
     isKling25: boolean;
     isImagen4: boolean;
+    isSeedream4_5: boolean;
+    isSeedream4_5_Edit: boolean;
     isLockEnabled: boolean;
     onClearForm: () => void;
 }
@@ -80,6 +82,18 @@ export function useChatInputSubmit({
 
             // Проверяем наличие данных для отправки
             if (!params.prompt.trim() && params.attachedFiles.length === 0) {
+                return;
+            }
+
+            // Валидация для Seedream 4.5 Edit: максимум 14 файлов
+            if (params.isSeedream4_5_Edit && params.attachedFiles.length > 14) {
+                submitInProgressRef.current = false;
+                setIsSubmitting(false);
+                if (onSendError) {
+                    onSendError(
+                        `Seedream 4.5 Edit поддерживает максимум 14 файлов. Выбрано: ${params.attachedFiles.length}`
+                    );
+                }
                 return;
             }
 
@@ -265,11 +279,15 @@ export function useChatInputSubmit({
                         ...((params.isNanoBanana ||
                             params.isNanoBananaPro ||
                             params.isNanoBananaProKieai ||
-                            params.isImagen4) &&
+                            params.isImagen4 ||
+                            params.isSeedream4_5 ||
+                            params.isSeedream4_5_Edit) &&
                             params.format && { format: params.format }),
                         ...((params.isNanoBanana ||
                             params.isNanoBananaPro ||
-                            params.isNanoBananaProKieai) &&
+                            params.isNanoBananaProKieai ||
+                            params.isSeedream4_5 ||
+                            params.isSeedream4_5_Edit) &&
                             params.quality && { quality: params.quality }),
                         ...(params.isVeo &&
                             params.videoFormat && { ar: params.videoFormat }),

@@ -23,7 +23,7 @@ export interface SoundOption {
 
 export interface FormatConfig {
     options: FormatOption[];
-    defaultValue?: '1:1' | '16:9' | '9:16';
+    defaultValue?: '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '2:3' | '3:2' | '21:9';
     allowDefault?: boolean; // Показывать опцию "По умолчанию"
 }
 
@@ -68,6 +68,18 @@ const FORMAT_OPTIONS_WITH_DEFAULT: FormatOption[] = [
     { value: '9:16', label: '9:16 (Вертикальный)' },
 ];
 
+// Опции форматов для Seedream 4.5 (все поддерживаемые форматы)
+const FORMAT_OPTIONS_SEEDREAM: FormatOption[] = [
+    { value: '1:1', label: '1:1 (Квадрат)' },
+    { value: '4:3', label: '4:3 (Горизонтальный)' },
+    { value: '3:4', label: '3:4 (Вертикальный)' },
+    { value: '16:9', label: '16:9 (Широкий)' },
+    { value: '9:16', label: '9:16 (Высокий)' },
+    { value: '2:3', label: '2:3 (Портрет)' },
+    { value: '3:2', label: '3:2 (Ландшафт)' },
+    { value: '21:9', label: '21:9 (Ультраширокий)' },
+];
+
 // Общие опции для качества
 const QUALITY_OPTIONS_1K_2K_4K: QualityOption[] = [
     { value: '1k', label: '1K' },
@@ -85,6 +97,12 @@ const QUALITY_OPTIONS_WITH_DEFAULT: QualityOption[] = [
     { value: '1k', label: '1K' },
     { value: '2k', label: '2K' },
     { value: '4k', label: '4K' },
+];
+
+// Опции качества для Seedream 4.5 (basic = 2K, high = 4K)
+const QUALITY_OPTIONS_SEEDREAM: QualityOption[] = [
+    { value: '2k', label: 'Basic (2K)' },
+    { value: '4k', label: 'High (4K)' },
 ];
 
 // Опции для длительности
@@ -171,6 +189,26 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
         duration: {
             options: DURATION_OPTIONS,
             defaultValue: 5,
+        },
+    },
+    SEEDREAM_4_5: {
+        format: {
+            options: FORMAT_OPTIONS_SEEDREAM,
+            defaultValue: '16:9',
+        },
+        quality: {
+            options: QUALITY_OPTIONS_SEEDREAM,
+            defaultValue: '4k',
+        },
+    },
+    SEEDREAM_4_5_EDIT: {
+        format: {
+            options: FORMAT_OPTIONS_SEEDREAM,
+            defaultValue: '16:9',
+        },
+        quality: {
+            options: QUALITY_OPTIONS_SEEDREAM,
+            defaultValue: '4k',
         },
     },
     MIDJOURNEY: {},

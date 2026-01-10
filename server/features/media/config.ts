@@ -80,6 +80,28 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
       output: 0.1, // стоимость за изображение (уточнить)
     },
   },
+  SEEDREAM_4_5: {
+    id: "seedream/4.5",
+    name: "Seedream 4.5",
+    types: ["IMAGE"] as const,
+    maxPromptLength: 8192,
+    supportsImageInput: false,
+    provider: "kieai",
+    pricing: {
+      output: 0.1, // TODO: уточнить цену для Seedream 4.5 Text-to-Image
+    },
+  },
+  SEEDREAM_4_5_EDIT: {
+    id: "seedream/4.5-edit",
+    name: "Seedream 4.5 Edit",
+    types: ["IMAGE"] as const,
+    maxPromptLength: 8192,
+    supportsImageInput: true, // Поддерживает image-to-image с до 14 файлов
+    provider: "kieai",
+    pricing: {
+      output: 0.1, // TODO: уточнить цену для Seedream 4.5 Edit
+    },
+  },
   // пока выключил, не нужны
   // MIDJOURNEY: {
   //   id: "midjourney/imagine",

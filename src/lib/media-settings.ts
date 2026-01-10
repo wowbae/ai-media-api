@@ -3,7 +3,7 @@
 const STORAGE_KEY = "ai-media-settings";
 
 export interface MediaSettings {
-  format?: "1:1" | "9:16" | "16:9";
+  format?: "1:1" | "4:3" | "3:4" | "9:16" | "16:9" | "2:3" | "3:2" | "21:9";
   quality?: "1k" | "2k" | "4k";
   videoFormat?: "16:9" | "9:16"; // Формат видео для Veo
   klingAspectRatio?: "16:9" | "9:16"; // Формат видео для Kling 2.6

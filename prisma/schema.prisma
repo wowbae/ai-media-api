@@ -76,6 +76,8 @@ enum MediaModel {
   KLING_2_5_TURBO_PRO
   NANO_BANANA_PRO_KIEAI
   IMAGEN4_KIEAI
+  SEEDREAM_4_5
+  SEEDREAM_4_5_EDIT
 }
 
 enum MediaType {

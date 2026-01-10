@@ -62,7 +62,15 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     ) {
         const [prompt, setPrompt] = useState('');
         const [format, setFormat] = useState<
-            '1:1' | '9:16' | '16:9' | undefined
+            | '1:1'
+            | '4:3'
+            | '3:4'
+            | '9:16'
+            | '16:9'
+            | '2:3'
+            | '3:2'
+            | '21:9'
+            | undefined
         >(undefined);
         const [quality, setQuality] = useState<'1k' | '2k' | '4k' | undefined>(
             undefined
@@ -96,6 +104,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const isKling = (currentModel as string) === 'KLING_2_6';
         const isKling25 = (currentModel as string) === 'KLING_2_5_TURBO_PRO';
         const isImagen4 = (currentModel as string) === 'IMAGEN4_KIEAI';
+        const isSeedream4_5 = (currentModel as string) === 'SEEDREAM_4_5';
+        const isSeedream4_5_Edit =
+            (currentModel as string) === 'SEEDREAM_4_5_EDIT';
 
         // Хуки для работы с файлами и отправкой
         const {
@@ -267,19 +278,25 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             if (isVeo) {
                 // Для Veo сохраняем в videoFormat
                 saveMediaSettings({
-                    videoFormat: format as '16:9' | '9:16' | undefined,
+                    videoFormat:
+                        format && format !== '1:1'
+                            ? (format as '16:9' | '9:16')
+                            : undefined,
                 } as MediaSettings);
             } else if (isKling || isKling25) {
                 // Для Kling сохраняем в klingAspectRatio, klingDuration, klingSound (только для Kling 2.6)
                 saveMediaSettings({
-                    klingAspectRatio: format as '16:9' | '9:16' | undefined,
+                    klingAspectRatio:
+                        format && format !== '1:1'
+                            ? (format as '16:9' | '9:16')
+                            : undefined,
                     klingDuration: duration,
                     klingSound: isKling ? sound : undefined,
                 });
             } else {
                 // Для остальных моделей сохраняем в format и quality
                 saveMediaSettings({
-                    format,
+                    format: format as MediaSettings['format'],
                     quality,
                 });
             }
@@ -329,7 +346,16 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 handleSubmit(event, {
                     prompt,
                     attachedFiles,
-                    format,
+                    format: format as
+                        | '1:1'
+                        | '4:3'
+                        | '3:4'
+                        | '9:16'
+                        | '16:9'
+                        | '2:3'
+                        | '3:2'
+                        | '21:9'
+                        | undefined,
                     quality,
                     videoFormat,
                     klingAspectRatio,
@@ -345,6 +371,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     isKling,
                     isKling25,
                     isImagen4,
+                    isSeedream4_5,
+                    isSeedream4_5_Edit,
                     isLockEnabled,
                     onClearForm: () => {
                         setPrompt('');
@@ -379,6 +407,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 isKling,
                 isKling25,
                 isImagen4,
+                isSeedream4_5,
+                isSeedream4_5_Edit,
                 isLockEnabled,
                 clearFiles,
             ]
@@ -459,6 +489,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     </p>
                 )}
 
+                {/* Подсказка для Seedream 4.5 Edit */}
+                {isSeedream4_5_Edit && (
+                    <p className='mb-2 text-xs text-slate-400'>
+                        Seedream 4.5 Edit поддерживает до 14 изображений для
+                        редактирования
+                    </p>
+                )}
+
                 {/* Верхняя панель с выбором модели и настроек */}
                 <div className='mb-2 flex flex-wrap items-center gap-3'>
                     <ModelSelector
@@ -473,11 +511,24 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
                     <ModelSettingsPanel
                         model={currentModel}
-                        format={format}
+                        format={
+                            format as
+                                | '1:1'
+                                | '4:3'
+                                | '3:4'
+                                | '9:16'
+                                | '16:9'
+                                | '2:3'
+                                | '3:2'
+                                | '21:9'
+                                | undefined
+                        }
                         quality={quality}
                         duration={duration}
                         sound={sound}
-                        onFormatChange={setFormat}
+                        onFormatChange={(value) =>
+                            setFormat(value as typeof format)
+                        }
                         onQualityChange={setQuality}
                         onDurationChange={setDuration}
                         onSoundChange={setSound}

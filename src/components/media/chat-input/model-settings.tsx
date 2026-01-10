@@ -15,11 +15,23 @@ import {
 } from './model-settings-config';
 import type { MediaModel } from '@/redux/api/base';
 
+// Тип для всех поддерживаемых форматов
+export type AspectRatioFormat =
+    | '1:1'
+    | '4:3'
+    | '3:4'
+    | '9:16'
+    | '16:9'
+    | '2:3'
+    | '3:2'
+    | '21:9'
+    | undefined;
+
 // Универсальный селект для формата (фото и видео)
 interface FormatSelectProps {
-    value: '1:1' | '9:16' | '16:9' | undefined;
+    value: AspectRatioFormat;
     config: FormatConfig;
-    onValueChange: (value: '1:1' | '9:16' | '16:9' | undefined) => void;
+    onValueChange: (value: AspectRatioFormat) => void;
     disabled?: boolean;
     className?: string;
 }
@@ -35,7 +47,7 @@ export function FormatSelect({
         if (newValue === 'default') {
             onValueChange(undefined);
         } else {
-            const format = newValue as '1:1' | '9:16' | '16:9';
+            const format = newValue as AspectRatioFormat;
             onValueChange(format);
         }
         // Сохранение настроек происходит в основном компоненте через useEffect
@@ -243,11 +255,11 @@ export function SoundSelect({
 // Основной компонент для отображения настроек модели
 interface ModelSettingsPanelProps {
     model: string;
-    format: '1:1' | '9:16' | '16:9' | undefined;
+    format: AspectRatioFormat;
     quality: '1k' | '2k' | '4k' | undefined;
     duration: 5 | 10 | undefined;
     sound: boolean | undefined;
-    onFormatChange: (value: '1:1' | '9:16' | '16:9' | undefined) => void;
+    onFormatChange: (value: AspectRatioFormat) => void;
     onQualityChange: (value: '1k' | '2k' | '4k' | undefined) => void;
     onDurationChange: (value: 5 | 10) => void;
     onSoundChange: (value: boolean) => void;
