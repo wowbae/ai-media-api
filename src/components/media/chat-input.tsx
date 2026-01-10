@@ -7,14 +7,7 @@ import {
     useImperativeHandle,
     forwardRef,
 } from 'react';
-import {
-    Send,
-    Paperclip,
-    X,
-    Loader2,
-    Lock,
-    Unlock,
-} from 'lucide-react';
+import { Send, Paperclip, X, Loader2, Lock, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -24,10 +17,7 @@ import {
     saveMediaSettings,
     type MediaSettings,
 } from '@/lib/media-settings';
-import {
-    loadLockButtonState,
-    saveLockButtonState,
-} from '@/lib/saved-prompts';
+import { loadLockButtonState, saveLockButtonState } from '@/lib/saved-prompts';
 import { ModelSelector } from './model-selector';
 import {
     useGenerateMediaMutation,
@@ -77,9 +67,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const [quality, setQuality] = useState<'1k' | '2k' | '4k' | undefined>(
             undefined
         );
-        const [duration, setDuration] = useState<5 | 10 | undefined>(
-            undefined
-        );
+        const [duration, setDuration] = useState<5 | 10 | undefined>(undefined);
         const [sound, setSound] = useState<boolean | undefined>(undefined);
         const [negativePrompt, setNegativePrompt] = useState<string>('');
         const [seed, setSeed] = useState<string | number | undefined>(
@@ -87,6 +75,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         );
         const [isLockEnabled, setIsLockEnabled] = useState(false);
         const [needsScrollbar, setNeedsScrollbar] = useState(false);
+        const [attachingFile, setAttachingFile] = useState(false);
+
         const { isTestMode } = useTestMode();
         const fileInputRef = useRef<HTMLInputElement>(null);
         const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -95,7 +85,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const [generateMediaTest] = useGenerateMediaTestMutation();
 
         // Поле не блокируется на время выполнения запроса для поддержки параллельных запросов
-        const isDisabled = disabled;
+        const isDisabled = disabled ?? false;
         const isNanoBanana = currentModel === 'NANO_BANANA';
         const isNanoBananaPro = currentModel === 'NANO_BANANA_PRO';
         const isNanoBananaProKieai =
@@ -121,6 +111,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             clearFiles,
             getFileAsBase64,
         } = useChatInputFiles();
+
+        function loadingEffectForAttachFile() {
+            setAttachingFile(true);
+            setTimeout(() => {
+                setAttachingFile(false);
+            }, 1500);
+        }
 
         const { handleSubmit, isSubmitting, submitInProgressRef } =
             useChatInputSubmit({
@@ -317,10 +314,15 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 }
 
                 // Определяем videoFormat и klingAspectRatio для отправки (нужны разные параметры API)
-                const videoFormat = isVeo ? format : undefined;
-                const klingAspectRatio = isKling
-                    ? (format as '16:9' | '9:16' | undefined)
-                    : undefined;
+                // Для Veo и Kling формат '1:1' не поддерживается, поэтому фильтруем его
+                const videoFormat =
+                    isVeo && format && format !== '1:1'
+                        ? (format as '16:9' | '9:16')
+                        : undefined;
+                const klingAspectRatio =
+                    isKling && format && format !== '1:1'
+                        ? (format as '16:9' | '9:16')
+                        : undefined;
 
                 handleSubmit(event, {
                     prompt,
@@ -329,8 +331,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     quality,
                     videoFormat,
                     klingAspectRatio,
-                    duration,
-                    sound,
+                    klingDuration: duration,
+                    klingSound: sound,
                     negativePrompt,
                     seed,
                     isNanoBanana,
@@ -399,7 +401,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             <div className='border-t border-slate-700 bg-slate-800/50 p-4'>
                 {/* Прикрепленные файлы */}
                 {attachedFiles.length > 0 && (
-                    <div className='mb-3 flex flex-wrap gap-2'>
+                    <div className='mb-3 flex flex-wrap gap-2 items-center'>
                         {attachedFiles.map((file) => {
                             const isVideo = file.file.type.startsWith('video/');
                             return (
@@ -429,6 +431,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 </div>
                             );
                         })}
+                        {attachingFile && (
+                            <Loader2 className='h-4 w-4 ml-2 animate-spin' />
+                        )}
                     </div>
                 )}
 
@@ -509,7 +514,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         value={prompt}
                         onChange={handleTextareaChange}
                         onKeyDown={handleKeyDown}
-                        onPaste={(e) => handlePaste(e, isDisabled)}
+                        onPaste={(e) => {
+                            loadingEffectForAttachFile();
+                            handlePaste(e, isDisabled);
+                        }}
                         placeholder='Опишите, что хотите сгенерировать...'
                         className={cn(
                             'min-h-[76px] max-h-[20vh] resize-none border-slate-600 bg-slate-700 pb-10 pl-4 pr-12 text-white placeholder:text-slate-400',
