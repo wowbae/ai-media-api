@@ -400,7 +400,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         return (
             <div className='border-t border-slate-700 bg-slate-800/50 p-4'>
                 {/* Прикрепленные файлы */}
-                {attachedFiles.length > 0 && (
+                {attachedFiles.length > 0 ? (
                     <div className='mb-3 flex flex-wrap gap-2 items-center'>
                         {attachedFiles.map((file) => {
                             const isVideo = file.file.type.startsWith('video/');
@@ -435,7 +435,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             <Loader2 className='h-4 w-4 ml-2 animate-spin' />
                         )}
                     </div>
+                ) : (
+                    attachingFile && (
+                        <Loader2 className='h-4 w-4 mb-4 mx-4 animate-spin' />
+                    )
                 )}
+
 
                 {/* Верхняя панель с выбором модели и настроек */}
                 <div className='mb-2 flex flex-wrap items-center gap-3'>
