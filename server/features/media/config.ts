@@ -46,6 +46,17 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
       output: 0.1, // стоимость за видео (уточнить)
     },
   },
+  KLING_2_5_TURBO_PRO: {
+    id: "kling-2-5-turbo-pro",
+    name: "Kling 2.5 Turbo Pro",
+    types: ["VIDEO"] as const,
+    maxPromptLength: 4096,
+    supportsImageInput: true,
+    provider: "kieai",
+    pricing: {
+      output: 0.1, // стоимость за видео (уточнить)
+    },
+  },
   // Kie.ai провайдер - модель для генерации изображений
   NANO_BANANA_PRO_KIEAI: {
     id: "nano-banana-pro",

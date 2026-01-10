@@ -73,6 +73,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const [seed, setSeed] = useState<string | number | undefined>(
             undefined
         );
+        const [cfgScale, setCfgScale] = useState<number | undefined>(undefined);
         const [isLockEnabled, setIsLockEnabled] = useState(false);
         const [needsScrollbar, setNeedsScrollbar] = useState(false);
         const [attachingFile, setAttachingFile] = useState(false);
@@ -93,6 +94,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const isVeo =
             currentModel === 'VEO_3_1_FAST' || currentModel === 'VEO_3_1';
         const isKling = (currentModel as string) === 'KLING_2_6';
+        const isKling25 = (currentModel as string) === 'KLING_2_5_TURBO_PRO';
         const isImagen4 = (currentModel as string) === 'IMAGEN4_KIEAI';
 
         // Хуки для работы с файлами и отправкой
@@ -219,7 +221,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             } else if (isVeo && settings.videoFormat) {
                 // Для Veo используем videoFormat из старых настроек
                 setFormat(settings.videoFormat);
-            } else if (isKling && settings.klingAspectRatio) {
+            } else if ((isKling || isKling25) && settings.klingAspectRatio) {
                 // Для Kling используем klingAspectRatio из старых настроек
                 setFormat(settings.klingAspectRatio);
             } else if (config.format?.defaultValue) {
@@ -267,12 +269,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 saveMediaSettings({
                     videoFormat: format as '16:9' | '9:16' | undefined,
                 } as MediaSettings);
-            } else if (isKling) {
-                // Для Kling сохраняем в klingAspectRatio, klingDuration, klingSound
+            } else if (isKling || isKling25) {
+                // Для Kling сохраняем в klingAspectRatio, klingDuration, klingSound (только для Kling 2.6)
                 saveMediaSettings({
                     klingAspectRatio: format as '16:9' | '9:16' | undefined,
                     klingDuration: duration,
-                    klingSound: sound,
+                    klingSound: isKling ? sound : undefined,
                 });
             } else {
                 // Для остальных моделей сохраняем в format и quality
@@ -281,7 +283,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     quality,
                 });
             }
-        }, [format, quality, duration, sound, isVeo, isKling]);
+        }, [format, quality, duration, sound, isVeo, isKling, isKling25]);
 
         // Очистка URL.createObjectURL при размонтировании компонента для предотвращения утечек памяти
         useEffect(() => {
@@ -320,7 +322,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         ? (format as '16:9' | '9:16')
                         : undefined;
                 const klingAspectRatio =
-                    isKling && format && format !== '1:1'
+                    (isKling || isKling25) && format && format !== '1:1'
                         ? (format as '16:9' | '9:16')
                         : undefined;
 
@@ -335,11 +337,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     klingSound: sound,
                     negativePrompt,
                     seed,
+                    cfgScale,
                     isNanoBanana,
                     isNanoBananaPro,
                     isNanoBananaProKieai,
                     isVeo,
                     isKling,
+                    isKling25,
                     isImagen4,
                     isLockEnabled,
                     onClearForm: () => {
@@ -347,6 +351,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         if (isImagen4) {
                             setNegativePrompt('');
                             setSeed(undefined);
+                        }
+                        if (isKling25) {
+                            setNegativePrompt('');
+                            setCfgScale(undefined);
                         }
                         clearFiles();
                     },
@@ -363,11 +371,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 sound,
                 negativePrompt,
                 seed,
+                cfgScale,
                 isNanoBanana,
                 isNanoBananaPro,
                 isNanoBananaProKieai,
                 isVeo,
                 isKling,
+                isKling25,
                 isImagen4,
                 isLockEnabled,
                 clearFiles,
@@ -441,6 +451,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     )
                 )}
 
+                {/* Подсказка для Kling 2.5 Turbo Pro */}
+                {isKling25 && (
+                    <p className='mb-2 text-xs text-slate-400'>
+                        Для image-to-video: первое изображение — начальный кадр,
+                        второе — финальный кадр (tail)
+                    </p>
+                )}
 
                 {/* Верхняя панель с выбором модели и настроек */}
                 <div className='mb-2 flex flex-wrap items-center gap-3'>
@@ -491,6 +508,46 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             }}
                             disabled={isDisabled}
                             className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500'
+                        />
+                    </div>
+                )}
+
+                {/* Поля для Kling 2.5 Turbo Pro: negativePrompt и cfgScale */}
+                {isKling25 && (
+                    <div className='flex gap-2 mb-2'>
+                        <Input
+                            type='text'
+                            placeholder='Негативный промпт (опционально)'
+                            value={negativePrompt}
+                            onChange={(e) => setNegativePrompt(e.target.value)}
+                            disabled={isDisabled}
+                            className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500'
+                        />
+                        <Input
+                            type='number'
+                            placeholder='CFG Scale (опционально, 1-20)'
+                            value={
+                                cfgScale === undefined ? '' : String(cfgScale)
+                            }
+                            onChange={(e) => {
+                                const value = e.target.value.trim();
+                                if (value === '') {
+                                    setCfgScale(undefined);
+                                } else {
+                                    const numValue = Number(value);
+                                    if (
+                                        !isNaN(numValue) &&
+                                        numValue >= 1 &&
+                                        numValue <= 20
+                                    ) {
+                                        setCfgScale(numValue);
+                                    }
+                                }
+                            }}
+                            disabled={isDisabled}
+                            className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-40'
+                            min={1}
+                            max={20}
                         />
                     </div>
                 )}

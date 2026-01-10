@@ -72,6 +72,7 @@ enum MediaModel {
   VEO_3_1
   // Kie.ai провайдер
   KLING_2_6
+  KLING_2_5_TURBO_PRO
   NANO_BANANA_PRO_KIEAI
   IMAGEN4_KIEAI
 }

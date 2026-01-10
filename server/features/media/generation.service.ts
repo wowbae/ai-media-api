@@ -42,6 +42,8 @@ export async function generateMedia(
   outputFormat?: "png" | "jpg",
   negativePrompt?: string,
   seed?: string | number,
+  cfgScale?: number,
+  tailImageUrl?: string,
 ): Promise<SavedFileInfo[]> {
   const providerManager = getProviderManager();
   const provider = providerManager.getProvider(model);
@@ -84,6 +86,8 @@ export async function generateMedia(
       outputFormat,
       negativePrompt,
       seed,
+      cfgScale,
+      tailImageUrl,
     };
 
     const result = await provider.generate(generateParams);

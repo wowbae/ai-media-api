@@ -10,6 +10,7 @@ const MODEL_ICONS: Record<string, string> = {
     SORA_2: '🌊',
     VEO_3_1: '🎥',
     KLING_2_6: '🎬',
+    KLING_2_5_TURBO_PRO: '🎬',
 };
 
 const DEFAULT_ICON = '✨';

@@ -32,11 +32,13 @@ interface SubmitParams {
     klingSound: boolean | undefined;
     negativePrompt: string;
     seed: string | number | undefined;
+    cfgScale: number | undefined;
     isNanoBanana: boolean;
     isNanoBananaPro: boolean;
     isNanoBananaProKieai: boolean;
     isVeo: boolean;
     isKling: boolean;
+    isKling25: boolean;
     isImagen4: boolean;
     isLockEnabled: boolean;
     onClearForm: () => void;
@@ -181,18 +183,16 @@ export function useChatInputSubmit({
                         f.file.type.startsWith('image/')
                     );
                     const inputFilesUrls: string[] = [];
+                    let tailImageUrl: string | undefined;
 
-                    for (const file of imageFiles) {
-                        if (file.imgbbUrl) {
-                            // Используем уже загруженный URL на imgbb
-                            inputFilesUrls.push(file.imgbbUrl);
+                    // Для Kling 2.5 Turbo Pro: первое изображение - image_url, второе - tail_image_url
+                    if (params.isKling25 && imageFiles.length > 0) {
+                        // Загружаем первое изображение для image_url
+                        const firstImage = imageFiles[0];
+                        if (firstImage.imgbbUrl) {
+                            inputFilesUrls.push(firstImage.imgbbUrl);
                         } else {
-                            // Fallback: загружаем на imgbb и получаем URL
-                            console.log(
-                                '[ChatInput] ⚠️ imgbbUrl отсутствует, загружаем на imgbb...',
-                                file.file.name
-                            );
-                            const base64 = await getFileAsBase64(file.file);
+                            const base64 = await getFileAsBase64(firstImage.file);
                             const result = await uploadToImgbb({
                                 files: [base64],
                             }).unwrap();
@@ -200,8 +200,53 @@ export function useChatInputSubmit({
                                 inputFilesUrls.push(result.urls[0]);
                             } else {
                                 throw new Error(
-                                    `Не удалось загрузить файл ${file.file.name} на imgbb`
+                                    `Не удалось загрузить файл ${firstImage.file.name} на imgbb`
                                 );
+                            }
+                        }
+
+                        // Если есть второе изображение - используем его как tail_image_url
+                        if (imageFiles.length >= 2) {
+                            const secondImage = imageFiles[1];
+                            if (secondImage.imgbbUrl) {
+                                tailImageUrl = secondImage.imgbbUrl;
+                            } else {
+                                const base64 = await getFileAsBase64(secondImage.file);
+                                const result = await uploadToImgbb({
+                                    files: [base64],
+                                }).unwrap();
+                                if (result.urls[0]) {
+                                    tailImageUrl = result.urls[0];
+                                } else {
+                                    throw new Error(
+                                        `Не удалось загрузить tail изображение ${secondImage.file.name} на imgbb`
+                                    );
+                                }
+                            }
+                        }
+                    } else {
+                        // Для остальных моделей обрабатываем все изображения как обычно
+                        for (const file of imageFiles) {
+                            if (file.imgbbUrl) {
+                                // Используем уже загруженный URL на imgbb
+                                inputFilesUrls.push(file.imgbbUrl);
+                            } else {
+                                // Fallback: загружаем на imgbb и получаем URL
+                                console.log(
+                                    '[ChatInput] ⚠️ imgbbUrl отсутствует, загружаем на imgbb...',
+                                    file.file.name
+                                );
+                                const base64 = await getFileAsBase64(file.file);
+                                const result = await uploadToImgbb({
+                                    files: [base64],
+                                }).unwrap();
+                                if (result.urls[0]) {
+                                    inputFilesUrls.push(result.urls[0]);
+                                } else {
+                                    throw new Error(
+                                        `Не удалось загрузить файл ${file.file.name} на imgbb`
+                                    );
+                                }
                             }
                         }
                     }
@@ -245,6 +290,28 @@ export function useChatInputSubmit({
                         ...(params.isImagen4 &&
                             params.seed !== undefined &&
                             params.seed !== '' && { seed: params.seed }),
+                        ...(params.isKling25 &&
+                            params.klingAspectRatio && {
+                                format: params.klingAspectRatio,
+                            }),
+                        ...(params.isKling25 &&
+                            params.klingDuration && {
+                                duration: params.klingDuration,
+                            }),
+                        ...(params.isKling25 &&
+                            params.negativePrompt &&
+                            params.negativePrompt.trim() && {
+                                negativePrompt: params.negativePrompt.trim(),
+                            }),
+                        ...(params.isKling25 &&
+                            params.cfgScale !== undefined &&
+                            params.cfgScale !== null && {
+                                cfgScale: params.cfgScale,
+                            }),
+                        ...(params.isKling25 &&
+                            tailImageUrl && {
+                                tailImageUrl,
+                            }),
                     }).unwrap();
                     console.log(
                         '[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:',

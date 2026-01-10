@@ -163,6 +163,16 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: false,
         },
     },
+    KLING_2_5_TURBO_PRO: {
+        format: {
+            options: FORMAT_OPTIONS_16_9_9_16,
+            defaultValue: '9:16',
+        },
+        duration: {
+            options: DURATION_OPTIONS,
+            defaultValue: 5,
+        },
+    },
     MIDJOURNEY: {},
     SORA_2: {},
 };

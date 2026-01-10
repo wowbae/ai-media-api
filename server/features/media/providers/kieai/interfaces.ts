@@ -139,6 +139,34 @@ export interface KieAiKlingImageToVideoRequest {
   duration: KieAiKlingDuration;
 }
 
+// Интерфейсы для Kling 2.5 Turbo Pro API
+// Документация: https://kie.ai/kling-2-5?model=kling%2Fv2-5-turbo-image-to-video-pro
+
+// Соотношение сторон для Kling 2.5 Turbo Pro
+export type KieAiKling25AspectRatio = "1:1" | "16:9" | "9:16";
+
+// Длительность видео для Kling 2.5 Turbo Pro
+export type KieAiKling25Duration = "5" | "10";
+
+// Запрос на создание задачи Kling 2.5 Turbo Pro (Text-to-Video)
+export interface KieAiKling25TextToVideoRequest {
+  prompt: string;
+  duration: KieAiKling25Duration;
+  aspect_ratio: KieAiKling25AspectRatio;
+  negative_prompt?: string;
+  cfg_scale?: number;
+}
+
+// Запрос на создание задачи Kling 2.5 Turbo Pro (Image-to-Video)
+export interface KieAiKling25ImageToVideoRequest {
+  prompt: string;
+  image_url: string; // Единственное значение URL (не массив)
+  tail_image_url?: string; // Опциональный tail frame
+  duration: KieAiKling25Duration;
+  negative_prompt?: string;
+  cfg_scale?: number;
+}
+
 // Интерфейсы для Nano Banana Pro API
 // Документация: https://docs.kie.ai/market/google/pro-image-to-image
 

@@ -18,8 +18,10 @@ export interface GenerateParams {
   ar?: "16:9" | "9:16"; // Формат видео для Veo (передается как ar в теле запроса)
   sound?: boolean; // Звук для Kling 2.6
   outputFormat?: "png" | "jpg" | "jpeg"; // Формат выходного изображения для Nano Banana Pro
-  negativePrompt?: string; // Негативный промпт для Imagen4
+  negativePrompt?: string; // Негативный промпт для Imagen4 и Kling 2.5 Turbo Pro
   seed?: string | number; // Seed для Imagen4
+  cfgScale?: number; // CFG scale для Kling 2.5 Turbo Pro
+  tailImageUrl?: string; // Tail frame image для Kling 2.5 Turbo Pro (image-to-video)
 }
 
 // Результат создания задачи (для async провайдеров)

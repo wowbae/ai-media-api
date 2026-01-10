@@ -502,6 +502,8 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             outputFormat,
             negativePrompt,
             seed,
+            cfgScale,
+            tailImageUrl,
         } = req.body as GenerateMediaRequest;
 
         console.log('[API] POST /generate - получен запрос:', {
@@ -516,6 +518,8 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             outputFormat,
             negativePrompt: negativePrompt?.substring(0, 50),
             seed,
+            cfgScale,
+            tailImageUrl: tailImageUrl ? 'provided' : undefined,
             inputFilesCount: inputFiles?.length || 0,
             timestamp: new Date().toISOString(),
         });
@@ -680,7 +684,9 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             sound,
             outputFormat,
             negativePrompt,
-            seed
+            seed,
+            cfgScale,
+            tailImageUrl
         ).catch((error) => {
             console.error('Ошибка генерации:', error);
         });
