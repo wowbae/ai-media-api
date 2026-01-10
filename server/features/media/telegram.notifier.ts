@@ -1,6 +1,6 @@
 // Сервис отправки уведомлений в Telegram группу
 import { MediaFile } from '@prisma/client';
-import { telegramConfig, mediaStorageConfig } from './config';
+import { telegramConfig, mediaStorageConfig, MEDIA_MODELS } from './config';
 import { InputFile, Bot } from 'grammy';
 import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
@@ -197,7 +197,7 @@ export async function notifyTelegramGroupBatch(
     try {
         // Формируем caption для первого файла
         const firstFile = files[0];
-        const caption = formatCaption(firstFile, chatName, prompt);
+        const caption = await formatCaption(firstFile, chatName, prompt);
 
         // Подготавливаем массив медиа для отправки группой
         const mediaGroup: Array<{
@@ -211,6 +211,12 @@ export async function notifyTelegramGroupBatch(
 
         for (let i = 0; i < filesToSend.length; i++) {
             const file = filesToSend[i];
+
+            if (!file.path) {
+                console.error(`[Telegram] ❌ Файл ${file.id} не имеет пути`);
+                continue;
+            }
+
             const absolutePath = path.join(
                 process.cwd(),
                 mediaStorageConfig.basePath,
@@ -244,6 +250,14 @@ export async function notifyTelegramGroupBatch(
         // Если только один файл, отправляем как обычное сообщение с кнопкой удаления
         if (mediaGroup.length === 1) {
             const firstFile = files[0];
+
+            if (!firstFile.path) {
+                console.error(
+                    `[Telegram] ❌ Файл ${firstFile.id} не имеет пути`
+                );
+                return false;
+            }
+
             const absolutePath = path.join(
                 process.cwd(),
                 mediaStorageConfig.basePath,
@@ -375,19 +389,41 @@ export async function notifyTelegramGroup(
 }
 
 // Форматирование caption для сообщения
-function formatCaption(
+async function formatCaption(
     file: MediaFile,
     chatName: string,
     prompt: string
-): string {
+): Promise<string> {
     const truncatedPrompt =
         prompt.length > 500 ? prompt.slice(0, 497) + '...' : prompt;
 
+    // Загружаем модель из связанного запроса
+    let modelName: string | null = null;
+    try {
+        const request = await prisma.mediaRequest.findUnique({
+            where: { id: file.requestId },
+            select: { model: true },
+        });
+
+        if (request?.model) {
+            // Получаем читабельное имя модели из конфига
+            const modelConfig = MEDIA_MODELS[request.model];
+            modelName = modelConfig?.name || request.model;
+        }
+    } catch (error) {
+        console.warn(
+            '[Telegram] Не удалось загрузить модель для caption:',
+            error
+        );
+    }
+
     // let caption = `🎨 <b>AI Media Generated</b>\n\n`;
     let caption = `📁 <b>Чат:</b> ${escapeHtml(chatName)}\n`;
+    // Добавляем модель, если она доступна
+    if (modelName) {
+        caption += `🤖 <b>Модель:</b> ${escapeHtml(modelName)}\n`;
+    }
     caption += `📝 <b>Промпт:</b> <blockquote expandable><code>${escapeHtml(truncatedPrompt)}</code></blockquote>\n\n`;
-    // caption += `📊 <b>Тип:</b> ${file.type}\n`;
-    // caption += `💾 <b>Размер:</b> ${formatFileSize(file.size)}\n`;
 
     // Добавляем размеры для изображений
     if (file.width && file.height) {
@@ -483,6 +519,13 @@ export async function deleteMediaFileFromTelegram(
         }
 
         // Преобразуем относительные пути в абсолютные
+        if (!file.path) {
+            console.error(
+                `[Telegram] Файл ${fileId} не имеет пути, удаление невозможно`
+            );
+            return false;
+        }
+
         const absolutePath = path.join(
             process.cwd(),
             mediaStorageConfig.basePath,
