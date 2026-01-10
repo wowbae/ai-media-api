@@ -51,6 +51,7 @@ export interface MediaRequest {
   errorMessage: string | null;
   createdAt: string;
   completedAt: string | null;
+  seed: string | null;
   files: MediaFile[];
 }
 

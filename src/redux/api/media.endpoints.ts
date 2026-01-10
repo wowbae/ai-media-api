@@ -171,7 +171,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
         // Тестовый режим генерации (использует последний файл из чата)
         generateMediaTest: build.mutation<
             GenerateMediaResponse,
-            { chatId: number; prompt: string }
+            { chatId: number; prompt: string; seed?: string | number }
         >({
             query: (body) => {
                 console.log(
@@ -179,6 +179,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                     {
                         chatId: body.chatId,
                         prompt: body.prompt?.substring(0, 50),
+                        seed: body.seed,
                         timestamp: new Date().toISOString(),
                     }
                 );
@@ -188,6 +189,9 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                     body: {
                         chatId: body.chatId,
                         prompt: body.prompt,
+                        ...(body.seed !== undefined &&
+                            body.seed !== null &&
+                            body.seed !== '' && { seed: body.seed }),
                     },
                 };
             },

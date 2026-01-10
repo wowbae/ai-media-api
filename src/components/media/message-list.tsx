@@ -255,6 +255,11 @@ function MessageItem({
                                         • {providerName}
                                     </span>
                                 )}
+                                {request.seed && (
+                                    <span className='text-cyan-300/60'>
+                                        • Seed: {request.seed}
+                                    </span>
+                                )}
                             </span>
                         )}
                         <span>{formatTime(request.createdAt)}</span>

@@ -29,6 +29,7 @@ model MediaRequest {
   model        MediaModel? // Модель, использованная для этого запроса
   status       RequestStatus @default(PENDING)
   taskId       String? // ID задачи от провайдера (для async генерации)
+  seed         String? // Seed для воспроизводимости генерации
   inputFiles   String[]      @default([])
   files        MediaFile[]
   errorMessage String?
@@ -47,13 +48,13 @@ model MediaFile {
   request     MediaRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   type        MediaType
   filename    String
-  path        String?      // Локальный путь (для VIDEO и отображения IMAGE)
-  url         String?      // URL на imgbb (для IMAGE, используется для отправки в нейросеть)
-  previewPath String?      // Локальный путь превью (для VIDEO и отображения IMAGE)
-  previewUrl  String?      // URL превью на imgbb (для IMAGE, создается асинхронно)
+  path        String? // Локальный путь (для VIDEO и отображения IMAGE)
+  url         String? // URL на imgbb (для IMAGE, используется для отправки в нейросеть)
+  previewPath String? // Локальный путь превью (для VIDEO и отображения IMAGE)
+  previewUrl  String? // URL превью на imgbb (для IMAGE, создается асинхронно)
   size        Int?
-  width       Int?         // Ширина изображения (только для IMAGE)
-  height      Int?         // Высота изображения (только для IMAGE)
+  width       Int? // Ширина изображения (только для IMAGE)
+  height      Int? // Высота изображения (только для IMAGE)
   createdAt   DateTime     @default(now())
 
   @@index([requestId])

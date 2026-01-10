@@ -134,6 +134,9 @@ export function useChatInputSubmit({
                         result = await generateMediaTest({
                             chatId,
                             prompt: finalPrompt,
+                            ...(params.seed !== undefined &&
+                                params.seed !== null &&
+                                params.seed !== '' && { seed: params.seed }),
                         }).unwrap();
                     } catch (error: unknown) {
                         // Обрабатываем ошибку "нет файлов" в тестовом режиме
@@ -287,8 +290,8 @@ export function useChatInputSubmit({
                             params.negativePrompt.trim() && {
                                 negativePrompt: params.negativePrompt.trim(),
                             }),
-                        ...(params.isImagen4 &&
-                            params.seed !== undefined &&
+                        ...(params.seed !== undefined &&
+                            params.seed !== null &&
                             params.seed !== '' && { seed: params.seed }),
                         ...(params.isKling25 &&
                             params.klingAspectRatio && {

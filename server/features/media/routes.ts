@@ -207,6 +207,7 @@ mediaRouter.get('/chats/:id', async (req: Request, res: Response) => {
                         createdAt: true,
                         completedAt: true,
                         inputFiles: true, // ВАЖНО: Всегда включаем для отображения превью
+                        seed: true,
                         files: {
                             select: {
                                 id: true,
@@ -652,6 +653,12 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
                 model: selectedModel, // Сохраняем модель, использованную для этого запроса
                 inputFiles: processedInputFiles,
                 status: 'PENDING',
+                seed:
+                    seed !== undefined &&
+                    seed !== null &&
+                    String(seed).trim() !== ''
+                        ? String(seed)
+                        : null,
             },
         });
 
@@ -712,9 +719,10 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
 // ВАЖНО: Этот эндпоинт НЕ вызывает generateMedia() и НЕ отправляет запросы в API нейронки
 mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
     try {
-        const { chatId, prompt } = req.body as {
+        const { chatId, prompt, seed } = req.body as {
             chatId: number;
             prompt: string;
+            seed?: string | number;
         };
 
         console.log(
@@ -786,6 +794,12 @@ mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
                 inputFiles: [],
                 status: 'COMPLETED',
                 completedAt: new Date(),
+                seed:
+                    seed !== undefined &&
+                    seed !== null &&
+                    String(seed).trim() !== ''
+                        ? String(seed)
+                        : null,
             },
         });
 
