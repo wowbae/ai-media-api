@@ -204,7 +204,9 @@ function MessageItem({
 
                                 // Поддерживаем data URL (base64) и HTTP/HTTPS URL (imgbb)
                                 const isDataUrl = fileUrl.startsWith('data:');
-                                const isHttpUrl = fileUrl.startsWith('http://') || fileUrl.startsWith('https://');
+                                const isHttpUrl =
+                                    fileUrl.startsWith('http://') ||
+                                    fileUrl.startsWith('https://');
 
                                 // Если это не data URL и не HTTP URL - пропускаем
                                 if (!isDataUrl && !isHttpUrl) {
@@ -370,6 +372,10 @@ function MessageItem({
                                                                 variant='ghost'
                                                                 className='h-8 w-8 shrink-0 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-slate-600/50 group-hover:opacity-100'
                                                                 onClick={() => {
+                                                                    if (
+                                                                        !file.path
+                                                                    )
+                                                                        return;
                                                                     loadingEffectForAttachFile();
                                                                     const fileUrl =
                                                                         getMediaFileUrl(
@@ -455,7 +461,11 @@ function MessageItem({
                         </DialogTitle>
                         <div className='relative'>
                             <video
-                                src={getMediaFileUrl(fullscreenVideo.path)}
+                                src={
+                                    fullscreenVideo.path
+                                        ? getMediaFileUrl(fullscreenVideo.path)
+                                        : ''
+                                }
                                 controls
                                 autoPlay
                                 muted
@@ -465,14 +475,15 @@ function MessageItem({
                                 <Button
                                     size='icon'
                                     variant='secondary'
-                                    onClick={() =>
+                                    onClick={() => {
+                                        if (!fullscreenVideo.path) return;
                                         downloadFile(
                                             getMediaFileUrl(
                                                 fullscreenVideo.path
                                             ),
                                             fullscreenVideo.filename
-                                        )
-                                    }
+                                        );
+                                    }}
                                 >
                                     <Download className='h-4 w-4' />
                                 </Button>
