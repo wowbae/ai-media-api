@@ -423,7 +423,7 @@ async function formatCaption(
     if (modelName) {
         caption += `🤖 <b>Модель:</b> ${escapeHtml(modelName)}\n`;
     }
-    caption += `📝 <b>Промпт:</b> <blockquote expandable><code>${escapeHtml(truncatedPrompt)}</code></blockquote>\n\n`;
+    caption += `📝 <b>Промпт:</b> <blockquote expandable><code>${escapeHtml(truncatedPrompt)}</code></blockquote>\n`;
 
     // Добавляем размеры для изображений
     if (file.width && file.height) {
