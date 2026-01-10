@@ -7,7 +7,7 @@ export interface FormatOption {
 }
 
 export interface QualityOption {
-    value: '1k' | '2k' | '4k';
+    value: '1k' | '2k' | '4k' | 'default';
     label: string;
 }
 
@@ -114,7 +114,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
     NANO_BANANA_PRO: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,
-            defaultValue: '16:9',
+            defaultValue: '9:16',
         },
         quality: {
             options: QUALITY_OPTIONS_2K_4K,
@@ -124,17 +124,17 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
     NANO_BANANA_PRO_KIEAI: {
         format: {
             options: FORMAT_OPTIONS_1_1_16_9_9_16,
-            defaultValue: '1:1',
+            defaultValue: '9:16',
         },
         quality: {
             options: QUALITY_OPTIONS_1K_2K_4K,
-            defaultValue: '4k',
+            defaultValue: '2k',
         },
     },
     IMAGEN4_KIEAI: {
         format: {
             options: FORMAT_OPTIONS_1_1_16_9_9_16,
-            defaultValue: '1:1',
+            defaultValue: '9:16',
         },
     },
     VEO_3_1_FAST: {
@@ -152,7 +152,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
     KLING_2_6: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,
-            defaultValue: '16:9',
+            defaultValue: '9:16',
         },
         duration: {
             options: DURATION_OPTIONS,
@@ -160,7 +160,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
         },
         sound: {
             options: SOUND_OPTIONS,
-            defaultValue: true,
+            defaultValue: false,
         },
     },
     MIDJOURNEY: {},
