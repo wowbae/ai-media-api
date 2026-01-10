@@ -1,0 +1,323 @@
+// Хук для логики отправки запроса в chat-input
+import { useState, useRef, useCallback } from 'react';
+import type { MediaModel } from '@/redux/api/base';
+import type {
+    useGenerateMediaMutation,
+    useGenerateMediaTestMutation,
+} from '@/redux/media-api';
+import type { AttachedFile } from './use-chat-input-files';
+import { savePrompt } from '@/lib/saved-prompts';
+
+interface UseChatInputSubmitParams {
+    chatId: number;
+    currentModel: MediaModel;
+    generateMedia: ReturnType<typeof useGenerateMediaMutation>[0];
+    generateMediaTest: ReturnType<typeof useGenerateMediaTestMutation>[0];
+    isTestMode: boolean;
+    onRequestCreated?: (requestId: number) => void;
+    onPendingMessage?: (prompt: string) => void;
+    onSendError?: (errorMessage: string) => void;
+    getFileAsBase64: (file: File) => Promise<string>;
+}
+
+interface SubmitParams {
+    prompt: string;
+    attachedFiles: AttachedFile[];
+    format: '1:1' | '9:16' | '16:9' | undefined;
+    quality: '1k' | '2k' | '4k' | undefined;
+    videoFormat: '16:9' | '9:16' | undefined;
+    klingAspectRatio: '16:9' | '9:16' | undefined;
+    klingDuration: 5 | 10 | undefined;
+    klingSound: boolean | undefined;
+    negativePrompt: string;
+    seed: string | number | undefined;
+    isNanoBanana: boolean;
+    isNanoBananaPro: boolean;
+    isNanoBananaProKieai: boolean;
+    isVeo: boolean;
+    isKling: boolean;
+    isImagen4: boolean;
+    isLockEnabled: boolean;
+    onClearForm: () => void;
+}
+
+export function useChatInputSubmit({
+    chatId,
+    currentModel,
+    generateMedia,
+    generateMediaTest,
+    isTestMode,
+    onRequestCreated,
+    onPendingMessage,
+    onSendError,
+    getFileAsBase64,
+}: UseChatInputSubmitParams) {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const submitInProgressRef = useRef(false);
+
+    const handleSubmit = useCallback(
+        async (
+            event: React.MouseEvent | React.KeyboardEvent | undefined,
+            params: SubmitParams
+        ) => {
+            // Предотвращаем дефолтное поведение если это событие
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            // Атомарная проверка и установка флага для защиты от race condition
+            if (submitInProgressRef.current) {
+                console.warn(
+                    '[ChatInput] ⚠️ Попытка повторной отправки (флаг установлен), игнорируем'
+                );
+                return;
+            }
+
+            // Проверяем наличие данных для отправки
+            if (!params.prompt.trim() && params.attachedFiles.length === 0) {
+                return;
+            }
+
+            // Устанавливаем флаг атомарно (до всех асинхронных операций)
+            submitInProgressRef.current = true;
+            setIsSubmitting(true);
+
+            // Формируем финальный промпт с добавлением формата и качества для NANO_BANANA
+            // ВАЖНО: делаем это ДО pending-сообщения чтобы prompt совпадал
+            let finalPrompt = params.prompt.trim();
+
+            if (params.isNanoBanana && !params.isNanoBananaPro) {
+                const promptParts: string[] = [];
+
+                if (params.format) {
+                    promptParts.push(params.format);
+                }
+
+                if (params.quality) {
+                    promptParts.push(params.quality);
+                }
+
+                if (promptParts.length > 0) {
+                    finalPrompt = `${finalPrompt} ${promptParts.join(' ')}`;
+                }
+            }
+
+            // Сразу добавляем pending-сообщение для мгновенного отображения
+            if (onPendingMessage) {
+                onPendingMessage(finalPrompt);
+            }
+
+            try {
+                let result: {
+                    requestId: number;
+                    status: string;
+                    message: string;
+                };
+
+                if (isTestMode) {
+                    // Тестовый режим: используем последний файл из чата
+                    console.log(
+                        '[ChatInput] 🧪 ТЕСТОВЫЙ РЕЖИМ: отправка запроса БЕЗ вызова нейронки',
+                        {
+                            chatId,
+                            prompt: finalPrompt.substring(0, 50),
+                            note: 'Используется последний файл из чата, запрос в API нейронки НЕ отправляется',
+                            timestamp: new Date().toISOString(),
+                        }
+                    );
+                    try {
+                        result = await generateMediaTest({
+                            chatId,
+                            prompt: finalPrompt,
+                        }).unwrap();
+                    } catch (error: unknown) {
+                        // Обрабатываем ошибку "нет файлов" в тестовом режиме
+                        if (
+                            error &&
+                            typeof error === 'object' &&
+                            'data' in error &&
+                            error.data &&
+                            typeof error.data === 'object' &&
+                            'error' in error.data &&
+                            typeof error.data.error === 'string' &&
+                            error.data.error.includes('нет файлов')
+                        ) {
+                            alert(
+                                'В чате нет файлов для тестового режима. Сначала создайте хотя бы один файл.'
+                            );
+                            submitInProgressRef.current = false;
+                            setIsSubmitting(false);
+                            return;
+                        }
+                        throw error;
+                    }
+                    console.log(
+                        '[ChatInput] 🧪 ТЕСТОВЫЙ РЕЖИМ: заглушка создана, файл скопирован БЕЗ вызова нейронки, requestId:',
+                        result.requestId
+                    );
+                } else {
+                    // Обычный режим: отправляем реальный запрос
+                    console.log(
+                        '[ChatInput] ✅ Обычный режим: отправка запроса на генерацию в нейронку:',
+                        {
+                            chatId,
+                            prompt: finalPrompt.substring(0, 50),
+                            model: currentModel,
+                            format: params.format,
+                            quality: params.quality,
+                            videoFormat: params.isVeo
+                                ? params.videoFormat
+                                : undefined,
+                            inputFilesCount: params.attachedFiles.length,
+                            timestamp: new Date().toISOString(),
+                        }
+                    );
+
+                    // Формируем inputFiles: используем imgbbUrl для изображений, если есть, иначе base64 (fallback)
+                    const imageFiles = params.attachedFiles.filter((f) =>
+                        f.file.type.startsWith('image/')
+                    );
+                    const inputFilesUrls: string[] = [];
+
+                    for (const file of imageFiles) {
+                        if (file.imgbbUrl) {
+                            // Используем уже загруженный URL на imgbb
+                            inputFilesUrls.push(file.imgbbUrl);
+                        } else {
+                            // Fallback: конвертируем в base64 если imgbbUrl нет
+                            console.warn(
+                                '[ChatInput] ⚠️ imgbbUrl отсутствует, используем base64 (fallback)',
+                                file.file.name
+                            );
+                            const base64 = await getFileAsBase64(file.file);
+                            inputFilesUrls.push(base64);
+                        }
+                    }
+
+                    result = await generateMedia({
+                        chatId,
+                        prompt: finalPrompt,
+                        model: currentModel,
+                        inputFiles:
+                            inputFilesUrls.length > 0
+                                ? inputFilesUrls
+                                : undefined,
+                        ...((params.isNanoBanana ||
+                            params.isNanoBananaPro ||
+                            params.isNanoBananaProKieai ||
+                            params.isImagen4) &&
+                            params.format && { format: params.format }),
+                        ...((params.isNanoBanana ||
+                            params.isNanoBananaPro ||
+                            params.isNanoBananaProKieai) &&
+                            params.quality && { quality: params.quality }),
+                        ...(params.isVeo &&
+                            params.videoFormat && { ar: params.videoFormat }),
+                        ...(params.isKling &&
+                            params.klingAspectRatio && {
+                                format: params.klingAspectRatio,
+                            }),
+                        ...(params.isKling &&
+                            params.klingDuration && {
+                                duration: params.klingDuration,
+                            }),
+                        ...(params.isKling &&
+                            params.klingSound !== undefined && {
+                                sound: params.klingSound,
+                            }),
+                        ...(params.isImagen4 &&
+                            params.negativePrompt &&
+                            params.negativePrompt.trim() && {
+                                negativePrompt: params.negativePrompt.trim(),
+                            }),
+                        ...(params.isImagen4 &&
+                            params.seed !== undefined &&
+                            params.seed !== '' && { seed: params.seed }),
+                    }).unwrap();
+                    console.log(
+                        '[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:',
+                        result.requestId
+                    );
+                }
+
+                // Уведомляем родителя о создании запроса для запуска polling
+                if (onRequestCreated && result.requestId) {
+                    onRequestCreated(result.requestId);
+                }
+
+                // Сохраняем промпт и изображения, если кнопка замочка активна
+                if (params.isLockEnabled) {
+                    // Сохраняем оригинальный промпт (без добавленных параметров формата и качества)
+                    const savedFilesData: string[] = [];
+                    for (const file of params.attachedFiles) {
+                        if (
+                            file.file.type.startsWith('image/') &&
+                            file.imgbbUrl
+                        ) {
+                            savedFilesData.push(file.imgbbUrl);
+                        } else {
+                            // Fallback: base64 для видео или если imgbbUrl отсутствует
+                            const base64 = await getFileAsBase64(file.file);
+                            savedFilesData.push(base64);
+                        }
+                    }
+                    savePrompt(
+                        params.prompt.trim(),
+                        savedFilesData,
+                        chatId,
+                        currentModel
+                    );
+                    // Не очищаем форму, если режим сохранения активен
+                } else {
+                    // Очищаем форму только если режим сохранения не активен
+                    params.onClearForm();
+                }
+
+                // Сбрасываем флаги сразу после успешной отправки запроса
+                submitInProgressRef.current = false;
+                setIsSubmitting(false);
+            } catch (error) {
+                console.error('[ChatInput] ❌ Ошибка генерации:', error);
+                const errorMessage =
+                    error &&
+                    typeof error === 'object' &&
+                    'data' in error &&
+                    error.data &&
+                    typeof error.data === 'object' &&
+                    'error' in error.data &&
+                    typeof error.data.error === 'string'
+                        ? error.data.error
+                        : 'Не удалось отправить запрос. Попробуйте еще раз.';
+
+                // Уведомляем родителя об ошибке для обновления pending-сообщения
+                if (onSendError) {
+                    onSendError(errorMessage);
+                }
+
+                alert(`Ошибка генерации: ${errorMessage}`);
+
+                // Сбрасываем флаги при ошибке тоже, чтобы можно было повторить запрос
+                submitInProgressRef.current = false;
+                setIsSubmitting(false);
+            }
+        },
+        [
+            chatId,
+            currentModel,
+            generateMedia,
+            generateMediaTest,
+            isTestMode,
+            onRequestCreated,
+            onPendingMessage,
+            onSendError,
+            getFileAsBase64,
+        ]
+    );
+
+    return {
+        handleSubmit,
+        isSubmitting,
+        submitInProgressRef,
+    };
+}

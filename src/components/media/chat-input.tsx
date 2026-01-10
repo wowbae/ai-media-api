@@ -11,7 +11,6 @@ import {
     Send,
     Paperclip,
     X,
-    Image as ImageIcon,
     Loader2,
     Lock,
     Unlock,
@@ -19,13 +18,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
     loadMediaSettings,
@@ -35,16 +27,18 @@ import {
 import {
     loadLockButtonState,
     saveLockButtonState,
-    savePrompt,
 } from '@/lib/saved-prompts';
 import { ModelSelector } from './model-selector';
 import {
     useGenerateMediaMutation,
     useGenerateMediaTestMutation,
-    useUploadToImgbbMutation,
     type MediaModel,
 } from '@/redux/media-api';
 import { useTestMode } from '@/hooks/use-test-mode';
+import { useChatInputFiles } from './chat-input/use-chat-input-files';
+import { useChatInputSubmit } from './chat-input/use-chat-input-submit';
+import { ModelSettingsPanel } from './chat-input/model-settings';
+import { getModelSettingsConfig } from './chat-input/model-settings-config';
 
 // Props для компонента ввода чата
 export interface ChatInputProps {
@@ -63,13 +57,6 @@ export interface ChatInputRef {
     addFileFromUrl: (url: string, filename: string) => Promise<void>;
 }
 
-interface AttachedFile {
-    id: string;
-    file: File;
-    preview: string;
-    imgbbUrl?: string; // URL на imgbb для изображений (загружается при добавлении)
-}
-
 export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     function ChatInput(
         {
@@ -84,48 +71,28 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         ref
     ) {
         const [prompt, setPrompt] = useState('');
-        const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
         const [format, setFormat] = useState<
             '1:1' | '9:16' | '16:9' | undefined
         >(undefined);
         const [quality, setQuality] = useState<'1k' | '2k' | '4k' | undefined>(
             undefined
         );
-        const [videoFormat, setVideoFormat] = useState<
-            '16:9' | '9:16' | undefined
-        >(undefined);
-        const [klingAspectRatio, setKlingAspectRatio] = useState<
-            '16:9' | '9:16' | undefined
-        >(undefined);
-        const [klingDuration, setKlingDuration] = useState<5 | 10 | undefined>(
+        const [duration, setDuration] = useState<5 | 10 | undefined>(
             undefined
         );
-        const [klingSound, setKlingSound] = useState<boolean | undefined>(
-            undefined
-        );
-        const [outputFormat, setOutputFormat] = useState<
-            'png' | 'jpg' | undefined
-        >(undefined);
+        const [sound, setSound] = useState<boolean | undefined>(undefined);
         const [negativePrompt, setNegativePrompt] = useState<string>('');
         const [seed, setSeed] = useState<string | number | undefined>(
             undefined
         );
-        const [isSubmitting, setIsSubmitting] = useState(false);
         const [isLockEnabled, setIsLockEnabled] = useState(false);
         const [needsScrollbar, setNeedsScrollbar] = useState(false);
-        const [isDragging, setIsDragging] = useState(false);
         const { isTestMode } = useTestMode();
         const fileInputRef = useRef<HTMLInputElement>(null);
         const textareaRef = useRef<HTMLTextAreaElement>(null);
-        const submitInProgressRef = useRef(false);
-        // Ref для отслеживания всех созданных preview URLs для очистки при размонтировании
-        const previewUrlsRef = useRef<Set<string>>(new Set());
 
-        const [generateMedia, { isLoading: isGenerating }] =
-            useGenerateMediaMutation();
-        const [generateMediaTest, { isLoading: isGeneratingTest }] =
-            useGenerateMediaTestMutation();
-        const [uploadToImgbb] = useUploadToImgbbMutation();
+        const [generateMedia] = useGenerateMediaMutation();
+        const [generateMediaTest] = useGenerateMediaTestMutation();
 
         // Поле не блокируется на время выполнения запроса для поддержки параллельных запросов
         const isDisabled = disabled;
@@ -137,6 +104,36 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             currentModel === 'VEO_3_1_FAST' || currentModel === 'VEO_3_1';
         const isKling = (currentModel as string) === 'KLING_2_6';
         const isImagen4 = (currentModel as string) === 'IMAGEN4_KIEAI';
+
+        // Хуки для работы с файлами и отправкой
+        const {
+            attachedFiles,
+            setAttachedFiles,
+            isDragging,
+            handleFileSelect: handleFileSelectHook,
+            addFileFromUrl,
+            removeFile,
+            handleDragOver,
+            handleDragLeave,
+            handleDrop,
+            handlePaste,
+            cleanup,
+            clearFiles,
+            getFileAsBase64,
+        } = useChatInputFiles();
+
+        const { handleSubmit, isSubmitting, submitInProgressRef } =
+            useChatInputSubmit({
+                chatId,
+                currentModel,
+                generateMedia,
+                generateMediaTest,
+                isTestMode,
+                onRequestCreated,
+                onPendingMessage,
+                onSendError,
+                getFileAsBase64,
+            });
 
         // Функция для обновления высоты textarea
         const adjustTextareaHeight = useCallback(() => {
@@ -192,19 +189,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             };
         }, [adjustTextareaHeight]);
 
-        // Загрузка файла по URL и конвертация в File объект
-        const urlToFile = useCallback(
-            async (url: string, filename: string): Promise<File> => {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error('Ошибка загрузки файла');
-                }
-                const blob = await response.blob();
-                return new File([blob], filename, { type: blob.type });
-            },
-            []
-        );
-
         // Экспортируем методы для работы с промптом и файлами извне
         useImperativeHandle(ref, () => ({
             setPrompt: (newPrompt: string) => {
@@ -224,69 +208,46 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     }
                 }, 0);
             },
-            addFileFromUrl: async (url: string, filename: string) => {
-                try {
-                    // Загружаем файл по URL и обрабатываем через processFiles
-                    // (который автоматически загрузит изображения на imgbb)
-                    const file = await urlToFile(url, filename);
-                    const processedFiles = await processFiles([file]);
-                    setAttachedFiles((prev) => [...prev, ...processedFiles]);
-                } catch (error) {
-                    console.error(
-                        '[ChatInput] Ошибка прикрепления файла:',
-                        error
-                    );
-                    alert('Не удалось прикрепить файл');
-                }
-            },
+            addFileFromUrl,
         }));
 
         // Загружаем настройки из localStorage при монтировании компонента
         useEffect(() => {
             const settings = loadMediaSettings();
-            const isNanoBananaProModel = currentModel === 'NANO_BANANA_PRO';
-            const isImagen4Model = (currentModel as string) === 'IMAGEN4_KIEAI';
+            const config = getModelSettingsConfig(currentModel);
 
+            // Загружаем format (универсальный для всех моделей)
             if (settings.format) {
                 setFormat(settings.format);
-            } else if (isNanoBananaProModel) {
-                // Значение по умолчанию для NANO_BANANA_PRO
-                setFormat('16:9');
-            } else if (isImagen4Model) {
-                // Значение по умолчанию для IMAGEN4_KIEAI
-                setFormat('1:1');
-            }
-            if (settings.quality) {
-                setQuality(settings.quality);
-            } else if (isNanoBananaProModel) {
-                // Значение по умолчанию для NANO_BANANA_PRO
-                setQuality('2k');
-            }
-            const videoFormatValue = (
-                settings as { videoFormat?: '16:9' | '9:16' }
-            ).videoFormat;
-            if (videoFormatValue) {
-                setVideoFormat(videoFormatValue);
+            } else if (isVeo && settings.videoFormat) {
+                // Для Veo используем videoFormat из старых настроек
+                setFormat(settings.videoFormat);
+            } else if (isKling && settings.klingAspectRatio) {
+                // Для Kling используем klingAspectRatio из старых настроек
+                setFormat(settings.klingAspectRatio);
+            } else if (config.format?.defaultValue) {
+                setFormat(config.format.defaultValue);
             }
 
-            // Загружаем настройки Kling 2.6
-            if (settings.klingAspectRatio) {
-                setKlingAspectRatio(settings.klingAspectRatio);
-            } else if ((currentModel as string) === 'KLING_2_6') {
-                // Значение по умолчанию для Kling 2.6
-                setKlingAspectRatio('16:9');
+            // Загружаем quality
+            if (settings.quality) {
+                setQuality(settings.quality);
+            } else if (config.quality?.defaultValue) {
+                setQuality(config.quality.defaultValue);
             }
+
+            // Загружаем duration (только для Kling)
             if (settings.klingDuration) {
-                setKlingDuration(settings.klingDuration);
-            } else if ((currentModel as string) === 'KLING_2_6') {
-                // Значение по умолчанию для Kling 2.6
-                setKlingDuration(5);
+                setDuration(settings.klingDuration);
+            } else if (config.duration?.defaultValue) {
+                setDuration(config.duration.defaultValue);
             }
+
+            // Загружаем sound (только для Kling)
             if (settings.klingSound !== undefined) {
-                setKlingSound(settings.klingSound);
-            } else if ((currentModel as string) === 'KLING_2_6') {
-                // Значение по умолчанию для Kling 2.6
-                setKlingSound(true);
+                setSound(settings.klingSound);
+            } else if (config.sound?.defaultValue !== undefined) {
+                setSound(config.sound.defaultValue);
             }
 
             // Загружаем состояние кнопки замочка
@@ -294,520 +255,138 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             setIsLockEnabled(lockState);
         }, [currentModel]);
 
+        // Сохраняем настройки при изменении (используем ref для предотвращения сохранения при первой загрузке)
+        const isInitialMount = useRef(true);
+        useEffect(() => {
+            // Пропускаем сохранение при первой загрузке
+            if (isInitialMount.current) {
+                isInitialMount.current = false;
+                return;
+            }
+
+            // Сохраняем настройки в зависимости от модели
+            if (isVeo) {
+                // Для Veo сохраняем в videoFormat
+                saveMediaSettings({
+                    videoFormat: format as '16:9' | '9:16' | undefined,
+                } as MediaSettings);
+            } else if (isKling) {
+                // Для Kling сохраняем в klingAspectRatio, klingDuration, klingSound
+                saveMediaSettings({
+                    klingAspectRatio: format as '16:9' | '9:16' | undefined,
+                    klingDuration: duration,
+                    klingSound: sound,
+                });
+            } else {
+                // Для остальных моделей сохраняем в format и quality
+                saveMediaSettings({
+                    format,
+                    quality,
+                });
+            }
+        }, [format, quality, duration, sound, isVeo, isKling]);
+
         // Очистка URL.createObjectURL при размонтировании компонента для предотвращения утечек памяти
         useEffect(() => {
             return () => {
-                // Освобождаем все Object URLs из ref при размонтировании
-                previewUrlsRef.current.forEach((url) => {
-                    URL.revokeObjectURL(url);
-                });
-                previewUrlsRef.current.clear();
+                cleanup();
             };
-        }, []); // Запускаем только при размонтировании
-
-        // Конвертация файла в base64
-        const fileToBase64 = useCallback((file: File): Promise<string> => {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result as string);
-                reader.onerror = reject;
-            });
-        }, []);
-
-        // Обработка файлов (общая функция для переиспользования)
-        const processFiles = useCallback(
-            async (files: File[]): Promise<AttachedFile[]> => {
-                const newFiles: AttachedFile[] = [];
-                const imageFiles: File[] = [];
-                const videoFiles: File[] = [];
-
-                // Разделяем файлы на изображения и видео
-                for (const file of files) {
-                    // Проверяем тип файла (только изображения и видео)
-                    if (
-                        !file.type.startsWith('image/') &&
-                        !file.type.startsWith('video/')
-                    ) {
-                        console.warn(
-                            '[ChatInput] Пропущен файл недопустимого типа:',
-                            file.type
-                        );
-                        continue;
-                    }
-
-                    // Проверяем размер (макс 10MB)
-                    if (file.size > 10 * 1024 * 1024) {
-                        alert(
-                            `Размер файла "${file.name}" не должен превышать 10MB`
-                        );
-                        continue;
-                    }
-
-                    if (file.type.startsWith('image/')) {
-                        imageFiles.push(file);
-                    } else {
-                        videoFiles.push(file);
-                    }
-                }
-
-                // Создаем preview URL для всех файлов
-                for (const file of [...imageFiles, ...videoFiles]) {
-                    try {
-                        const preview = URL.createObjectURL(file);
-                        previewUrlsRef.current.add(preview);
-
-                        newFiles.push({
-                            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                            file,
-                            preview,
-                        });
-                    } catch (error) {
-                        console.error(
-                            '[ChatInput] Ошибка обработки файла:',
-                            file.name,
-                            error
-                        );
-                        alert(`Не удалось обработать файл "${file.name}"`);
-                    }
-                }
-
-                // Загружаем изображения на imgbb параллельно
-                if (imageFiles.length > 0) {
-                    try {
-                        // Конвертируем изображения в base64 для загрузки на imgbb
-                        const base64Images = await Promise.all(
-                            imageFiles.map((file) => fileToBase64(file))
-                        );
-
-                        console.log(
-                            '[ChatInput] Загрузка изображений на imgbb...',
-                            { count: imageFiles.length }
-                        );
-
-                        const result = await uploadToImgbb({
-                            files: base64Images,
-                        }).unwrap();
-
-                        // Связываем загруженные URL с файлами
-                        let imageIndex = 0;
-                        for (let i = 0; i < newFiles.length; i++) {
-                            if (newFiles[i].file.type.startsWith('image/')) {
-                                if (result.urls[imageIndex]) {
-                                    newFiles[i].imgbbUrl =
-                                        result.urls[imageIndex];
-                                    imageIndex++;
-                                }
-                            }
-                        }
-
-                        console.log(
-                            '[ChatInput] ✅ Изображения загружены на imgbb:',
-                            { uploaded: result.uploaded, total: result.total }
-                        );
-                    } catch (error) {
-                        console.error(
-                            '[ChatInput] ❌ Ошибка загрузки изображений на imgbb:',
-                            error
-                        );
-                        // Не прерываем процесс, просто не будет imgbbUrl
-                        // Файлы можно будет использовать с base64 (fallback)
-                    }
-                }
-
-                return newFiles;
-            },
-            [uploadToImgbb, fileToBase64]
-        );
+        }, [cleanup]);
 
         // Обработка выбора файлов из input
-        async function handleFileSelect(
-            event: React.ChangeEvent<HTMLInputElement>
-        ) {
-            const files = event.target.files;
-            if (!files) return;
-
-            const newFiles = await processFiles(Array.from(files));
-            setAttachedFiles((prev) => [...prev, ...newFiles]);
-
-            // Сбрасываем input
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-            }
-        }
-
-        // Удаление прикрепленного файла
-        function removeFile(fileId: string) {
-            setAttachedFiles((prev) => {
-                const file = prev.find((f) => f.id === fileId);
-                if (file) {
-                    URL.revokeObjectURL(file.preview);
-                    // Удаляем URL из ref
-                    previewUrlsRef.current.delete(file.preview);
-                }
-                return prev.filter((f) => f.id !== fileId);
-            });
-        }
-
-        // Обработчики drag-and-drop
-        const handleDragOver = useCallback(
-            (event: React.DragEvent<HTMLDivElement>) => {
-                event.preventDefault();
-                event.stopPropagation();
-                if (!isDisabled) {
-                    setIsDragging(true);
+        const handleFileSelect = useCallback(
+            (event: React.ChangeEvent<HTMLInputElement>) => {
+                handleFileSelectHook(event);
+                // Сбрасываем input
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
                 }
             },
-            [isDisabled]
+            [handleFileSelectHook]
         );
 
-        const handleDragLeave = useCallback(
-            (event: React.DragEvent<HTMLDivElement>) => {
-                event.preventDefault();
-                event.stopPropagation();
-                // Проверяем, что relatedTarget находится вне текущего элемента
-                const currentTarget = event.currentTarget;
-                const relatedTarget = event.relatedTarget as Node | null;
-                if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
-                    setIsDragging(false);
-                }
-            },
-            []
-        );
-
-        const handleDrop = useCallback(
-            async (event: React.DragEvent<HTMLDivElement>) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setIsDragging(false);
-
-                if (isDisabled) return;
-
-                const files = Array.from(event.dataTransfer.files);
-                if (files.length === 0) return;
-
-                const newFiles = await processFiles(files);
-                if (newFiles.length > 0) {
-                    setAttachedFiles((prev) => [...prev, ...newFiles]);
-                }
-            },
-            [isDisabled, processFiles]
-        );
-
-        // Обработчик paste из буфера обмена
-        const handlePaste = useCallback(
-            async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-                if (isDisabled) return;
-
-                const items = event.clipboardData.items;
-                if (!items) return;
-
-                const files: File[] = [];
-
-                for (let i = 0; i < items.length; i++) {
-                    const item = items[i];
-                    // Проверяем только файлы (не текст)
-                    if (item.kind === 'file') {
-                        const file = item.getAsFile();
-                        if (file) {
-                            files.push(file);
-                        }
-                    }
-                }
-
-                if (files.length === 0) return;
-
-                // Предотвращаем вставку текста, если есть файлы
-                event.preventDefault();
-
-                const newFiles = await processFiles(files);
-                if (newFiles.length > 0) {
-                    setAttachedFiles((prev) => [...prev, ...newFiles]);
-                }
-            },
-            [isDisabled, processFiles]
-        );
-
-        // Отправка запроса
-        async function handleSubmit(
-            event?: React.MouseEvent | React.KeyboardEvent
-        ) {
-            // Предотвращаем дефолтное поведение если это событие
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-
-            // Атомарная проверка и установка флага для защиты от race condition
-            // Проверяем ВСЕ возможные состояния блокировки ПЕРЕД установкой флага
-            if (submitInProgressRef.current) {
-                console.warn(
-                    '[ChatInput] ⚠️ Попытка повторной отправки (флаг установлен), игнорируем'
-                );
-                return;
-            }
-
-            // Проверяем только внешнюю блокировку
-            if (isDisabled) {
-                console.warn(
-                    '[ChatInput] ⚠️ Попытка повторной отправки (компонент заблокирован), игнорируем'
-                );
-                return;
-            }
-
-            // Проверяем наличие данных для отправки
-            if (!prompt.trim() && attachedFiles.length === 0) {
-                return;
-            }
-
-            // Устанавливаем флаг атомарно (до всех асинхронных операций)
-            submitInProgressRef.current = true;
-            setIsSubmitting(true);
-
-            // Формируем финальный промпт с добавлением формата и качества для NANO_BANANA
-            // ВАЖНО: делаем это ДО pending-сообщения чтобы prompt совпадал
-            // Для NANO_BANANA_PRO параметры передаются через API, не в промпт
-            let finalPrompt = prompt.trim();
-
-            if (isNanoBanana && !isNanoBananaPro) {
-                const promptParts: string[] = [];
-
-                if (format) {
-                    promptParts.push(format);
-                }
-
-                if (quality) {
-                    promptParts.push(quality);
-                }
-
-                if (promptParts.length > 0) {
-                    finalPrompt = `${finalPrompt} ${promptParts.join(' ')}`;
-                }
-            }
-
-            // Сразу добавляем pending-сообщение для мгновенного отображения
-            // Используем финальный prompt чтобы сравнение работало корректно
-            if (onPendingMessage) {
-                onPendingMessage(finalPrompt);
-            }
-
-            try {
-                let result: {
-                    requestId: number;
-                    status: string;
-                    message: string;
-                };
-
-                if (isTestMode) {
-                    // Тестовый режим: используем последний файл из чата
-                    console.log(
-                        '[ChatInput] 🧪 ТЕСТОВЫЙ РЕЖИМ: отправка запроса БЕЗ вызова нейронки',
-                        {
-                            chatId,
-                            prompt: finalPrompt.substring(0, 50),
-                            note: 'Используется последний файл из чата, запрос в API нейронки НЕ отправляется',
-                            timestamp: new Date().toISOString(),
-                        }
+        // Обработчик отправки запроса
+        const onSubmit = useCallback(
+            (event?: React.MouseEvent | React.KeyboardEvent) => {
+                // Проверяем только внешнюю блокировку
+                if (isDisabled) {
+                    console.warn(
+                        '[ChatInput] ⚠️ Попытка повторной отправки (компонент заблокирован), игнорируем'
                     );
-                    try {
-                        result = await generateMediaTest({
-                            chatId,
-                            prompt: finalPrompt,
-                        }).unwrap();
-                    } catch (error: unknown) {
-                        // Обрабатываем ошибку "нет файлов" в тестовом режиме
-                        if (
-                            error &&
-                            typeof error === 'object' &&
-                            'data' in error &&
-                            error.data &&
-                            typeof error.data === 'object' &&
-                            'error' in error.data &&
-                            typeof error.data.error === 'string' &&
-                            error.data.error.includes('нет файлов')
-                        ) {
-                            alert(
-                                'В чате нет файлов для тестового режима. Сначала создайте хотя бы один файл.'
-                            );
-                            return;
-                        }
-                        throw error;
-                    }
-                    console.log(
-                        '[ChatInput] 🧪 ТЕСТОВЫЙ РЕЖИМ: заглушка создана, файл скопирован БЕЗ вызова нейронки, requestId:',
-                        result.requestId
-                    );
-                } else {
-                    // Обычный режим: отправляем реальный запрос
-                    // Используем imgbbUrl для изображений (уже загружены при добавлении), base64 только для fallback
-                    console.log(
-                        '[ChatInput] ✅ Обычный режим: отправка запроса на генерацию в нейронку:',
-                        {
-                            chatId,
-                            prompt: finalPrompt.substring(0, 50),
-                            model: currentModel,
-                            format,
-                            quality,
-                            videoFormat: isVeo ? videoFormat : undefined,
-                            inputFilesCount: attachedFiles.length,
-                            timestamp: new Date().toISOString(),
-                        }
-                    );
-
-                    // Формируем inputFiles: используем imgbbUrl для изображений, если есть, иначе base64 (fallback)
-                    // Видео не отправляются как inputFiles
-                    const imageFiles = attachedFiles.filter((f) =>
-                        f.file.type.startsWith('image/')
-                    );
-                    const inputFilesUrls: string[] = [];
-
-                    for (const file of imageFiles) {
-                        if (file.imgbbUrl) {
-                            // Используем уже загруженный URL на imgbb
-                            inputFilesUrls.push(file.imgbbUrl);
-                        } else {
-                            // Fallback: конвертируем в base64 если imgbbUrl нет
-                            console.warn(
-                                '[ChatInput] ⚠️ imgbbUrl отсутствует, используем base64 (fallback)',
-                                file.file.name
-                            );
-                            const base64 = await fileToBase64(file.file);
-                            inputFilesUrls.push(base64);
-                        }
-                    }
-
-                    result = await generateMedia({
-                        chatId,
-                        prompt: finalPrompt,
-                        model: currentModel,
-                        inputFiles:
-                            inputFilesUrls.length > 0
-                                ? inputFilesUrls
-                                : undefined,
-                        ...((isNanoBanana ||
-                            isNanoBananaPro ||
-                            isNanoBananaProKieai ||
-                            isImagen4) &&
-                            format && { format }),
-                        ...((isNanoBanana ||
-                            isNanoBananaPro ||
-                            isNanoBananaProKieai) &&
-                            quality && { quality }),
-                        ...(isNanoBananaProKieai &&
-                            outputFormat && { outputFormat }),
-                        ...(isVeo && videoFormat && { ar: videoFormat }),
-                        ...(isKling &&
-                            klingAspectRatio && {
-                                format: klingAspectRatio,
-                            }),
-                        ...(isKling &&
-                            klingDuration && { duration: klingDuration }),
-                        ...(isKling &&
-                            klingSound !== undefined && { sound: klingSound }),
-                        ...(isImagen4 &&
-                            negativePrompt &&
-                            negativePrompt.trim() && {
-                                negativePrompt: negativePrompt.trim(),
-                            }),
-                        ...(isImagen4 &&
-                            seed !== undefined &&
-                            seed !== '' && { seed }),
-                    }).unwrap();
-                    console.log(
-                        '[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:',
-                        result.requestId
-                    );
-                }
-
-                // Уведомляем родителя о создании запроса для запуска polling
-                if (onRequestCreated && result.requestId) {
-                    onRequestCreated(result.requestId);
-                }
-
-                // Сохраняем промпт и изображения, если кнопка замочка активна
-                if (isLockEnabled) {
-                    // Сохраняем оригинальный промпт (без добавленных параметров формата и качества)
-                    // Сохраняем URL для изображений (если есть), иначе base64 (fallback)
-                    const savedFilesData: string[] = [];
-                    for (const file of attachedFiles) {
-                        if (
-                            file.file.type.startsWith('image/') &&
-                            file.imgbbUrl
-                        ) {
-                            savedFilesData.push(file.imgbbUrl);
-                        } else {
-                            // Fallback: base64 для видео или если imgbbUrl отсутствует
-                            const base64 = await fileToBase64(file.file);
-                            savedFilesData.push(base64);
-                        }
-                    }
-                    savePrompt(
-                        prompt.trim(),
-                        savedFilesData,
-                        chatId,
-                        currentModel
-                    );
-                    // Не очищаем форму, если режим сохранения активен
-                } else {
-                    // Очищаем форму только если режим сохранения не активен
-                    setPrompt('');
-                    // Очищаем поля imagen4
-                    if (isImagen4) {
-                        setNegativePrompt('');
-                        setSeed(undefined);
-                    }
-                    // Освобождаем все preview URLs и очищаем ref
-                    attachedFiles.forEach((f) => {
-                        URL.revokeObjectURL(f.preview);
-                        previewUrlsRef.current.delete(f.preview);
-                    });
-                    setAttachedFiles([]);
-                }
-
-                // Сбрасываем флаги сразу после успешной отправки запроса
-                // Это позволяет отправлять параллельные запросы
-                submitInProgressRef.current = false;
-                setIsSubmitting(false);
-            } catch (error) {
-                console.error('[ChatInput] ❌ Ошибка генерации:', error);
-                const errorMessage =
-                    error &&
-                    typeof error === 'object' &&
-                    'data' in error &&
-                    error.data &&
-                    typeof error.data === 'object' &&
-                    'error' in error.data &&
-                    typeof error.data.error === 'string'
-                        ? error.data.error
-                        : 'Не удалось отправить запрос. Попробуйте еще раз.';
-
-                // Уведомляем родителя об ошибке для обновления pending-сообщения
-                if (onSendError) {
-                    onSendError(errorMessage);
-                }
-
-                alert(`Ошибка генерации: ${errorMessage}`);
-
-                // Сбрасываем флаги при ошибке тоже, чтобы можно было повторить запрос
-                submitInProgressRef.current = false;
-                setIsSubmitting(false);
-            }
-        }
-
-        // Обработка Enter для отправки
-        function handleKeyDown(
-            event: React.KeyboardEvent<HTMLTextAreaElement>
-        ) {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                // Предотвращаем отправку только если идет подготовка запроса или компонент заблокирован
-                if (submitInProgressRef.current || isDisabled) {
-                    event.preventDefault();
-                    event.stopPropagation();
                     return;
                 }
-                handleSubmit(event);
-            }
-        }
+
+                // Определяем videoFormat и klingAspectRatio для отправки (нужны разные параметры API)
+                const videoFormat = isVeo ? format : undefined;
+                const klingAspectRatio = isKling
+                    ? (format as '16:9' | '9:16' | undefined)
+                    : undefined;
+
+                handleSubmit(event, {
+                    prompt,
+                    attachedFiles,
+                    format,
+                    quality,
+                    videoFormat,
+                    klingAspectRatio,
+                    duration,
+                    sound,
+                    negativePrompt,
+                    seed,
+                    isNanoBanana,
+                    isNanoBananaPro,
+                    isNanoBananaProKieai,
+                    isVeo,
+                    isKling,
+                    isImagen4,
+                    isLockEnabled,
+                    onClearForm: () => {
+                        setPrompt('');
+                        if (isImagen4) {
+                            setNegativePrompt('');
+                            setSeed(undefined);
+                        }
+                        clearFiles();
+                    },
+                });
+            },
+            [
+                isDisabled,
+                handleSubmit,
+                prompt,
+                attachedFiles,
+                format,
+                quality,
+                duration,
+                sound,
+                negativePrompt,
+                seed,
+                isNanoBanana,
+                isNanoBananaPro,
+                isNanoBananaProKieai,
+                isVeo,
+                isKling,
+                isImagen4,
+                isLockEnabled,
+                clearFiles,
+            ]
+        );
+
+        // Обработка Enter для отправки
+        const handleKeyDown = useCallback(
+            (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    // Предотвращаем отправку только если идет подготовка запроса или компонент заблокирован
+                    if (submitInProgressRef.current || isDisabled) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        return;
+                    }
+                    onSubmit(event);
+                }
+            },
+            [submitInProgressRef, isDisabled, onSubmit]
+        );
 
         // Переключение состояния кнопки замочка
         function toggleLock() {
@@ -861,499 +440,18 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         disabled={isDisabled}
                     />
 
-                    {/* Настройки для NANO_BANANA */}
-                    {isNanoBanana && (
-                        <>
-                            <Select
-                                value={format || 'default'}
-                                onValueChange={(value) => {
-                                    const newFormat =
-                                        value === 'default'
-                                            ? undefined
-                                            : (value as '9:16' | '16:9');
-                                    setFormat(newFormat);
-                                    saveMediaSettings({
-                                        format: newFormat,
-                                        quality,
-                                    });
-                                }}
-                                disabled={isDisabled}
-                            >
-                                <SelectTrigger className='w-[120px] border-slate-600 bg-slate-700 text-white'>
-                                    <SelectValue placeholder='Формат'>
-                                        {format || 'Формат'}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent className='border-slate-700 bg-slate-800'>
-                                    <SelectItem
-                                        value='default'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        По умолчанию
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='16:9'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        16:9 (Горизонтальный)
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='9:16'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        9:16 (Вертикальный)
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-
-                            <Select
-                                value={quality || 'default'}
-                                onValueChange={(value) => {
-                                    const newQuality =
-                                        value === 'default'
-                                            ? undefined
-                                            : (value as '1k' | '2k' | '4k');
-                                    setQuality(newQuality);
-                                    saveMediaSettings({
-                                        format,
-                                        quality: newQuality,
-                                    });
-                                }}
-                                disabled={isDisabled}
-                            >
-                                <SelectTrigger className='w-[100px] border-slate-600 bg-slate-700 text-white'>
-                                    <SelectValue placeholder='Качество'>
-                                        {quality || 'Качество'}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent className='border-slate-700 bg-slate-800'>
-                                    <SelectItem
-                                        value='default'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        По умолчанию
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='1k'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        1K
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='2k'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        2K
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='4k'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        4K
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </>
-                    )}
-
-                    {/* Настройки для NANO_BANANA_PRO (Google Native Format) */}
-                    {isNanoBananaPro && (
-                        <>
-                            <Select
-                                value={format || '16:9'}
-                                onValueChange={(value) => {
-                                    const newFormat = value as '16:9' | '9:16';
-                                    setFormat(newFormat);
-                                    saveMediaSettings({
-                                        format: newFormat,
-                                        quality,
-                                    });
-                                }}
-                                disabled={isDisabled}
-                            >
-                                <SelectTrigger className='w-[120px] border-slate-600 bg-slate-700 text-white'>
-                                    <SelectValue placeholder='Формат'>
-                                        {format || '16:9'}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent className='border-slate-700 bg-slate-800'>
-                                    <SelectItem
-                                        value='16:9'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        16:9 (Горизонтальный)
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='9:16'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        9:16 (Вертикальный)
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-
-                            <Select
-                                value={quality || '2k'}
-                                onValueChange={(value) => {
-                                    const newQuality = value as '2k' | '4k';
-                                    setQuality(newQuality);
-                                    saveMediaSettings({
-                                        format,
-                                        quality: newQuality,
-                                    });
-                                }}
-                                disabled={isDisabled}
-                            >
-                                <SelectTrigger className='w-[100px] border-slate-600 bg-slate-700 text-white'>
-                                    <SelectValue placeholder='Качество'>
-                                        {quality ? quality.toUpperCase() : '2K'}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent className='border-slate-700 bg-slate-800'>
-                                    <SelectItem
-                                        value='2k'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        2K
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='4k'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        4K
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </>
-                    )}
-
-                    {/* Настройки для Veo */}
-                    {isVeo && (
-                        <Select
-                            value={videoFormat || 'default'}
-                            onValueChange={(value) => {
-                                const newVideoFormat =
-                                    value === 'default'
-                                        ? undefined
-                                        : (value as '16:9' | '9:16');
-                                setVideoFormat(newVideoFormat);
-                                saveMediaSettings({
-                                    format,
-                                    quality,
-                                    videoFormat: newVideoFormat,
-                                } as MediaSettings);
-                            }}
-                            disabled={isDisabled}
-                        >
-                            <SelectTrigger className='w-[120px] border-slate-600 bg-slate-700 text-white'>
-                                <SelectValue placeholder='Формат'>
-                                    {videoFormat || 'Формат'}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent className='border-slate-700 bg-slate-800'>
-                                <SelectItem
-                                    value='default'
-                                    className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                >
-                                    По умолчанию
-                                </SelectItem>
-                                <SelectItem
-                                    value='16:9'
-                                    className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                >
-                                    16:9 (Горизонтальный)
-                                </SelectItem>
-                                <SelectItem
-                                    value='9:16'
-                                    className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                >
-                                    9:16 (Вертикальный)
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    )}
-
-                    {/* Настройки для NANO_BANANA_PRO_KIEAI */}
-                    {isNanoBananaProKieai && (
-                        <>
-                            <Select
-                                value={format || '1:1'}
-                                onValueChange={(value) => {
-                                    const newFormat = value as
-                                        | '1:1'
-                                        | '9:16'
-                                        | '16:9';
-                                    setFormat(newFormat);
-                                    saveMediaSettings({
-                                        format: newFormat,
-                                        quality,
-                                    });
-                                }}
-                                disabled={isDisabled}
-                            >
-                                <SelectTrigger className='w-[140px] border-slate-600 bg-slate-700 text-white'>
-                                    <SelectValue placeholder='Формат'>
-                                        {format || '1:1'}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent className='border-slate-700 bg-slate-800'>
-                                    <SelectItem
-                                        value='1:1'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        1:1 (Квадрат)
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='16:9'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        16:9 (Горизонтальный)
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='9:16'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        9:16 (Вертикальный)
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-
-                            <Select
-                                value={quality || '4k'}
-                                onValueChange={(value) => {
-                                    const newQuality = value as
-                                        | '1k'
-                                        | '2k'
-                                        | '4k';
-                                    setQuality(newQuality);
-                                    saveMediaSettings({
-                                        format,
-                                        quality: newQuality,
-                                    });
-                                }}
-                                disabled={isDisabled}
-                            >
-                                <SelectTrigger className='w-[100px] border-slate-600 bg-slate-700 text-white'>
-                                    <SelectValue placeholder='Качество'>
-                                        {quality?.toUpperCase() || '4K'}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent className='border-slate-700 bg-slate-800'>
-                                    <SelectItem
-                                        value='1k'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        1K
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='2k'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        2K
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='4k'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        4K
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-
-                            <Select
-                                value={outputFormat || 'png'}
-                                onValueChange={(value) => {
-                                    const newFormat = value as 'png' | 'jpg';
-                                    setOutputFormat(newFormat);
-                                }}
-                                disabled={isDisabled}
-                            >
-                                <SelectTrigger className='w-[100px] border-slate-600 bg-slate-700 text-white'>
-                                    <SelectValue placeholder='Формат'>
-                                        {outputFormat?.toUpperCase() || 'PNG'}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent className='border-slate-700 bg-slate-800'>
-                                    <SelectItem
-                                        value='png'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        PNG
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='jpg'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        JPG
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </>
-                    )}
-
-                    {/* Настройки для Kling 2.6 */}
-                    {isKling && (
-                        <>
-                            <Select
-                                value={klingAspectRatio || '16:9'}
-                                onValueChange={(value) => {
-                                    const newAspectRatio = value as
-                                        | '16:9'
-                                        | '9:16';
-                                    setKlingAspectRatio(newAspectRatio);
-                                    saveMediaSettings({
-                                        klingAspectRatio: newAspectRatio,
-                                        klingDuration,
-                                        klingSound,
-                                    });
-                                }}
-                                disabled={isDisabled}
-                            >
-                                <SelectTrigger className='w-[120px] border-slate-600 bg-slate-700 text-white'>
-                                    <SelectValue placeholder='Формат'>
-                                        {klingAspectRatio || '16:9'}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent className='border-slate-700 bg-slate-800'>
-                                    <SelectItem
-                                        value='16:9'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        16:9 (Горизонтальный)
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='9:16'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        9:16 (Вертикальный)
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-
-                            <Select
-                                value={klingDuration?.toString() || '5'}
-                                onValueChange={(value) => {
-                                    const newDuration = parseInt(value) as
-                                        | 5
-                                        | 10;
-                                    setKlingDuration(newDuration);
-                                    saveMediaSettings({
-                                        klingAspectRatio,
-                                        klingDuration: newDuration,
-                                        klingSound,
-                                    });
-                                }}
-                                disabled={isDisabled}
-                            >
-                                <SelectTrigger className='w-[100px] border-slate-600 bg-slate-700 text-white'>
-                                    <SelectValue placeholder='Длительность'>
-                                        {klingDuration || 5} сек
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent className='border-slate-700 bg-slate-800'>
-                                    <SelectItem
-                                        value='5'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        5 сек
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='10'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        10 сек
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-
-                            <Select
-                                value={
-                                    klingSound === undefined
-                                        ? 'true'
-                                        : klingSound.toString()
-                                }
-                                onValueChange={(value) => {
-                                    const newSound = value === 'true';
-                                    setKlingSound(newSound);
-                                    saveMediaSettings({
-                                        klingAspectRatio,
-                                        klingDuration,
-                                        klingSound: newSound,
-                                    });
-                                }}
-                                disabled={isDisabled}
-                            >
-                                <SelectTrigger className='w-[100px] border-slate-600 bg-slate-700 text-white'>
-                                    <SelectValue placeholder='Звук'>
-                                        {klingSound === undefined || klingSound
-                                            ? 'Да'
-                                            : 'Нет'}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent className='border-slate-700 bg-slate-800'>
-                                    <SelectItem
-                                        value='true'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        Да
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='false'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        Нет
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </>
-                    )}
-
-                    {/* Настройки для IMAGEN4_KIEAI */}
-                    {isImagen4 && (
-                        <>
-                            <Select
-                                value={format || '1:1'}
-                                onValueChange={(value) => {
-                                    const newFormat = value as
-                                        | '1:1'
-                                        | '9:16'
-                                        | '16:9';
-                                    setFormat(newFormat);
-                                    saveMediaSettings({
-                                        format: newFormat,
-                                        quality,
-                                    });
-                                }}
-                                disabled={isDisabled}
-                            >
-                                <SelectTrigger className='w-[140px] border-slate-600 bg-slate-700 text-white'>
-                                    <SelectValue placeholder='Формат'>
-                                        {format || '1:1'}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent className='border-slate-700 bg-slate-800'>
-                                    <SelectItem
-                                        value='1:1'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        1:1 (Квадрат)
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='16:9'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        16:9 (Горизонтальный)
-                                    </SelectItem>
-                                    <SelectItem
-                                        value='9:16'
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
-                                    >
-                                        9:16 (Вертикальный)
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </>
-                    )}
+                    <ModelSettingsPanel
+                        model={currentModel}
+                        format={format}
+                        quality={quality}
+                        duration={duration}
+                        sound={sound}
+                        onFormatChange={setFormat}
+                        onQualityChange={setQuality}
+                        onDurationChange={setDuration}
+                        onSoundChange={setSound}
+                        disabled={isDisabled}
+                    />
                 </div>
 
                 {/* Поля для Imagen4: negativePrompt и seed */}
@@ -1394,9 +492,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         isDragging &&
                             'border-2 border-cyan-500 bg-slate-700/90 p-1'
                     )}
-                    onDragOver={handleDragOver}
+                    onDragOver={(e) => handleDragOver(e, isDisabled)}
                     onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
+                    onDrop={(e) => handleDrop(e, isDisabled)}
                 >
                     <input
                         ref={fileInputRef}
@@ -1411,7 +509,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         value={prompt}
                         onChange={handleTextareaChange}
                         onKeyDown={handleKeyDown}
-                        onPaste={handlePaste}
+                        onPaste={(e) => handlePaste(e, isDisabled)}
                         placeholder='Опишите, что хотите сгенерировать...'
                         className={cn(
                             'min-h-[76px] max-h-[20vh] resize-none border-slate-600 bg-slate-700 pb-10 pl-4 pr-12 text-white placeholder:text-slate-400',
@@ -1482,7 +580,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 e.stopPropagation();
                                 return;
                             }
-                            handleSubmit(e);
+                            onSubmit(e);
                         }}
                         disabled={
                             isDisabled ||

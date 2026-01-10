@@ -1,0 +1,315 @@
+// Переиспользуемые компоненты настроек для моделей
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    type FormatConfig,
+    type QualityConfig,
+    type DurationConfig,
+    type SoundConfig,
+    getModelSettingsConfig,
+} from './model-settings-config';
+import type { MediaModel } from '@/redux/api/base';
+
+// Универсальный селект для формата (фото и видео)
+interface FormatSelectProps {
+    value: '1:1' | '9:16' | '16:9' | undefined;
+    config: FormatConfig;
+    onValueChange: (value: '1:1' | '9:16' | '16:9' | undefined) => void;
+    disabled?: boolean;
+    className?: string;
+}
+
+export function FormatSelect({
+    value,
+    config,
+    onValueChange,
+    disabled,
+    className = 'w-[120px]',
+}: FormatSelectProps) {
+    const handleChange = (newValue: string) => {
+        if (newValue === 'default') {
+            onValueChange(undefined);
+        } else {
+            const format = newValue as '1:1' | '9:16' | '16:9';
+            onValueChange(format);
+        }
+        // Сохранение настроек происходит в основном компоненте через useEffect
+    };
+
+    const displayValue =
+        value ||
+        config.defaultValue ||
+        (config.allowDefault ? 'default' : config.defaultValue || '');
+    const placeholder = config.defaultValue || 'Формат';
+
+    return (
+        <Select
+            value={displayValue || undefined}
+            onValueChange={handleChange}
+            disabled={disabled}
+        >
+            <SelectTrigger
+                className={`${className} border-slate-600 bg-slate-700 text-white`}
+            >
+                <SelectValue placeholder={placeholder}>
+                    {value || placeholder}
+                </SelectValue>
+            </SelectTrigger>
+            <SelectContent className='border-slate-700 bg-slate-800'>
+                {config.options.map((option) => (
+                    <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                    >
+                        {option.label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
+// Селект для качества
+interface QualitySelectProps {
+    value: '1k' | '2k' | '4k' | undefined;
+    config: QualityConfig;
+    onValueChange: (value: '1k' | '2k' | '4k' | undefined) => void;
+    disabled?: boolean;
+    className?: string;
+}
+
+export function QualitySelect({
+    value,
+    config,
+    onValueChange,
+    disabled,
+    className = 'w-[100px]',
+}: QualitySelectProps) {
+    const handleChange = (newValue: string) => {
+        if (newValue === 'default') {
+            onValueChange(undefined);
+        } else {
+            const quality = newValue as '1k' | '2k' | '4k';
+            onValueChange(quality);
+        }
+        // Сохранение настроек происходит в основном компоненте через useEffect
+    };
+
+    const displayValue =
+        value ||
+        config.defaultValue ||
+        (config.allowDefault ? 'default' : config.defaultValue || '');
+    const placeholder = config.defaultValue ? config.defaultValue.toUpperCase() : 'Качество';
+
+    return (
+        <Select
+            value={displayValue || undefined}
+            onValueChange={handleChange}
+            disabled={disabled}
+        >
+            <SelectTrigger
+                className={`${className} border-slate-600 bg-slate-700 text-white`}
+            >
+                <SelectValue placeholder={placeholder}>
+                    {value ? value.toUpperCase() : placeholder}
+                </SelectValue>
+            </SelectTrigger>
+            <SelectContent className='border-slate-700 bg-slate-800'>
+                {config.options.map((option) => (
+                    <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                    >
+                        {option.label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
+// Селект для длительности
+interface DurationSelectProps {
+    value: 5 | 10 | undefined;
+    config: DurationConfig;
+    onValueChange: (value: 5 | 10) => void;
+    disabled?: boolean;
+    className?: string;
+}
+
+export function DurationSelect({
+    value,
+    config,
+    onValueChange,
+    disabled,
+    className = 'w-[100px]',
+}: DurationSelectProps) {
+    const handleChange = (newValue: string) => {
+        const duration = parseInt(newValue) as 5 | 10;
+        onValueChange(duration);
+        // Сохранение настроек происходит в основном компоненте через useEffect
+    };
+
+    const displayValue = (value || config.defaultValue).toString();
+
+    return (
+        <Select
+            value={displayValue}
+            onValueChange={handleChange}
+            disabled={disabled}
+        >
+            <SelectTrigger
+                className={`${className} border-slate-600 bg-slate-700 text-white`}
+            >
+                <SelectValue placeholder='Длительность'>
+                    {value || config.defaultValue} сек
+                </SelectValue>
+            </SelectTrigger>
+            <SelectContent className='border-slate-700 bg-slate-800'>
+                {config.options.map((option) => (
+                    <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                    >
+                        {option.label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
+// Селект для звука
+interface SoundSelectProps {
+    value: boolean | undefined;
+    config: SoundConfig;
+    onValueChange: (value: boolean) => void;
+    disabled?: boolean;
+    className?: string;
+}
+
+export function SoundSelect({
+    value,
+    config,
+    onValueChange,
+    disabled,
+    className = 'w-[100px]',
+}: SoundSelectProps) {
+    const handleChange = (newValue: string) => {
+        const sound = newValue === 'true';
+        onValueChange(sound);
+        // Сохранение настроек происходит в основном компоненте через useEffect
+    };
+
+    const displayValue =
+        value === undefined ? config.defaultValue.toString() : value.toString();
+
+    return (
+        <Select
+            value={displayValue}
+            onValueChange={handleChange}
+            disabled={disabled}
+        >
+            <SelectTrigger
+                className={`${className} border-slate-600 bg-slate-700 text-white`}
+            >
+                <SelectValue placeholder='Звук'>
+                    {value === undefined || value ? 'звук on' : 'звук off'}
+                </SelectValue>
+            </SelectTrigger>
+            <SelectContent className='border-slate-700 bg-slate-800'>
+                {config.options.map((option) => (
+                    <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                    >
+                        {option.label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
+// Основной компонент для отображения настроек модели
+interface ModelSettingsPanelProps {
+    model: string;
+    format: '1:1' | '9:16' | '16:9' | undefined;
+    quality: '1k' | '2k' | '4k' | undefined;
+    duration: 5 | 10 | undefined;
+    sound: boolean | undefined;
+    onFormatChange: (value: '1:1' | '9:16' | '16:9' | undefined) => void;
+    onQualityChange: (value: '1k' | '2k' | '4k' | undefined) => void;
+    onDurationChange: (value: 5 | 10) => void;
+    onSoundChange: (value: boolean) => void;
+    disabled?: boolean;
+}
+
+export function ModelSettingsPanel({
+    model,
+    format,
+    quality,
+    duration,
+    sound,
+    onFormatChange,
+    onQualityChange,
+    onDurationChange,
+    onSoundChange,
+    disabled,
+}: ModelSettingsPanelProps) {
+    const config = getModelSettingsConfig(model as MediaModel);
+
+    return (
+        <>
+            {config.format && (
+                <FormatSelect
+                    value={format}
+                    config={config.format}
+                    onValueChange={onFormatChange}
+                    disabled={disabled}
+                    className={
+                        config.format.options.some((o) => o.value === '1:1')
+                            ? 'w-[140px]'
+                            : 'w-[120px]'
+                    }
+                />
+            )}
+
+            {config.quality && (
+                <QualitySelect
+                    value={quality}
+                    config={config.quality}
+                    onValueChange={onQualityChange}
+                    disabled={disabled}
+                />
+            )}
+
+            {config.duration && (
+                <DurationSelect
+                    value={duration}
+                    config={config.duration}
+                    onValueChange={onDurationChange}
+                    disabled={disabled}
+                />
+            )}
+
+            {config.sound && (
+                <SoundSelect
+                    value={sound}
+                    config={config.sound}
+                    onValueChange={onSoundChange}
+                    disabled={disabled}
+                />
+            )}
+        </>
+    );
+}

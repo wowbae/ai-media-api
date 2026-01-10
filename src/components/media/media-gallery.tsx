@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ImageIcon,
   VideoIcon,
+  Loader2,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
   const [isVideoExpanded, setIsVideoExpanded] = useState(true);
   const [isImageExpanded, setIsImageExpanded] = useState(true);
+  const [attachingFile, setAttachingFile] = useState(false);
 
   // Загружаем файлы с пагинацией
   const {
@@ -117,6 +119,13 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
     } catch (error) {
       console.error("Ошибка удаления файла:", error);
     }
+  }
+
+  function loadingEffectForAttachFile() {
+    setAttachingFile(true);
+    setTimeout(() => {
+      setAttachingFile(false);
+    }, 1500);
   }
 
   // Показываем скелетоны во время загрузки
@@ -227,6 +236,7 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
                                                       className='absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100'
                                                       onClick={(e) => {
                                                           e.stopPropagation();
+                                                           loadingEffectForAttachFile();
                                                           const fileUrl =
                                                               getMediaFileUrl(
                                                                   file.path
@@ -235,10 +245,15 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
                                                               fileUrl,
                                                               file.filename
                                                           );
+
                                                       }}
                                                       title='Прикрепить к промпту'
                                                   >
+                                                    {attachingFile ? (
+                                                      <Loader2 className='h-3.5 w-3.5 animate-spin' />
+                                                    ) : (
                                                       <Paperclip className='h-3.5 w-3.5' />
+                                                    )}
                                                   </Button>
                                               )}
                                               {/* Кнопка удаления справа вверху */}

@@ -133,6 +133,7 @@ function MessageItem({
     const [fullscreenVideo, setFullscreenVideo] = useState<MediaFile | null>(
         null
     );
+    const [attachingFile, setAttachingFile] = useState(false);
 
     // Получаем информацию о модели и провайдере из сохранённой модели запроса
     // Показываем только если модель сохранена в запросе
@@ -153,6 +154,13 @@ function MessageItem({
         } catch (error) {
             console.error('Ошибка удаления файла:', error);
         }
+    }
+
+    function loadingEffectForAttachFile() {
+        setAttachingFile(true);
+        setTimeout(() => {
+            setAttachingFile(false);
+        }, 1500);
     }
 
     // Определение класса фона для ответа нейросети
@@ -338,6 +346,7 @@ function MessageItem({
                                                                 variant='ghost'
                                                                 className='h-8 w-8 shrink-0 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-slate-600/50 group-hover:opacity-100'
                                                                 onClick={() => {
+                                                                    loadingEffectForAttachFile();
                                                                     const fileUrl =
                                                                         getMediaFileUrl(
                                                                             file.path
@@ -349,7 +358,11 @@ function MessageItem({
                                                                 }}
                                                                 title='Прикрепить к промпту'
                                                             >
-                                                                <Paperclip className='h-4 w-4' />
+                                                                {attachingFile ? (
+                                                                    <Loader2 className='h-4 w-4 animate-spin' />
+                                                                ) : (
+                                                                    <Paperclip className='h-4 w-4' />
+                                                                )}
                                                             </Button>
                                                         )}
                                                     {/* Кнопка удаления */}
