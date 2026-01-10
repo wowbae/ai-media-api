@@ -556,8 +556,9 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
           );
 
           if (base64Files.length > 0) {
-            console.log(
-              `[API] ⚠️ Обнаружены base64 файлы (${base64Files.length}), конвертируем в URL для обратной совместимости...`
+            console.warn(
+              `[API] ⚠️ DEPRECATED: Обнаружены base64 файлы (${base64Files.length}), конвертируем в URL для обратной совместимости. ` +
+                `Новый клиент должен отправлять файлы уже как URL через imgbb.`
             );
 
             try {

@@ -5,6 +5,7 @@ import type {
     useGenerateMediaMutation,
     useGenerateMediaTestMutation,
 } from '@/redux/media-api';
+import { useUploadToImgbbMutation } from '@/redux/media-api';
 import type { AttachedFile } from './use-chat-input-files';
 import { savePrompt } from '@/lib/saved-prompts';
 
@@ -54,6 +55,7 @@ export function useChatInputSubmit({
 }: UseChatInputSubmitParams) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const submitInProgressRef = useRef(false);
+    const [uploadToImgbb] = useUploadToImgbbMutation();
 
     const handleSubmit = useCallback(
         async (
@@ -174,7 +176,7 @@ export function useChatInputSubmit({
                         }
                     );
 
-                    // Формируем inputFiles: используем imgbbUrl для изображений, если есть, иначе base64 (fallback)
+                    // Формируем inputFiles: используем imgbbUrl для изображений, если есть, иначе загружаем на imgbb
                     const imageFiles = params.attachedFiles.filter((f) =>
                         f.file.type.startsWith('image/')
                     );
@@ -185,13 +187,22 @@ export function useChatInputSubmit({
                             // Используем уже загруженный URL на imgbb
                             inputFilesUrls.push(file.imgbbUrl);
                         } else {
-                            // Fallback: конвертируем в base64 если imgbbUrl нет
-                            console.warn(
-                                '[ChatInput] ⚠️ imgbbUrl отсутствует, используем base64 (fallback)',
+                            // Fallback: загружаем на imgbb и получаем URL
+                            console.log(
+                                '[ChatInput] ⚠️ imgbbUrl отсутствует, загружаем на imgbb...',
                                 file.file.name
                             );
                             const base64 = await getFileAsBase64(file.file);
-                            inputFilesUrls.push(base64);
+                            const result = await uploadToImgbb({
+                                files: [base64],
+                            }).unwrap();
+                            if (result.urls[0]) {
+                                inputFilesUrls.push(result.urls[0]);
+                            } else {
+                                throw new Error(
+                                    `Не удалось загрузить файл ${file.file.name} на imgbb`
+                                );
+                            }
                         }
                     }
 
@@ -251,15 +262,21 @@ export function useChatInputSubmit({
                     // Сохраняем оригинальный промпт (без добавленных параметров формата и качества)
                     const savedFilesData: string[] = [];
                     for (const file of params.attachedFiles) {
-                        if (
-                            file.file.type.startsWith('image/') &&
-                            file.imgbbUrl
-                        ) {
+                        if (file.imgbbUrl) {
+                            // Для изображений - используем imgbbUrl
                             savedFilesData.push(file.imgbbUrl);
+                        } else if (file.file.type.startsWith('video/')) {
+                            // Для видео - используем preview blob URL
+                            savedFilesData.push(file.preview);
                         } else {
-                            // Fallback: base64 для видео или если imgbbUrl отсутствует
+                            // Для изображений без imgbbUrl - загружаем на imgbb
                             const base64 = await getFileAsBase64(file.file);
-                            savedFilesData.push(base64);
+                            const result = await uploadToImgbb({
+                                files: [base64],
+                            }).unwrap();
+                            if (result.urls[0]) {
+                                savedFilesData.push(result.urls[0]);
+                            }
                         }
                     }
                     savePrompt(
@@ -312,6 +329,7 @@ export function useChatInputSubmit({
             onPendingMessage,
             onSendError,
             getFileAsBase64,
+            uploadToImgbb,
         ]
     );
 
