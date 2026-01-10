@@ -117,7 +117,7 @@ const SOUND_OPTIONS: SoundOption[] = [
     { value: 'false', label: 'звук off' },
 ];
 
-// Конфигурация настроек для всех моделей
+// Конфигурация настроек для всех моделей (значения по умолчанию прописываем здесь)
 export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
     NANO_BANANA: {
         format: {
@@ -194,21 +194,21 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
     SEEDREAM_4_5: {
         format: {
             options: FORMAT_OPTIONS_SEEDREAM,
-            defaultValue: '16:9',
+            defaultValue: '9:16',
         },
         quality: {
             options: QUALITY_OPTIONS_SEEDREAM,
-            defaultValue: '4k',
+            defaultValue: '4k', // по цене одинаково с 2к
         },
     },
     SEEDREAM_4_5_EDIT: {
         format: {
             options: FORMAT_OPTIONS_SEEDREAM,
-            defaultValue: '16:9',
+            defaultValue: '9:16',
         },
         quality: {
             options: QUALITY_OPTIONS_SEEDREAM,
-            defaultValue: '4k',
+            defaultValue: '4k', // по цене одинаково с 2к
         },
     },
     MIDJOURNEY: {},

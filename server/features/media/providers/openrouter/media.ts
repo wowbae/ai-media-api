@@ -16,6 +16,7 @@ import type {
     AspectRatio,
     Quality,
 } from './interfaces';
+import { mapToStandardQuality } from '../utils';
 
 // Создание сообщения в формате OpenRouter
 function createOpenRouterMessage(
@@ -280,9 +281,10 @@ export function createOpenRouterProvider(
                 }
 
                 if (params.quality) {
+                    const standardQuality = mapToStandardQuality(params.quality);
                     const resolution = calculateResolution(
                         params.aspectRatio as AspectRatio,
-                        params.quality
+                        standardQuality as Quality
                     );
                     if (resolution) {
                         requestBody.resolution = resolution;

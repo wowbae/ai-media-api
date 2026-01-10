@@ -1,0 +1,3 @@
+Здесь проверенные источники документации api
+
+kling original (пока не использую в проекте): https://app.klingai.com/global/dev/document-api/quickStart/productIntroduction/overview

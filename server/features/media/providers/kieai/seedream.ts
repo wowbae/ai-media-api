@@ -18,6 +18,7 @@ import type {
   KieAiUnifiedCreateResponse,
   KieAiUnifiedTaskResponse,
 } from "./interfaces";
+import { mapToStandardQuality, type StandardQuality } from "../utils";
 
 // Маппинг статусов Kie.ai на внутренние статусы
 const KIEAI_STATUS_MAP: Record<string, TaskStatusResult["status"]> = {
@@ -55,20 +56,21 @@ function mapAspectRatio(
   return mapping[aspectRatio] || "16:9";
 }
 
-// Маппинг качества: 2k -> basic, 4k -> high
-function mapQuality(
-  quality?: "1k" | "2k" | "4k" | "LOW" | "MEDIUM" | "HIGH" | "ULTRA",
+// Маппинг качества: стандартное качество -> специфичное для Seedream
+function mapQualityToSeedream(
+  quality: GenerateParams['quality']
 ): KieAiSeedreamQuality {
-  const mapping: Record<string, KieAiSeedreamQuality> = {
-    "1k": "basic",
-    "2k": "basic",
-    "4k": "high",
-    LOW: "basic",
-    MEDIUM: "basic",
-    HIGH: "high",
-    ULTRA: "high",
+  // Сначала маппим в стандартное качество
+  const standardQuality = mapToStandardQuality(quality) || '4k';
+
+  // Затем маппим стандартное качество в формат Seedream
+  const mapping: Record<StandardQuality, KieAiSeedreamQuality> = {
+    '1k': 'basic',
+    '2k': 'basic',
+    '4k': 'high',
   };
-  return mapping[quality || "HIGH"] || "high";
+
+  return mapping[standardQuality] || 'high';
 }
 
 export function createKieAiSeedreamProvider(
@@ -177,7 +179,7 @@ export function createKieAiSeedreamProvider(
           prompt: prompt,
           image_urls: imageUrls,
           aspect_ratio: mapAspectRatio(aspectRatio),
-          quality: mapQuality(quality),
+          quality: mapQualityToSeedream(quality),
         },
       };
     } else {
@@ -186,7 +188,7 @@ export function createKieAiSeedreamProvider(
         input: {
           prompt: prompt,
           aspect_ratio: mapAspectRatio(aspectRatio),
-          quality: mapQuality(quality),
+          quality: mapQualityToSeedream(quality),
         },
       };
     }

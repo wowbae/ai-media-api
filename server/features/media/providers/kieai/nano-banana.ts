@@ -18,6 +18,7 @@ import type {
   KieAiUnifiedCreateResponse,
   KieAiUnifiedTaskResponse,
 } from "./interfaces";
+import { mapToStandardQuality, type StandardQuality } from "../utils";
 
 // Маппинг статусов Kie.ai на внутренние статусы
 const KIEAI_STATUS_MAP: Record<string, TaskStatusResult["status"]> = {
@@ -28,35 +29,37 @@ const KIEAI_STATUS_MAP: Record<string, TaskStatusResult["status"]> = {
   fail: "failed",
 };
 
-// Маппинг соотношений сторон
+// Маппинг соотношений сторон: принимает полный тип, но поддерживает только 1:1, 9:16, 16:9
 function mapAspectRatio(
-  aspectRatio?: "1:1" | "9:16" | "16:9",
+  aspectRatio?: GenerateParams['aspectRatio'],
 ): KieAiNanoBananaAspectRatio {
   if (!aspectRatio) return "1:1";
 
-  const mapping: Record<string, KieAiNanoBananaAspectRatio> = {
+  // Nano Banana поддерживает только эти соотношения сторон
+  const supportedRatios: Record<string, KieAiNanoBananaAspectRatio> = {
     "1:1": "1:1",
     "9:16": "9:16",
     "16:9": "16:9",
   };
-  return mapping[aspectRatio] || "1:1";
+
+  return supportedRatios[aspectRatio] || "1:1";
 }
 
-// Маппинг качества/разрешения
-function mapResolution(
-  quality?: "1k" | "2k" | "4k" | "LOW" | "MEDIUM" | "HIGH" | "ULTRA",
+// Маппинг качества/разрешения: стандартное качество -> специфичное для Nano Banana
+function mapResolutionToNanoBanana(
+  quality: GenerateParams['quality']
 ): KieAiNanoBananaResolution {
-  // Маппим качество на разрешение
-  const mapping: Record<string, KieAiNanoBananaResolution> = {
-    "1k": "1K",
-    "2k": "2K",
-    "4k": "4K",
-    LOW: "1K",
-    MEDIUM: "2K",
-    HIGH: "4K",
-    ULTRA: "4K",
+  // Сначала маппим в стандартное качество
+  const standardQuality = mapToStandardQuality(quality) || '4k';
+
+  // Затем маппим стандартное качество в формат Nano Banana (с большой буквой K)
+  const mapping: Record<StandardQuality, KieAiNanoBananaResolution> = {
+    '1k': '1K',
+    '2k': '2K',
+    '4k': '4K',
   };
-  return mapping[quality || "HIGH"] || "4K";
+
+  return mapping[standardQuality] || '4K';
 }
 
 export function createKieAiNanoBananaProvider(
@@ -122,7 +125,7 @@ export function createKieAiNanoBananaProvider(
       input: {
         prompt: prompt,
         aspect_ratio: mapAspectRatio(aspectRatio),
-        resolution: mapResolution(quality),
+        resolution: mapResolutionToNanoBanana(quality),
         output_format: (outputFormat === "jpg" || outputFormat === "jpeg"
           ? "jpg"
           : "png") as KieAiNanoBananaOutputFormat,
