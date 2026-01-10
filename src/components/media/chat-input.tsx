@@ -463,7 +463,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 <div className='mb-2 flex flex-wrap items-center gap-3'>
                     <ModelSelector
                         value={currentModel}
-                        onChange={onModelChange}
+                        onChange={(model) => {
+                            // обнуляем seed при смене модели
+                            setSeed(undefined);
+                            onModelChange(model);
+                        }}
                         disabled={isDisabled}
                     />
 
