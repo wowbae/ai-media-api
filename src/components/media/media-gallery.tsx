@@ -10,10 +10,13 @@ import {
     Pin,
     RefreshCcw,
     Maximize2,
+    Download,
+    X,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { MediaPreview } from './media-preview';
 import { MediaFullscreenView } from './media-fullscreen-view';
 import {
@@ -27,7 +30,7 @@ import {
     PANEL_HEADER_TITLE_CLASSES,
 } from '@/lib/panel-styles';
 import { getMediaFileUrl } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+import { cn, downloadFile } from '@/lib/utils';
 import { calculateTotalChatCost, formatCost } from '@/lib/cost-utils';
 import { createLoadingEffectForAttachFile } from '@/lib/media-utils';
 
@@ -777,14 +780,88 @@ export function MediaGallery({
 
             {/* Полноэкранный просмотр */}
             {selectedFile && (
-                <MediaFullscreenView
-                    file={selectedFile}
-                    onClose={() => setSelectedFile(null)}
-                    onAttachFile={onAttachFile}
-                    onRepeatRequest={onRepeatRequest}
-                    isPinned={pinnedImageIds.has(selectedFile.id)}
-                    onTogglePin={() => togglePinImage(selectedFile.id)}
-                />
+                <>
+                    {/* Для видео используем Dialog как в message-item */}
+                    {selectedFile.type === 'VIDEO' && selectedFile.path && (
+                        <Dialog
+                            open={!!selectedFile}
+                            onOpenChange={(open) =>
+                                !open && setSelectedFile(null)
+                            }
+                        >
+                            <DialogContent
+                                showCloseButton={false}
+                                className='max-h-[95vh] max-w-[95vw] overflow-hidden border-slate-700 bg-slate-900 p-0'
+                            >
+                                <DialogTitle className='sr-only'>
+                                    Просмотр видео: {selectedFile.filename}
+                                </DialogTitle>
+                                <div className='relative'>
+                                    <video
+                                        src={getMediaFileUrl(selectedFile.path)}
+                                        controls
+                                        autoPlay
+                                        className='max-h-[90vh] w-full'
+                                    />
+                                    <div className='absolute right-2 top-2 flex gap-2'>
+                                        {onRepeatRequest && (
+                                            <Button
+                                                size='icon'
+                                                variant='secondary'
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onRepeatRequest(
+                                                        selectedFile.requestId
+                                                    );
+                                                }}
+                                                className='h-8 w-8 text-slate-400 hover:text-cyan-400 focus:text-cyan-400'
+                                                title='Повторить запрос'
+                                            >
+                                                <RefreshCcw className='h-4 w-4' />
+                                            </Button>
+                                        )}
+                                        <Button
+                                            size='icon'
+                                            variant='secondary'
+                                            onClick={() => {
+                                                if (!selectedFile.path) return;
+                                                downloadFile(
+                                                    getMediaFileUrl(
+                                                        selectedFile.path
+                                                    ),
+                                                    selectedFile.filename
+                                                );
+                                            }}
+                                            title='Скачать файл'
+                                        >
+                                            <Download className='h-4 w-4' />
+                                        </Button>
+                                        <Button
+                                            size='icon'
+                                            variant='secondary'
+                                            onClick={() =>
+                                                setSelectedFile(null)
+                                            }
+                                        >
+                                            <X className='h-4 w-4' />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    )}
+                    {/* Для изображений используем MediaFullscreenView */}
+                    {selectedFile.type !== 'VIDEO' && (
+                        <MediaFullscreenView
+                            file={selectedFile}
+                            onClose={() => setSelectedFile(null)}
+                            onAttachFile={onAttachFile}
+                            onRepeatRequest={onRepeatRequest}
+                            isPinned={pinnedImageIds.has(selectedFile.id)}
+                            onTogglePin={() => togglePinImage(selectedFile.id)}
+                        />
+                    )}
+                </>
             )}
         </>
     );

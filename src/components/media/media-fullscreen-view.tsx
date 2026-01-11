@@ -2,9 +2,7 @@
 import { useEffect } from 'react';
 import { Download, X, Paperclip, RefreshCcw, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-    type MediaFile,
-} from '@/redux/media-api';
+import { type MediaFile } from '@/redux/media-api';
 import { getMediaFileUrl } from '@/lib/constants';
 import { formatFileSize, downloadFile } from '@/lib/utils';
 
@@ -32,11 +30,12 @@ export function MediaFullscreenView({
 
     // Для видео всегда используем path (оригинальный файл)
     // Для изображений используем path если есть, иначе url (imgbb)
-    const fileUrl = file.type === 'VIDEO'
-        ? getMediaFileUrl(file.path!)
-        : file.path
-            ? getMediaFileUrl(file.path)
-            : file.url || '';
+    const fileUrl =
+        file.type === 'VIDEO'
+            ? getMediaFileUrl(file.path!)
+            : file.path
+              ? getMediaFileUrl(file.path)
+              : file.url || '';
 
     // Обработка клавиши Escape для закрытия
     useEffect(() => {
@@ -72,14 +71,14 @@ export function MediaFullscreenView({
                 )}
 
                 {file.type === 'VIDEO' && file.path && (
-                    <video
-                        src={fileUrl}
-                        controls
-                        autoPlay
-                        className='max-h-[90vh] max-w-[90vw]'
-                        preload='none'
-                        playsInline
-                    />
+                    <div className='relative'>
+                        <video
+                            src={fileUrl}
+                            controls
+                            autoPlay
+                            className='max-h-[90vh] w-full'
+                        />
+                    </div>
                 )}
 
                 {file.type === 'AUDIO' && (
