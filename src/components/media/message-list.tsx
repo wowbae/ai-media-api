@@ -324,7 +324,7 @@ function MessageItem({
                                             <video
                                                 src={fileUrl}
                                                 className='h-full w-full object-cover'
-                                                muted
+                                                // muted
                                             />
                                         ) : (
                                             <img
@@ -559,7 +559,7 @@ function MessageItem({
                                 }
                                 controls
                                 autoPlay
-                                muted
+                                // muted
                                 className='max-h-[90vh] w-full'
                             />
                             <div className='absolute right-2 top-2 flex gap-2'>

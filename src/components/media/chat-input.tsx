@@ -525,7 +525,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                         <video
                                             src={file.preview}
                                             className='h-full w-full object-cover'
-                                            muted
+                                            // muted
                                         />
                                     ) : (
                                         <img
@@ -581,7 +581,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         disabled={isDisabled}
                     />
 
-                  
+
 
                     <ModelSettingsPanel
                         model={currentModel}

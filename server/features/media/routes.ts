@@ -945,14 +945,19 @@ mediaRouter.get('/requests/:id', async (req: Request, res: Response) => {
                 errorMessage: true,
                 createdAt: true,
                 completedAt: true,
-                // Не возвращаем inputFiles, чтобы не тянуть base64
+                seed: true,
+                inputFiles: true, // Нужно для повторения запросов
+                settings: true, // Нужно для повторения запросов с теми же параметрами
                 files: {
                     orderBy: { createdAt: 'asc' },
                     select: {
                         id: true,
+                        requestId: true,
                         filename: true,
                         path: true,
+                        url: true,
                         previewPath: true,
+                        previewUrl: true,
                         type: true,
                         size: true,
                         width: true,
@@ -1140,9 +1145,12 @@ mediaRouter.get('/files', async (req: Request, res: Response) => {
                 take: limit,
                 select: {
                     id: true,
+                    requestId: true,
                     filename: true,
                     path: true,
+                    url: true,
                     previewPath: true,
+                    previewUrl: true,
                     type: true,
                     createdAt: true,
                     size: true,
