@@ -323,16 +323,21 @@ export function createChatsRouter(): Router {
                     .json({ success: false, error: 'Некорректный ID чата' });
             }
 
-            // Сначала получаем все файлы для удаления
+            console.log(`[API] 🗑️ Запрос на удаление чата: ${chatId}`);
+
+            // 1. Сначала получаем все файлы для удаления с диска
             const requests = await prisma.mediaRequest.findMany({
                 where: { chatId },
                 include: { files: true },
             });
 
-            // Удаляем физические файлы
-            // Преобразуем относительные пути в абсолютные
+            console.log(`[API] Найдено ${requests.length} запросов для удаления`);
+
+            // 2. Удаляем физические файлы
+            let filesCount = 0;
             for (const request of requests) {
                 for (const file of request.files) {
+                    filesCount++;
                     if (!file.path) continue;
 
                     const absolutePath = path.isAbsolute(file.path)
@@ -352,23 +357,41 @@ export function createChatsRouter(): Router {
                         await deleteFile(absolutePath, absolutePreviewPath);
                     } catch (error) {
                         console.error(
-                            `Ошибка удаления файла ${file.filename}:`,
+                            `Ошибка удаления физического файла ${file.filename}:`,
                             error
                         );
-                        // Продолжаем удаление даже если файл не найден
+                        // Продолжаем удаление даже если файл не найден на диске
                     }
                 }
             }
+            console.log(`[API] Удалено физических файлов: ${filesCount}`);
 
-            // Удаляем чат (каскадное удаление запросов и файлов)
-            await prisma.mediaChat.delete({
+            // 3. Явно удаляем записи в БД (на случай если CASCADE не сработал на уровне БД)
+            // Сначала файлы
+            const requestIds = requests.map(r => r.id);
+            if (requestIds.length > 0) {
+                const deletedFiles = await prisma.mediaFile.deleteMany({
+                    where: { requestId: { in: requestIds } }
+                });
+                console.log(`[API] Удалено записей файлов из БД: ${deletedFiles.count}`);
+
+                // Затем запросы
+                const deletedRequests = await prisma.mediaRequest.deleteMany({
+                    where: { chatId }
+                });
+                console.log(`[API] Удалено записей запросов из БД: ${deletedRequests.count}`);
+            }
+
+            // 4. Удаляем сам чат
+            const deletedChat = await prisma.mediaChat.delete({
                 where: { id: chatId },
             });
+            console.log(`[API] Чат успешно удален: ${deletedChat.id}`);
 
             // Инвалидируем кеш
             invalidateChatCache(chatId);
 
-            res.json({ success: true, message: 'Чат удален' });
+            res.json({ success: true, message: 'Чат удален', data: { id: chatId } });
         } catch (error) {
             console.error('Ошибка удаления чата:', error);
             res.status(500).json({

@@ -183,6 +183,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 getFileAsBase64,
             });
 
+        const MAX_PROMPT_LENGTH = 5000;
+
         // Функция для обновления высоты textarea
         const adjustTextareaHeight = useCallback(() => {
             const textarea = textareaRef.current;
@@ -209,7 +211,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         // Обработчик изменения размера textarea
         const handleTextareaChange = useCallback(
             (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-                setPrompt(e.target.value);
+                const value = e.target.value;
+                setPrompt(value.slice(0, MAX_PROMPT_LENGTH));
+
                 // Используем requestAnimationFrame для обновления после рендера
                 requestAnimationFrame(() => {
                     adjustTextareaHeight();
@@ -783,6 +787,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             handlePaste(e, isDisabled);
                         }}
                         placeholder='Опишите, что хотите сгенерировать...'
+                        maxLength={MAX_PROMPT_LENGTH}
                         className={cn(
                             'min-h-[76px] max-h-[20vh] resize-none border-slate-600 bg-slate-700 pb-10 pl-4 pr-12 text-white placeholder:text-slate-400',
                             'focus-visible:ring-cyan-500',
@@ -794,6 +799,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         style={{ height: 'auto' }}
                         disabled={isDisabled}
                     />
+
+                    {/* Счетчик символов */}
+                    <div
+                        className={cn(
+                            'absolute bottom-2.5 right-12 text-[10px] select-none pointer-events-none transition-colors px-1 rounded bg-slate-800/50',
+                            prompt.length >= MAX_PROMPT_LENGTH ? 'text-red-500' :
+                            prompt.length >= MAX_PROMPT_LENGTH * 0.9 ? 'text-yellow-500' : 'text-slate-500'
+                        )}
+                    >
+                        {prompt.length}/{MAX_PROMPT_LENGTH}
+                    </div>
 
                     {/* Кнопки слева внутри поля ввода */}
                     <div className='absolute bottom-1.5 left-1.5 flex items-center gap-0'>
