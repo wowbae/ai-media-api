@@ -67,18 +67,40 @@ function mapVeo3AspectRatio(
 }
 
 // Определение типа генерации на основе параметров
+// Согласно документации:
+// - FIRST_AND_LAST_FRAMES_2_VIDEO: 1-2 изображения (не требует ограничений по модели/aspectRatio)
+// - REFERENCE_2_VIDEO: 1-3 изображения (требует veo3_fast и 16:9)
 function determineGenerationType(
-  inputFiles?: string[]
+  inputFiles?: string[],
+  model?: Veo3Model,
+  aspectRatio?: Veo3AspectRatio
 ): Veo3GenerationType | undefined {
   if (!inputFiles || inputFiles.length === 0) {
     return "TEXT_2_VIDEO";
   }
-  if (inputFiles.length === 1) {
+
+  const fileCount = inputFiles.length;
+
+  // Для 1 изображения всегда используем FIRST_AND_LAST_FRAMES_2_VIDEO
+  // (REFERENCE_2_VIDEO тоже поддерживает 1 изображение, но требует veo3_fast + 16:9)
+  if (fileCount === 1) {
     return "FIRST_AND_LAST_FRAMES_2_VIDEO";
   }
-  if (inputFiles.length >= 2 && inputFiles.length <= 3) {
+
+  // Для 2 изображений: используем REFERENCE_2_VIDEO только если veo3_fast + 16:9,
+  // иначе используем FIRST_AND_LAST_FRAMES_2_VIDEO (не требует ограничений)
+  if (fileCount === 2) {
+    if (model === "veo3_fast" && aspectRatio === "16:9") {
+      return "REFERENCE_2_VIDEO";
+    }
+    return "FIRST_AND_LAST_FRAMES_2_VIDEO";
+  }
+
+  // Для 3 изображений: только REFERENCE_2_VIDEO (требует veo3_fast + 16:9)
+  if (fileCount === 3) {
     return "REFERENCE_2_VIDEO";
   }
+
   // По умолчанию пусть API определит
   return undefined;
 }
@@ -132,6 +154,7 @@ export function createKieAiVeo3Provider(config: KieAiConfig): MediaProvider {
       model: params.model,
       prompt: params.prompt.substring(0, 100),
       hasInputFiles: !!(params.inputFiles && params.inputFiles.length > 0),
+      ar: params.ar,
       aspectRatio: params.aspectRatio,
     });
 
@@ -141,8 +164,14 @@ export function createKieAiVeo3Provider(config: KieAiConfig): MediaProvider {
     }
 
     const veo3Model = mapVeo3Model(params.model as string);
-    const aspectRatio = mapVeo3AspectRatio(params.aspectRatio);
-    const generationType = determineGenerationType(params.inputFiles);
+    // Для Veo 3.1 используем параметр ar (16:9 | 9:16), если он есть, иначе aspectRatio
+    const aspectRatio = mapVeo3AspectRatio(params.ar || params.aspectRatio);
+    // Определяем тип генерации с учетом модели и aspectRatio
+    const generationType = determineGenerationType(
+      params.inputFiles,
+      veo3Model,
+      aspectRatio
+    );
 
     // Формируем тело запроса
     const requestBody: Veo3GenerateRequest = {
