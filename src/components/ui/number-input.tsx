@@ -94,32 +94,32 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
                     max={max}
                     {...props}
                 />
-                <div className='absolute right-1 flex flex-col'>
+                <div className='absolute right-0.5 flex flex-col gap-px'>
                     <Button
                         type='button'
                         variant='ghost'
-                        size='icon'
-                        className='h-4 w-5 rounded-sm hover:bg-slate-600/50 p-0'
+                        size='icon-sm'
+                        className='h-3.5 w-4 rounded-none'
                         onClick={handleIncrement}
                         disabled={
                             disabled ||
                             (max !== undefined && numValue !== undefined && numValue >= max)
                         }
                     >
-                        <ChevronUp className='h-3.5 w-3.5 text-slate-400 hover:text-slate-300' />
+                        <ChevronUp className='h-3 w-3' />
                     </Button>
                     <Button
                         type='button'
                         variant='ghost'
-                        size='icon'
-                        className='h-4 w-5 rounded-sm hover:bg-slate-600/50 p-0'
+                        size='icon-sm'
+                        className='h-3.5 w-4 rounded-none'
                         onClick={handleDecrement}
                         disabled={
                             disabled ||
                             (min !== undefined && numValue !== undefined && numValue <= min)
                         }
                     >
-                        <ChevronDown className='h-3.5 w-3.5 text-slate-400 hover:text-slate-300' />
+                        <ChevronDown className='h-3 w-3' />
                     </Button>
                 </div>
             </div>
