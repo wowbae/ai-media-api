@@ -12,6 +12,7 @@ import {
     createKieAiImagen4Provider,
     createKieAiSeedreamProvider,
     createKieAiVeo3Provider,
+    createKieAiElevenLabsProvider,
 } from './kieai';
 import { MEDIA_MODELS, type MediaModelConfig } from '../config';
 import 'dotenv/config';
@@ -137,6 +138,13 @@ export function createProviderManager(): ProviderManager {
                 if (model === 'SEEDREAM_4_5' || model === 'SEEDREAM_4_5_EDIT') {
                     kieaiProviders[model] =
                         createKieAiSeedreamProvider(kieaiConfig);
+                    return kieaiProviders[model];
+                }
+
+                // Для ElevenLabs Multilingual v2 используем elevenlabs провайдер
+                if (model === 'ELEVENLABS_MULTILINGUAL_V2') {
+                    kieaiProviders[model] =
+                        createKieAiElevenLabsProvider(kieaiConfig);
                     return kieaiProviders[model];
                 }
 

@@ -1,6 +1,6 @@
 // Компонент выбора модели для генерации
 import React from 'react';
-import { Sparkles, Video, ImageIcon } from 'lucide-react';
+import { Sparkles, Video, ImageIcon, Music } from 'lucide-react';
 import {
     Select,
     SelectContent,
@@ -106,6 +106,19 @@ export function ModelSelector({
         });
     }, [models]);
 
+    const audioModels = React.useMemo(() => {
+        let filtered =
+            models?.filter((model) => model.types.includes('AUDIO')) || [];
+
+        return filtered.sort((a, b) => {
+            // Сначала модели от kieai
+            if (a.provider === 'kieai' && b.provider !== 'kieai') return -1;
+            if (a.provider !== 'kieai' && b.provider === 'kieai') return 1;
+            // Затем сортируем по имени
+            return a.name.localeCompare(b.name);
+        });
+    }, [models]);
+
     // Получаем текущую модель для отображения провайдера в триггере
     const currentModel = React.useMemo(
         () => models?.find((m) => m.key === value),
@@ -197,6 +210,39 @@ export function ModelSelector({
                                     <span>Видео</span>
                                 </SelectLabel>
                                 {videoModels.map((model) => (
+                                    <SelectItem
+                                        key={model.key}
+                                        value={model.key}
+                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        <div className='flex items-center gap-2 w-full min-w-[200px]'>
+                                            <span>
+                                                {getModelIcon(model.key)}
+                                            </span>
+                                            <span>{model.name}</span>
+                                            {model.provider &&
+                                                model.provider in
+                                                    PROVIDER_BADGE_CONFIG && (
+                                                    <ProviderBadge
+                                                        provider={
+                                                            model.provider as MediaProviderType
+                                                        }
+                                                    />
+                                                )}
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectGroup>
+                        )}
+
+                        {/* Блок моделей для аудио */}
+                        {audioModels.length > 0 && (
+                            <SelectGroup>
+                                <SelectLabel className='flex items-center gap-2 text-slate-400'>
+                                    <Music className='h-4 w-4' />
+                                    <span>Аудио</span>
+                                </SelectLabel>
+                                {audioModels.map((model) => (
                                     <SelectItem
                                         key={model.key}
                                         value={model.key}

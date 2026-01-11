@@ -79,6 +79,7 @@ enum MediaModel {
   IMAGEN4_KIEAI
   SEEDREAM_4_5
   SEEDREAM_4_5_EDIT
+  ELEVENLABS_MULTILINGUAL_V2
 }
 
 enum MediaType {

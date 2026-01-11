@@ -239,6 +239,27 @@ export interface KieAiSeedreamEditRequest {
   };
 }
 
+// Интерфейсы для ElevenLabs Multilingual v2 API
+// Документация: https://docs.kie.ai/market/elevenlabs/text-to-speech-multilingual-v2
+
+// Запрос на создание задачи ElevenLabs Multilingual v2
+export interface KieAiElevenLabsRequest {
+  model: "elevenlabs/text-to-speech-multilingual-v2";
+  callBackUrl?: string;
+  input: {
+    text: string;
+    voice?: string; // Например, "Rachel"
+    stability?: number; // 0-1, по умолчанию 0.5
+    similarity_boost?: number; // 0-1, по умолчанию 0.75
+    style?: number; // По умолчанию 0
+    speed?: number; // По умолчанию 1
+    timestamps?: boolean; // По умолчанию false
+    previous_text?: string; // По умолчанию ""
+    next_text?: string; // По умолчанию ""
+    language_code?: string; // По умолчанию ""
+  };
+}
+
 // Ответ на создание задачи (общий формат для Kie.ai)
 export interface KieAiUnifiedCreateResponse {
   code: number;

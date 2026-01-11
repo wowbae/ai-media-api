@@ -113,6 +113,18 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.1, // TODO: уточнить цену для Veo 3.1 Fast
         },
     },
+    // Kie.ai провайдер - ElevenLabs Multilingual v2 для генерации аудио
+    ELEVENLABS_MULTILINGUAL_V2: {
+        id: 'elevenlabs/text-to-speech-multilingual-v2',
+        name: 'ElevenLabs Multilingual v2',
+        types: ['AUDIO'] as const,
+        maxPromptLength: 5000, // Лимит текста для TTS
+        supportsImageInput: false,
+        provider: 'kieai',
+        pricing: {
+            output: 0.1, // TODO: уточнить цену для ElevenLabs Multilingual v2
+        },
+    },
     // пока выключил, не нужны, НО НЕ УДАЛЯТЬ ИХ
     // NANO_BANANA_OPENROUTER: {
     //     id: 'google/gemini-3-pro-image-preview',

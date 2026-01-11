@@ -11,6 +11,7 @@ const MODEL_ICONS: Record<string, string> = {
     VEO_3_1: '🎥',
     KLING_2_6: '🎬',
     KLING_2_5_TURBO_PRO: '🎬',
+    ELEVENLABS_MULTILINGUAL_V2: '🎤',
 };
 
 const DEFAULT_ICON = '✨';
