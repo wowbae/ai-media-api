@@ -12,6 +12,15 @@ import {
     type GenerateMediaResponse,
     type PaginatedResponse,
 } from './base';
+import {
+    getApiState,
+    findChatsWithFile,
+    findRequestsWithFile,
+    updateFileInChat,
+    removeFileFromChat,
+    updateFileInRequest,
+    removeFileFromRequest,
+} from './cache-utils';
 
 export const mediaEndpoints = baseApi.injectEndpoints({
     endpoints: (build) => ({
@@ -303,126 +312,48 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 { fileId, thumbnail },
                 { dispatch, queryFulfilled, getState }
             ) {
-                // Получаем все кешированные чаты
-                const state = getState() as {
-                    [key: string]: {
-                        queries: Record<
-                            string,
-                            {
-                                endpointName?: string;
-                                data?: MediaChatWithRequests;
-                                status: string;
-                                originalArgs?: { id: number; limit?: number };
-                            }
-                        >;
-                    };
-                };
-                const apiState = state[baseApi.reducerPath];
-                const queries = apiState?.queries || {};
+                const apiState = getApiState(getState, baseApi.reducerPath);
+                if (!apiState) return;
 
+                const queries = apiState.queries || {};
                 const chatPatches: Array<{ undo: () => void }> = [];
 
-                // Ищем чаты с этим файлом и обновляем их
-                for (const [queryKey, queryData] of Object.entries(queries)) {
-                    const isGetChat =
-                        queryData?.endpointName === 'getChat' ||
-                        queryKey.includes('"getChat"') ||
-                        queryKey.startsWith('getChat(');
+                // Находим чаты с этим файлом
+                const chatsWithFile = findChatsWithFile(queries, fileId);
 
-                    if (
-                        isGetChat &&
-                        queryData?.data &&
-                        queryData.status === 'fulfilled' &&
-                        queryData.originalArgs
-                    ) {
-                        const chat = queryData.data as MediaChatWithRequests;
-                        const hasFile = chat.requests.some((req) =>
-                            req.files.some((f) => f.id === fileId)
-                        );
-
-                        if (hasFile) {
-                            const args = queryData.originalArgs;
-                            // Оптимистично обновляем previewPath (временно ставим thumbnail base64)
-                            const patchResult = dispatch(
-                                mediaEndpoints.util.updateQueryData(
-                                    'getChat',
-                                    args,
-                                    (draft) => {
-                                        if (draft?.requests) {
-                                            draft.requests = draft.requests.map(
-                                                (req) => ({
-                                                    ...req,
-                                                    files: req.files.map((f) =>
-                                                        f.id === fileId
-                                                            ? {
-                                                                  ...f,
-                                                                  previewPath: `__pending__${thumbnail}`,
-                                                              }
-                                                            : f
-                                                    ),
-                                                })
-                                            );
-                                        }
-                                    }
-                                )
-                            );
-                            chatPatches.push({ undo: patchResult.undo });
-                        }
-                    }
+                // Оптимистично обновляем previewPath (временно ставим thumbnail base64)
+                for (const { args } of chatsWithFile) {
+                    const patchResult = dispatch(
+                        mediaEndpoints.util.updateQueryData(
+                            'getChat',
+                            args,
+                            (draft) => {
+                                updateFileInChat(draft, fileId, (file) => ({
+                                    ...file,
+                                    previewPath: `__pending__${thumbnail}`,
+                                }));
+                            }
+                        )
+                    );
+                    chatPatches.push({ undo: patchResult.undo });
                 }
 
                 try {
                     const { data } = await queryFulfilled;
                     // При успехе - обновляем на реальный путь
-                    for (const [queryKey, queryData] of Object.entries(
-                        queries
-                    )) {
-                        const isGetChat =
-                            queryData?.endpointName === 'getChat' ||
-                            queryKey.includes('"getChat"') ||
-                            queryKey.startsWith('getChat(');
-
-                        if (
-                            isGetChat &&
-                            queryData?.data &&
-                            queryData.originalArgs
-                        ) {
-                            const chat =
-                                queryData.data as MediaChatWithRequests;
-                            const hasFile = chat.requests.some((req) =>
-                                req.files.some((f) => f.id === fileId)
-                            );
-
-                            if (hasFile) {
-                                dispatch(
-                                    mediaEndpoints.util.updateQueryData(
-                                        'getChat',
-                                        queryData.originalArgs,
-                                        (draft) => {
-                                            if (draft?.requests) {
-                                                draft.requests =
-                                                    draft.requests.map(
-                                                        (req) => ({
-                                                            ...req,
-                                                            files: req.files.map(
-                                                                (f) =>
-                                                                    f.id ===
-                                                                    fileId
-                                                                        ? {
-                                                                              ...f,
-                                                                              previewPath:
-                                                                                  data.previewPath,
-                                                                          }
-                                                                        : f
-                                                            ),
-                                                        })
-                                                    );
-                                            }
-                                        }
-                                    )
-                                );
-                            }
-                        }
+                    for (const { args } of chatsWithFile) {
+                        dispatch(
+                            mediaEndpoints.util.updateQueryData(
+                                'getChat',
+                                args,
+                                (draft) => {
+                                    updateFileInChat(draft, fileId, (file) => ({
+                                        ...file,
+                                        previewPath: data.previewPath,
+                                    }));
+                                }
+                            )
+                        );
                     }
                 } catch {
                     // Откатываем изменения при ошибке
@@ -466,129 +397,48 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 fileId,
                 { dispatch, queryFulfilled, getState }
             ) {
-                // Получаем все кешированные запросы
-                const state = getState() as {
-                    [key: string]: {
-                        queries: Record<
-                            string,
-                            {
-                                endpointName?: string;
-                                data?: MediaChatWithRequests | MediaRequest;
-                                status: string;
-                                originalArgs?:
-                                    | { id: number; limit?: number }
-                                    | number;
-                            }
-                        >;
-                    };
-                };
-                const apiState = state[baseApi.reducerPath];
-                const queries = apiState?.queries || {};
+                const apiState = getApiState(getState, baseApi.reducerPath);
+                if (!apiState) return;
 
-                // Находим чат, в котором есть удаляемый файл, и ID чата
-                let chatId: number | null = null;
+                const queries = apiState.queries || {};
                 const chatPatches: Array<{
                     undo: () => void;
                     chatId: number;
-                    args: { id: number; limit?: number };
                 }> = [];
 
-                // Находим все запросы getChat и оптимистично удаляем файл
-                for (const [queryKey, queryData] of Object.entries(queries)) {
-                    // Проверяем тип запроса через endpointName или queryKey
-                    const isGetChat =
-                        queryData?.endpointName === 'getChat' ||
-                        queryKey.includes('"getChat"') ||
-                        queryKey.startsWith('getChat(');
+                // Находим чаты с этим файлом
+                const chatsWithFile = findChatsWithFile(queries, fileId);
+                const chatId = chatsWithFile[0]?.chat.id || null;
 
-                    if (
-                        isGetChat &&
-                        queryData?.data &&
-                        queryData.status === 'fulfilled' &&
-                        queryData.originalArgs &&
-                        typeof queryData.originalArgs === 'object' &&
-                        'id' in queryData.originalArgs
-                    ) {
-                        const chat = queryData.data as MediaChatWithRequests;
-                        // Проверяем, есть ли этот файл в чате
-                        const hasFile = chat.requests.some((req) =>
-                            req.files.some((f) => f.id === fileId)
-                        );
-
-                        if (hasFile) {
-                            if (!chatId) {
-                                chatId = chat.id;
+                // Оптимистично удаляем файл из чатов
+                for (const { args, chat } of chatsWithFile) {
+                    const patchResult = dispatch(
+                        mediaEndpoints.util.updateQueryData(
+                            'getChat',
+                            args,
+                            (draft) => {
+                                removeFileFromChat(draft, fileId);
                             }
+                        )
+                    );
+                    chatPatches.push({
+                        undo: patchResult.undo,
+                        chatId: chat.id,
+                    });
+                }
 
-                            const args = queryData.originalArgs as {
-                                id: number;
-                                limit?: number;
-                            };
-
-                            // Оптимистично удаляем файл из кеша
-                            const patchResult = dispatch(
-                                mediaEndpoints.util.updateQueryData(
-                                    'getChat',
-                                    args,
-                                    (draft) => {
-                                        if (draft?.requests) {
-                                            draft.requests = draft.requests.map(
-                                                (req) => ({
-                                                    ...req,
-                                                    files: req.files.filter(
-                                                        (f) => f.id !== fileId
-                                                    ),
-                                                })
-                                            );
-                                        }
-                                    }
-                                )
-                            );
-                            chatPatches.push({
-                                undo: patchResult.undo,
-                                chatId: chat.id,
-                                args,
-                            });
-                        }
-                    }
-
-                    // Также обновляем getRequest, если файл был в запросе
-                    const isGetRequest =
-                        queryData?.endpointName === 'getRequest' ||
-                        queryKey.includes('"getRequest"') ||
-                        queryKey.startsWith('getRequest(');
-
-                    if (
-                        isGetRequest &&
-                        queryData?.data &&
-                        queryData.status === 'fulfilled' &&
-                        typeof queryData.originalArgs === 'number'
-                    ) {
-                        const request = queryData.data as MediaRequest;
-                        if (
-                            request &&
-                            'files' in request &&
-                            Array.isArray(request.files) &&
-                            request.files.some(
-                                (f: MediaFile) => f.id === fileId
-                            )
-                        ) {
-                            const requestId = queryData.originalArgs;
-                            dispatch(
-                                mediaEndpoints.util.updateQueryData(
-                                    'getRequest',
-                                    requestId,
-                                    (draft) => {
-                                        if (draft?.files) {
-                                            draft.files = draft.files.filter(
-                                                (f) => f.id !== fileId
-                                            );
-                                        }
-                                    }
-                                )
-                            );
-                        }
-                    }
+                // Обновляем getRequest, если файл был в запросе
+                const requestsWithFile = findRequestsWithFile(queries, fileId);
+                for (const { requestId } of requestsWithFile) {
+                    dispatch(
+                        mediaEndpoints.util.updateQueryData(
+                            'getRequest',
+                            requestId,
+                            (draft) => {
+                                removeFileFromRequest(draft, fileId);
+                            }
+                        )
+                    );
                 }
 
                 // Оптимистично обновляем список чатов (для счетчиков файлов)

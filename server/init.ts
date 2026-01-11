@@ -6,7 +6,7 @@ import path from "path";
 import { registerRoutes } from "./routes";
 import { Bot } from "grammy";
 import { handlers } from "./features/telegram/bot/handlers/export";
-import { mediaRouter } from "./features/media/routes";
+import { mediaRouter } from "./features/media/routes/index";
 import { recoverUnfinishedTasks } from "./features/media/generation.service";
 import { syncMediaFilesWithFileSystem } from "./features/media/database.service";
 
