@@ -315,8 +315,10 @@ export function createChatsRouter(): Router {
 
     // Удалить чат
     router.delete('/chats/:id', async (req: Request, res: Response) => {
+        const idParam = req.params.id;
+        const chatId = parseInt(idParam);
+
         try {
-            const chatId = parseInt(req.params.id);
             if (isNaN(chatId)) {
                 return res
                     .status(400)
@@ -325,78 +327,91 @@ export function createChatsRouter(): Router {
 
             console.log(`[API] 🗑️ Запрос на удаление чата: ${chatId}`);
 
-            // 1. Сначала получаем все файлы для удаления с диска
+            // 1. Сначала находим информацию о файлах для удаления с диска
+            // (Делаем это до удаления из БД, чтобы пути были доступны)
             const requests = await prisma.mediaRequest.findMany({
                 where: { chatId },
                 include: { files: true },
             });
 
-            console.log(`[API] Найдено ${requests.length} запросов для удаления`);
+            // 2. Выполняем удаление всех записей в БД в одной транзакции
+            await prisma.$transaction(async (tx) => {
+                // Удаляем файлы через связь с запросом
+                await tx.mediaFile.deleteMany({
+                    where: {
+                        request: {
+                            chatId: chatId
+                        }
+                    }
+                });
 
-            // 2. Удаляем физические файлы
-            let filesCount = 0;
-            for (const request of requests) {
-                for (const file of request.files) {
-                    filesCount++;
-                    if (!file.path) continue;
+                // Удаляем все запросы чата
+                await tx.mediaRequest.deleteMany({
+                    where: { chatId: chatId }
+                });
 
-                    const absolutePath = path.isAbsolute(file.path)
-                        ? file.path
-                        : path.join(mediaStorageConfig.basePath, file.path);
+                // В конце удаляем сам чат
+                await tx.mediaChat.delete({
+                    where: { id: chatId },
+                });
+            });
 
-                    const absolutePreviewPath = file.previewPath
-                        ? path.isAbsolute(file.previewPath)
-                            ? file.previewPath
-                            : path.join(
-                                  mediaStorageConfig.basePath,
-                                  file.previewPath
-                              )
-                        : null;
+            console.log(`[API] ✅ Чат ${chatId} и все связанные данные удалены из БД`);
 
-                    try {
-                        await deleteFile(absolutePath, absolutePreviewPath);
-                    } catch (error) {
-                        console.error(
-                            `Ошибка удаления физического файла ${file.filename}:`,
-                            error
-                        );
-                        // Продолжаем удаление даже если файл не найден на диске
+            // 3. Удаляем физические файлы асинхронно
+            // (Не блокируем ответ пользователю, так как в БД всё уже удалено)
+            (async () => {
+                let filesCount = 0;
+                for (const request of requests) {
+                    for (const file of request.files) {
+                        filesCount++;
+                        if (!file.path) continue;
+
+                        const absolutePath = path.isAbsolute(file.path)
+                            ? file.path
+                            : path.join(mediaStorageConfig.basePath, file.path);
+
+                        const absolutePreviewPath = file.previewPath
+                            ? path.isAbsolute(file.previewPath)
+                                ? file.previewPath
+                                : path.join(
+                                      mediaStorageConfig.basePath,
+                                      file.previewPath
+                                  )
+                            : null;
+
+                        try {
+                            await deleteFile(absolutePath, absolutePreviewPath);
+                        } catch (err) {
+                            // Игнорируем ошибки удаления файлов с диска
+                        }
                     }
                 }
-            }
-            console.log(`[API] Удалено физических файлов: ${filesCount}`);
-
-            // 3. Явно удаляем записи в БД (на случай если CASCADE не сработал на уровне БД)
-            // Сначала файлы
-            const requestIds = requests.map(r => r.id);
-            if (requestIds.length > 0) {
-                const deletedFiles = await prisma.mediaFile.deleteMany({
-                    where: { requestId: { in: requestIds } }
-                });
-                console.log(`[API] Удалено записей файлов из БД: ${deletedFiles.count}`);
-
-                // Затем запросы
-                const deletedRequests = await prisma.mediaRequest.deleteMany({
-                    where: { chatId }
-                });
-                console.log(`[API] Удалено записей запросов из БД: ${deletedRequests.count}`);
-            }
-
-            // 4. Удаляем сам чат
-            const deletedChat = await prisma.mediaChat.delete({
-                where: { id: chatId },
-            });
-            console.log(`[API] Чат успешно удален: ${deletedChat.id}`);
+                if (filesCount > 0) {
+                    console.log(`[API] 🗑️ Удалено физических файлов: ${filesCount} для чата ${chatId}`);
+                }
+            })().catch(err => console.error('[API] Ошибка при удалении файлов с диска:', err));
 
             // Инвалидируем кеш
             invalidateChatCache(chatId);
 
-            res.json({ success: true, message: 'Чат удален', data: { id: chatId } });
+            res.json({
+                success: true,
+                message: 'Чат успешно удален',
+                data: { id: chatId }
+            });
         } catch (error) {
-            console.error('Ошибка удаления чата:', error);
+            console.error(`[API] ❌ Ошибка при удалении чата ${chatId}:`, error);
+
+            // Если чат уже удален (P2025), возвращаем успех для идемпотентности
+            if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
+                 return res.json({ success: true, message: 'Чат уже был удален', data: { id: chatId } });
+            }
+
+            const errorMessage = error instanceof Error ? error.message : String(error);
             res.status(500).json({
                 success: false,
-                error: 'Ошибка удаления чата',
+                error: `Ошибка на сервере: ${errorMessage}`,
             });
         }
     });

@@ -105,32 +105,6 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 url: `/chats/${id}`,
                 method: 'DELETE',
             }),
-            async onQueryStarted(chatId, { dispatch, queryFulfilled }) {
-                // Оптимистично удаляем чат из списка
-                const patchResult = dispatch(
-                    mediaEndpoints.util.updateQueryData(
-                        'getChats',
-                        undefined,
-                        (draft) => {
-                            if (draft) {
-                                const index = draft.findIndex(
-                                    (chat) => chat.id === chatId
-                                );
-                                if (index !== -1) {
-                                    draft.splice(index, 1);
-                                }
-                            }
-                        }
-                    )
-                );
-
-                try {
-                    await queryFulfilled;
-                } catch {
-                    // Откатываем изменения при ошибке
-                    patchResult.undo();
-                }
-            },
             invalidatesTags: (_result, _error, chatId) => [
                 { type: 'Chat', id: chatId },
                 { type: 'Chat', id: 'LIST' },

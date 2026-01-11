@@ -90,8 +90,21 @@ export function ChatSidebar() {
 
         try {
             await deleteChat(chatId).unwrap();
+
+            // Если удалили текущий чат, переходим на главную страницу медиа
+            if (chatId === currentChatId) {
+                navigate({ to: '/media' });
+            }
         } catch (error) {
             console.error('Ошибка удаления чата:', error);
+
+            // Пытаемся извлечь детальную ошибку из ответа сервера
+            const serverError = error && typeof error === 'object' && 'data' in error &&
+                               error.data && typeof error.data === 'object' && 'error' in error.data
+                               ? String(error.data.error)
+                               : 'Не удалось удалить чат. Попробуйте обновить страницу.';
+
+            alert(serverError);
         }
     }
 
