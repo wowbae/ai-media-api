@@ -123,7 +123,7 @@ export function MessageItem({
                             type='button'
                             size='icon'
                             variant='ghost'
-                            className='h-8 w-8 shrink-0 text-purple-400 opacity-0 transition-opacity hover:text-purple-300 hover:bg-purple-600/20 group-hover:opacity-100'
+                            className='h-8 w-8 shrink-0 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100'
                             onClick={() => onRepeatRequest(request)}
                             title='Повторить запрос к нейронке'
                         >

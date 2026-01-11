@@ -25,15 +25,18 @@ export function MediaFullscreenView({
     isPinned = false,
     onTogglePin,
 }: MediaFullscreenViewProps) {
-    if (!file.path) return null;
-    const fileUrl = getMediaFileUrl(file.path);
-    // Поддержка base64 превью из оптимистичного обновления
-    const previewUrl = file.previewPath
-        ? file.previewPath.startsWith('data:') ||
-          file.previewPath.startsWith('__pending__')
-            ? file.previewPath.replace('__pending__', '')
-            : getMediaFileUrl(file.previewPath)
-        : undefined;
+    // Для видео используем path, если его нет - возвращаем null
+    // Для изображений можно использовать url (imgbb) если path нет
+    if (file.type === 'VIDEO' && !file.path) return null;
+    if (file.type === 'IMAGE' && !file.path && !file.url) return null;
+
+    // Для видео всегда используем path (оригинальный файл)
+    // Для изображений используем path если есть, иначе url (imgbb)
+    const fileUrl = file.type === 'VIDEO'
+        ? getMediaFileUrl(file.path!)
+        : file.path
+            ? getMediaFileUrl(file.path)
+            : file.url || '';
 
     // Обработка клавиши Escape для закрытия
     useEffect(() => {
@@ -68,14 +71,14 @@ export function MediaFullscreenView({
                     />
                 )}
 
-                {file.type === 'VIDEO' && (
+                {file.type === 'VIDEO' && file.path && (
                     <video
                         src={fileUrl}
-                        poster={previewUrl}
                         controls
-                        // autoPlay
-                        // muted
+                        autoPlay
                         className='max-h-[90vh] max-w-[90vw]'
+                        preload='none'
+                        playsInline
                     />
                 )}
 
@@ -112,7 +115,7 @@ export function MediaFullscreenView({
                                 e.stopPropagation();
                                 onRepeatRequest(file.requestId);
                             }}
-                            className='h-8 w-8 text-purple-400 hover:text-purple-300'
+                            className='h-8 w-8 text-slate-400 hover:text-cyan-400 focus:text-cyan-400'
                             title='Повторить запрос'
                         >
                             <RefreshCcw className='h-4 w-4' />

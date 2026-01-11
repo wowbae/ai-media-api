@@ -9,6 +9,7 @@ import {
     Loader2,
     Pin,
     RefreshCcw,
+    Maximize2,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -440,7 +441,7 @@ export function MediaGallery({
                                                     <Button
                                                         size='icon'
                                                         variant='ghost'
-                                                        className='absolute left-8 top-1 h-6 w-6 text-purple-400 opacity-0 transition-opacity hover:text-purple-300 hover:bg-purple-600/20 group-hover:opacity-100'
+                                                        className='absolute left-8 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100'
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             onRepeatRequest(
@@ -576,7 +577,7 @@ export function MediaGallery({
                                                     <Button
                                                         size='icon'
                                                         variant='ghost'
-                                                        className='absolute left-8 top-1 h-6 w-6 text-purple-400 opacity-0 transition-opacity hover:text-purple-300 hover:bg-purple-600/20 group-hover:opacity-100'
+                                                        className='absolute left-8 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100'
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             onRepeatRequest(
@@ -700,12 +701,25 @@ export function MediaGallery({
                                                         <Paperclip className='h-3.5 w-3.5' />
                                                     </Button>
                                                 )}
+                                                {/* Кнопка разворачивания видео */}
+                                                <Button
+                                                    size='icon'
+                                                    variant='ghost'
+                                                    className='absolute left-1 top-8 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-blue-400 hover:bg-blue-600/20 group-hover:opacity-100'
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleFileClick(file);
+                                                    }}
+                                                    title='Развернуть видео'
+                                                >
+                                                    <Maximize2 className='h-3.5 w-3.5' />
+                                                </Button>
                                                 {/* Кнопка повторить запрос */}
                                                 {onRepeatRequest && (
                                                     <Button
                                                         size='icon'
                                                         variant='ghost'
-                                                        className='absolute left-8 top-1 h-6 w-6 text-purple-400 opacity-0 transition-opacity hover:text-purple-300 hover:bg-purple-600/20 group-hover:opacity-100'
+                                                        className='absolute left-8 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100'
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             onRepeatRequest(
