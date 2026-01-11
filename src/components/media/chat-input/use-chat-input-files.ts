@@ -29,7 +29,7 @@ export function useChatInputFiles(chatId?: number) {
 
     // Обработка файлов (общая функция для переиспользования)
     const processFiles = useCallback(
-        async (files: File[]): Promise<AttachedFile[]> => {
+        async (files: File[], shouldUpload: boolean = false): Promise<AttachedFile[]> => {
             const newFiles: AttachedFile[] = [];
             const imageFiles: File[] = [];
             const videoFiles: File[] = [];
@@ -126,8 +126,8 @@ export function useChatInputFiles(chatId?: number) {
                 }
             }
 
-            // Загружаем файлы в БД и в ai-media (по запросу пользователя)
-            if (chatId && newFiles.length > 0) {
+            // Загружаем файлы в БД и в ai-media (только если это новый пользовательский файл)
+            if (shouldUpload && chatId && newFiles.length > 0) {
                 try {
                     const uploadFiles = await Promise.all(
                         newFiles.map(async (f) => ({
@@ -187,13 +187,13 @@ export function useChatInputFiles(chatId?: number) {
         []
     );
 
-    // Обработка выбора файлов из input
+    // Обработка выбора файлов из input (РУЧНОЙ ВЫБОР)
     const handleFileSelect = useCallback(
         async (event: React.ChangeEvent<HTMLInputElement>) => {
             const files = event.target.files;
             if (!files) return;
 
-            const newFiles = await processFiles(Array.from(files));
+            const newFiles = await processFiles(Array.from(files), true); // true = upload to DB
             setAttachedFiles((prev) => [...prev, ...newFiles]);
 
             // Сбрасываем input
@@ -204,14 +204,14 @@ export function useChatInputFiles(chatId?: number) {
         [processFiles]
     );
 
-    // Добавление файла из URL
+    // Добавление файла из URL (ПРОГРАММНОЕ - НЕ СОХРАНЯЕМ В БД ТАК КАК ЭТО УЖЕ ЕСТЬ В СИСТЕМЕ)
     const addFileFromUrl = useCallback(
         async (url: string, filename: string) => {
             try {
                 // Загружаем файл по URL и обрабатываем через processFiles
                 // (который автоматически загрузит изображения на imgbb)
                 const file = await urlToFile(url, filename);
-                const processedFiles = await processFiles([file]);
+                const processedFiles = await processFiles([file], false); // false = DON'T upload to DB again
                 setAttachedFiles((prev) => [...prev, ...processedFiles]);
             } catch (error) {
                 console.error(
@@ -277,7 +277,7 @@ export function useChatInputFiles(chatId?: number) {
             const files = Array.from(event.dataTransfer.files);
             if (files.length === 0) return;
 
-            const newFiles = await processFiles(files);
+            const newFiles = await processFiles(files, true); // true = upload to DB
             if (newFiles.length > 0) {
                 setAttachedFiles((prev) => [...prev, ...newFiles]);
             }
@@ -285,7 +285,7 @@ export function useChatInputFiles(chatId?: number) {
         [processFiles]
     );
 
-    // Обработчик paste из буфера обмена
+    // Обработчик paste из буфера обмена (РУЧНОЙ ВЫБОР)
     const handlePaste = useCallback(
         async (event: React.ClipboardEvent<HTMLTextAreaElement>, isDisabled: boolean) => {
             if (isDisabled) return;
@@ -311,7 +311,7 @@ export function useChatInputFiles(chatId?: number) {
             // Предотвращаем вставку текста, если есть файлы
             event.preventDefault();
 
-            const newFiles = await processFiles(files);
+            const newFiles = await processFiles(files, true); // true = upload to DB
             if (newFiles.length > 0) {
                 setAttachedFiles((prev) => [...prev, ...newFiles]);
             }
