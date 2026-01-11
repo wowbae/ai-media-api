@@ -549,13 +549,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                         setSeed(undefined);
                                     } else {
                                         const numValue = Number(value);
-                                        if (
-                                            !isNaN(numValue) &&
-                                            numValue >= 10000 &&
-                                            numValue <= 99999
-                                        ) {
-                                            setSeed(numValue);
-                                        }
+                                        setSeed(numValue);
                                     }
                                 }}
                                 disabled={isDisabled}
