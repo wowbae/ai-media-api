@@ -14,6 +14,7 @@ import {
     useGetChatQuery,
     useUpdateChatMutation,
     useGetRequestQuery,
+    useLazyGetRequestQuery,
     useGetModelsQuery,
     useGenerateMediaMutation,
     type MediaModel,
@@ -80,6 +81,7 @@ function MediaChatPage() {
 
     const [updateChat] = useUpdateChatMutation();
     const [generateMedia] = useGenerateMediaMutation();
+    const [getRequestTrigger] = useLazyGetRequestQuery();
 
     const { isTestMode } = useTestMode();
 
@@ -641,6 +643,20 @@ function MediaChatPage() {
         }
     }
 
+    // Обработчик повторения запроса по ID (для MediaGallery)
+    async function handleRepeatRequestById(requestId: number) {
+        try {
+            // Получаем полные данные запроса
+            const request = await getRequestTrigger(requestId).unwrap();
+            if (request) {
+                await handleRepeatRequest(request);
+            }
+        } catch (error) {
+            console.error('[Chat] Ошибка при получении данных запроса:', error);
+            alert('Не удалось получить данные запроса для повторения');
+        }
+    }
+
     // Показываем индикатор обновления только если есть кешированные данные
     const showUpdatingIndicator = isChatFetching && !isChatLoading;
 
@@ -680,7 +696,11 @@ function MediaChatPage() {
             </div>
 
             {/* Панель с медиафайлами */}
-            <MediaGallery chatId={chatIdNum} onAttachFile={handleAttachFile} />
+            <MediaGallery
+                chatId={chatIdNum}
+                onAttachFile={handleAttachFile}
+                onRepeatRequest={handleRepeatRequestById}
+            />
         </div>
     );
 }

@@ -399,6 +399,8 @@ mediaRouter.delete('/chats/:id', async (req: Request, res: Response) => {
         // Преобразуем относительные пути в абсолютные
         for (const request of requests) {
             for (const file of request.files) {
+                if (!file.path) continue;
+
                 const absolutePath = path.join(
                     process.cwd(),
                     mediaStorageConfig.basePath,
@@ -837,6 +839,13 @@ mediaRouter.post('/generate-test', async (req: Request, res: Response) => {
             },
         });
 
+        if (!lastFile.path) {
+            return res.status(400).json({
+                success: false,
+                error: 'Последний файл не имеет локального пути и не может быть скопирован',
+            });
+        }
+
         // Копируем файл
         const { path: newFilePath, previewPath: newPreviewPath } =
             await copyFile(lastFile.path, lastFile.previewPath);
@@ -1196,11 +1205,14 @@ mediaRouter.delete('/files/:id', async (req: Request, res: Response) => {
         }
 
         // Преобразуем относительные пути в абсолютные для удаления
-        const absolutePath = path.join(
-            process.cwd(),
-            mediaStorageConfig.basePath,
-            file.path
-        );
+        const absolutePath = file.path
+            ? path.join(
+                  process.cwd(),
+                  mediaStorageConfig.basePath,
+                  file.path
+              )
+            : null;
+
         const absolutePreviewPath = file.previewPath
             ? path.join(
                   process.cwd(),
@@ -1211,11 +1223,11 @@ mediaRouter.delete('/files/:id', async (req: Request, res: Response) => {
 
         // Проверяем существование физического файла перед удалением
         const { existsSync } = await import('fs');
-        const fileExists = existsSync(absolutePath);
+        const fileExists = absolutePath ? existsSync(absolutePath) : false;
 
         if (fileExists) {
             // Удаляем физический файл только если он существует
-            await deleteFile(absolutePath, absolutePreviewPath);
+            await deleteFile(absolutePath!, absolutePreviewPath);
             console.log(
                 `[MediaRoutes] Физический файл удален: ${file.filename}`
             );

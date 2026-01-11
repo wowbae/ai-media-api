@@ -32,6 +32,7 @@ export {
     useGenerateMediaMutation,
     useGenerateMediaTestMutation,
     useGetRequestQuery,
+    useLazyGetRequestQuery,
     useGetFilesQuery,
     useUploadThumbnailMutation,
     useDeleteFileMutation,

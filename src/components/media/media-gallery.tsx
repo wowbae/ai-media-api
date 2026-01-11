@@ -10,6 +10,7 @@ import {
     VideoIcon,
     Loader2,
     Pin,
+    RefreshCcw,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ import { formatFileSize, downloadFile } from '@/lib/utils';
 interface MediaGalleryProps {
     chatId?: number; // Optional - если не указан, загружаем все файлы
     onAttachFile?: (fileUrl: string, filename: string) => void;
+    onRepeatRequest?: (requestId: number) => void;
 }
 
 // Количество файлов для первоначального отображения
@@ -37,7 +39,11 @@ const INITIAL_FILES_LIMIT = 12;
 // Количество файлов для подгрузки при скролле
 const LOAD_MORE_COUNT = 12;
 
-export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
+export function MediaGallery({
+    chatId,
+    onAttachFile,
+    onRepeatRequest,
+}: MediaGalleryProps) {
     const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null);
     const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
     const [page, setPage] = useState(1);
@@ -346,6 +352,23 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
                                                         )}
                                                     </Button>
                                                 )}
+                                                {/* Кнопка повторить запрос */}
+                                                {onRepeatRequest && (
+                                                    <Button
+                                                        size='icon'
+                                                        variant='ghost'
+                                                        className='absolute left-8 top-1 h-6 w-6 text-purple-400 opacity-0 transition-opacity hover:text-purple-300 hover:bg-purple-600/20 group-hover:opacity-100'
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onRepeatRequest(
+                                                                file.requestId
+                                                            );
+                                                        }}
+                                                        title='Повторить запрос'
+                                                    >
+                                                        <RefreshCcw className='h-3.5 w-3.5' />
+                                                    </Button>
+                                                )}
                                                 {/* Кнопка закрепления */}
                                                 <Button
                                                     size='icon'
@@ -464,6 +487,23 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
                                                         )}
                                                     </Button>
                                                 )}
+                                                {/* Кнопка повторить запрос */}
+                                                {onRepeatRequest && (
+                                                    <Button
+                                                        size='icon'
+                                                        variant='ghost'
+                                                        className='absolute left-8 top-1 h-6 w-6 text-purple-400 opacity-0 transition-opacity hover:text-purple-300 hover:bg-purple-600/20 group-hover:opacity-100'
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onRepeatRequest(
+                                                                file.requestId
+                                                            );
+                                                        }}
+                                                        title='Повторить запрос'
+                                                    >
+                                                        <RefreshCcw className='h-3.5 w-3.5' />
+                                                    </Button>
+                                                )}
                                                 {/* Кнопка закрепления */}
                                                 <Button
                                                     size='icon'
@@ -576,6 +616,23 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
                                                         <Paperclip className='h-3.5 w-3.5' />
                                                     </Button>
                                                 )}
+                                                {/* Кнопка повторить запрос */}
+                                                {onRepeatRequest && (
+                                                    <Button
+                                                        size='icon'
+                                                        variant='ghost'
+                                                        className='absolute left-8 top-1 h-6 w-6 text-purple-400 opacity-0 transition-opacity hover:text-purple-300 hover:bg-purple-600/20 group-hover:opacity-100'
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onRepeatRequest(
+                                                                file.requestId
+                                                            );
+                                                        }}
+                                                        title='Повторить запрос'
+                                                    >
+                                                        <RefreshCcw className='h-3.5 w-3.5' />
+                                                    </Button>
+                                                )}
                                                 {/* Кнопка удаления справа вверху */}
                                                 <Button
                                                     size='icon'
@@ -626,6 +683,7 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
                     file={selectedFile}
                     onClose={() => setSelectedFile(null)}
                     onAttachFile={onAttachFile}
+                    onRepeatRequest={onRepeatRequest}
                     isPinned={pinnedImageIds.has(selectedFile.id)}
                     onTogglePin={() => togglePinImage(selectedFile.id)}
                 />
@@ -638,6 +696,7 @@ interface MediaFullscreenViewProps {
     file: MediaFile;
     onClose: () => void;
     onAttachFile?: (fileUrl: string, filename: string) => void;
+    onRepeatRequest?: (requestId: number) => void;
     isPinned?: boolean;
     onTogglePin?: () => void;
 }
@@ -646,6 +705,7 @@ function MediaFullscreenView({
     file,
     onClose,
     onAttachFile,
+    onRepeatRequest,
     isPinned = false,
     onTogglePin,
 }: MediaFullscreenViewProps) {
@@ -725,6 +785,21 @@ function MediaFullscreenView({
                             title='Прикрепить к промпту'
                         >
                             <Paperclip className='h-4 w-4' />
+                        </Button>
+                    )}
+                    {/* Кнопка повторить запрос */}
+                    {onRepeatRequest && (
+                        <Button
+                            size='icon'
+                            variant='secondary'
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onRepeatRequest(file.requestId);
+                            }}
+                            className='h-8 w-8 text-purple-400 hover:text-purple-300'
+                            title='Повторить запрос'
+                        >
+                            <RefreshCcw className='h-4 w-4' />
                         </Button>
                     )}
                     <Button
