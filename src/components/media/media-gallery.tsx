@@ -20,13 +20,15 @@ import {
     type MediaFile,
     useDeleteFileMutation,
     useGetFilesQuery,
+    useGetChatQuery,
 } from '@/redux/media-api';
 import {
     PANEL_HEADER_CLASSES,
     PANEL_HEADER_TITLE_CLASSES,
 } from '@/lib/panel-styles';
 import { getMediaFileUrl } from '@/lib/constants';
-import { formatFileSize, downloadFile } from '@/lib/utils';
+import { formatFileSize, downloadFile, cn } from '@/lib/utils';
+import { calculateTotalChatCost, formatCost } from '@/lib/cost-utils';
 
 interface MediaGalleryProps {
     chatId?: number; // Optional - если не указан, загружаем все файлы
@@ -94,6 +96,18 @@ export function MediaGallery({
             skip: chatId === undefined,
         }
     );
+
+    // Загружаем данные чата для расчета стоимости (все запросы)
+    const { data: chatData } = useGetChatQuery(
+        { id: chatId!, limit: 1000 },
+        { skip: chatId === undefined }
+    );
+
+    // Расчет суммарной стоимости
+    const totalCost = useMemo(() => {
+        if (!chatData?.requests) return 0;
+        return calculateTotalChatCost(chatData.requests);
+    }, [chatData?.requests]);
 
     // Накопление файлов из всех загруженных страниц
     useEffect(() => {
@@ -261,10 +275,15 @@ export function MediaGallery({
         <>
             <div className='flex h-full w-[30%] flex-col border-l border-slate-700 bg-slate-800/50'>
                 {/* Заголовок */}
-                <div className={PANEL_HEADER_CLASSES}>
+                <div className={cn(PANEL_HEADER_CLASSES, 'flex-row items-center justify-between')}>
                     <h2 className={PANEL_HEADER_TITLE_CLASSES}>
                         Медиафайлы ({allFiles.length})
                     </h2>
+                    {totalCost > 0 && (
+                        <div className='text-[10px] font-medium px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'>
+                            {formatCost(totalCost)}
+                        </div>
+                    )}
                 </div>
 
                 {/* Grid с файлами */}
