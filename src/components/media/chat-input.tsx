@@ -12,6 +12,7 @@ import { Send, Paperclip, X, Loader2, Lock, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import {
     Select,
     SelectContent,
@@ -587,19 +588,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     {/* Поле для Veo 3.1: seed */}
                     {modelType.isVeo && (
                         <div className='w-74'>
-                            <Input
-                                type='number'
+                            <NumberInput
                                 placeholder='Seed (опционально, 10000-99999)'
-                                value={seed === undefined ? '' : String(seed)}
-                                onChange={(e) => {
-                                    const value = e.target.value.trim();
-                                    if (value === '') {
-                                        setSeed(undefined);
-                                    } else {
-                                        const numValue = Number(value);
-                                        setSeed(numValue);
-                                    }
-                                }}
+                                value={seed}
+                                onValueChange={setSeed}
                                 disabled={isDisabled}
                                 className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500'
                                 min={10000}
@@ -651,27 +643,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             disabled={isDisabled}
                             className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500'
                         />
-                        <Input
-                            type='number'
+                        <NumberInput
                             placeholder='CFG Scale (опционально, 1-20)'
-                            value={
-                                cfgScale === undefined ? '' : String(cfgScale)
-                            }
-                            onChange={(e) => {
-                                const value = e.target.value.trim();
-                                if (value === '') {
-                                    setCfgScale(undefined);
-                                } else {
-                                    const numValue = Number(value);
-                                    if (
-                                        !isNaN(numValue) &&
-                                        numValue >= 1 &&
-                                        numValue <= 20
-                                    ) {
-                                        setCfgScale(numValue);
-                                    }
-                                }
-                            }}
+                            value={cfgScale}
+                            onValueChange={setCfgScale}
                             disabled={isDisabled}
                             className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-40'
                             min={1}
@@ -713,23 +688,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 <p className='mb-1 text-xs text-slate-400'>
                                     Стабильность (0-1)
                                 </p>
-                                <Input
-                                    type='number'
+                                <NumberInput
                                     placeholder='0.5'
-                                    value={String(stability)}
-                                    onChange={(e) => {
-                                        const value = e.target.value.trim();
-                                        if (value !== '') {
-                                            const numValue = Number(value);
-                                            if (
-                                                !isNaN(numValue) &&
-                                                numValue >= 0 &&
-                                                numValue <= 1
-                                            ) {
-                                                setStability(numValue);
-                                            }
-                                        }
-                                    }}
+                                    value={stability}
+                                    onValueChange={(value) =>
+                                        setStability(value ?? 0.5)
+                                    }
                                     disabled={isDisabled}
                                     className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-36'
                                     min={0}
@@ -741,23 +705,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 <p className='mb-1 text-xs text-slate-400'>
                                     Усиление сходства (0-1)
                                 </p>
-                                <Input
-                                    type='number'
+                                <NumberInput
                                     placeholder='0.75'
-                                    value={String(similarityBoost)}
-                                    onChange={(e) => {
-                                        const value = e.target.value.trim();
-                                        if (value !== '') {
-                                            const numValue = Number(value);
-                                            if (
-                                                !isNaN(numValue) &&
-                                                numValue >= 0 &&
-                                                numValue <= 1
-                                            ) {
-                                                setSimilarityBoost(numValue);
-                                            }
-                                        }
-                                    }}
+                                    value={similarityBoost}
+                                    onValueChange={(value) =>
+                                        setSimilarityBoost(value ?? 0.75)
+                                    }
                                     disabled={isDisabled}
                                     className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-44'
                                     min={0}
@@ -769,23 +722,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 <p className='mb-1 text-xs text-slate-400'>
                                     Скорость (0.5-2)
                                 </p>
-                                <Input
-                                    type='number'
+                                <NumberInput
                                     placeholder='1'
-                                    value={String(speed)}
-                                    onChange={(e) => {
-                                        const value = e.target.value.trim();
-                                        if (value !== '') {
-                                            const numValue = Number(value);
-                                            if (
-                                                !isNaN(numValue) &&
-                                                numValue >= 0.5 &&
-                                                numValue <= 2
-                                            ) {
-                                                setSpeed(numValue);
-                                            }
-                                        }
-                                    }}
+                                    value={speed}
+                                    onValueChange={(value) =>
+                                        setSpeed(value ?? 1)
+                                    }
                                     disabled={isDisabled}
                                     className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-36'
                                     min={0.5}
