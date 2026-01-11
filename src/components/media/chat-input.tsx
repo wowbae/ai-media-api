@@ -11,6 +11,13 @@ import { Send, Paperclip, X, Loader2, Lock, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
     loadMediaSettings,
@@ -82,7 +89,38 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             undefined
         );
         const [cfgScale, setCfgScale] = useState<number | undefined>(undefined);
+        // Параметры для ElevenLabs Multilingual v2
+        const [voice, setVoice] = useState<string>('Rachel');
+        const [stability, setStability] = useState<number>(0.5);
+        const [similarityBoost, setSimilarityBoost] = useState<number>(0.75);
+        const [speed, setSpeed] = useState<number>(1);
+        const [languageCode, setLanguageCode] = useState<string>('');
         const [isLockEnabled, setIsLockEnabled] = useState(false);
+
+        // Список доступных голосов для ElevenLabs
+        const elevenLabsVoices = [
+            'Rachel',
+            'Aria',
+            'Roger',
+            'Sarah',
+            'Laura',
+            'Charlie',
+            'George',
+            'Callum',
+            'River',
+            'Liam',
+            'Charlotte',
+            'Alice',
+            'Matilda',
+            'Will',
+            'Jessica',
+            'Eric',
+            'Chris',
+            'Brian',
+            'Daniel',
+            'Lily',
+            'Bill',
+        ];
         const [needsScrollbar, setNeedsScrollbar] = useState(false);
         const [attachingFile, setAttachingFile] = useState(false);
 
@@ -107,6 +145,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const isSeedream4_5 = (currentModel as string) === 'SEEDREAM_4_5';
         const isSeedream4_5_Edit =
             (currentModel as string) === 'SEEDREAM_4_5_EDIT';
+        const isElevenLabs =
+            (currentModel as string) === 'ELEVENLABS_MULTILINGUAL_V2';
 
         // Хуки для работы с файлами и отправкой
         const {
@@ -373,6 +413,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     isImagen4,
                     isSeedream4_5,
                     isSeedream4_5_Edit,
+                    isElevenLabs,
+                    voice,
+                    stability,
+                    similarityBoost,
+                    speed,
+                    languageCode,
                     isLockEnabled,
                     onClearForm: () => {
                         setPrompt('');
@@ -411,6 +457,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 isImagen4,
                 isSeedream4_5,
                 isSeedream4_5_Edit,
+                isElevenLabs,
+                voice,
+                stability,
+                similarityBoost,
+                speed,
+                languageCode,
                 isLockEnabled,
                 clearFiles,
             ]
@@ -629,6 +681,138 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             min={1}
                             max={20}
                         />
+                    </div>
+                )}
+
+                {/* Поля для ElevenLabs Multilingual v2 */}
+                {isElevenLabs && (
+                    <div className='mb-2 space-y-2'>
+                        <div className='flex flex-wrap gap-2'>
+                            <div className='flex flex-col'>
+                                <p className='mb-1 text-xs text-slate-400'>
+                                    Голос
+                                </p>
+                                <Select
+                                    value={voice}
+                                    onValueChange={setVoice}
+                                    disabled={isDisabled}
+                                >
+                                    <SelectTrigger className='w-40 border-slate-600 bg-slate-700 text-white focus-visible:ring-cyan-500'>
+                                        <SelectValue placeholder='Выберите голос' />
+                                    </SelectTrigger>
+                                    <SelectContent className='border-slate-700 bg-slate-800'>
+                                        {elevenLabsVoices.map((voiceOption) => (
+                                            <SelectItem
+                                                key={voiceOption}
+                                                value={voiceOption}
+                                                className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                            >
+                                                {voiceOption}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className='flex flex-col'>
+                                <p className='mb-1 text-xs text-slate-400'>
+                                    Стабильность (0-1)
+                                </p>
+                                <Input
+                                    type='number'
+                                    placeholder='0.5'
+                                    value={String(stability)}
+                                    onChange={(e) => {
+                                        const value = e.target.value.trim();
+                                        if (value !== '') {
+                                            const numValue = Number(value);
+                                            if (
+                                                !isNaN(numValue) &&
+                                                numValue >= 0 &&
+                                                numValue <= 1
+                                            ) {
+                                                setStability(numValue);
+                                            }
+                                        }
+                                    }}
+                                    disabled={isDisabled}
+                                    className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-36'
+                                    min={0}
+                                    max={1}
+                                    step={0.1}
+                                />
+                            </div>
+                            <div className='flex flex-col'>
+                                <p className='mb-1 text-xs text-slate-400'>
+                                    Усиление сходства (0-1)
+                                </p>
+                                <Input
+                                    type='number'
+                                    placeholder='0.75'
+                                    value={String(similarityBoost)}
+                                    onChange={(e) => {
+                                        const value = e.target.value.trim();
+                                        if (value !== '') {
+                                            const numValue = Number(value);
+                                            if (
+                                                !isNaN(numValue) &&
+                                                numValue >= 0 &&
+                                                numValue <= 1
+                                            ) {
+                                                setSimilarityBoost(numValue);
+                                            }
+                                        }
+                                    }}
+                                    disabled={isDisabled}
+                                    className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-44'
+                                    min={0}
+                                    max={1}
+                                    step={0.1}
+                                />
+                            </div>
+                            <div className='flex flex-col'>
+                                <p className='mb-1 text-xs text-slate-400'>
+                                    Скорость (0.5-2)
+                                </p>
+                                <Input
+                                    type='number'
+                                    placeholder='1'
+                                    value={String(speed)}
+                                    onChange={(e) => {
+                                        const value = e.target.value.trim();
+                                        if (value !== '') {
+                                            const numValue = Number(value);
+                                            if (
+                                                !isNaN(numValue) &&
+                                                numValue >= 0.5 &&
+                                                numValue <= 2
+                                            ) {
+                                                setSpeed(numValue);
+                                            }
+                                        }
+                                    }}
+                                    disabled={isDisabled}
+                                    className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-36'
+                                    min={0.5}
+                                    max={2}
+                                    step={0.1}
+                                />
+                            </div>
+                            <div className='flex flex-col'>
+                                <p className='mb-1 text-xs text-slate-400'>
+                                    Код языка (опционально)
+                                </p>
+                                <Input
+                                    type='text'
+                                    placeholder='ru, en, es...'
+                                    value={languageCode}
+                                    onChange={(e) =>
+                                        setLanguageCode(e.target.value)
+                                    }
+                                    disabled={isDisabled}
+                                    className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-40'
+                                />
+                            </div>
+                        </div>
                     </div>
                 )}
 

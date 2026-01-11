@@ -44,32 +44,18 @@ export function createKieAiElevenLabsProvider(
       prompt: params.prompt.substring(0, 100),
     });
 
-    // Парсим настройки из params.settings (если передаются через JSON)
-    // Пока используем значения по умолчанию, так как settings не поддерживается в GenerateParams
-    const settings: {
-      voice?: string;
-      stability?: number;
-      similarity_boost?: number;
-      style?: number;
-      speed?: number;
-      timestamps?: boolean;
-      previous_text?: string;
-      next_text?: string;
-      language_code?: string;
-    } = {};
-
-    // Формируем input объект согласно документации
+    // Формируем input объект согласно документации, используя параметры из GenerateParams
     const input: KieAiElevenLabsRequest["input"] = {
       text: params.prompt,
-      voice: settings.voice || "Rachel",
-      stability: settings.stability ?? 0.5,
-      similarity_boost: settings.similarity_boost ?? 0.75,
-      style: settings.style ?? 0,
-      speed: settings.speed ?? 1,
-      timestamps: settings.timestamps ?? false,
-      previous_text: settings.previous_text || "",
-      next_text: settings.next_text || "",
-      language_code: settings.language_code || "",
+      voice: params.voice || "Rachel",
+      stability: params.stability ?? 0.5,
+      similarity_boost: params.similarityBoost ?? 0.75,
+      style: 0, // По умолчанию 0
+      speed: params.speed ?? 1,
+      timestamps: false, // По умолчанию false
+      previous_text: "", // По умолчанию пустая строка
+      next_text: "", // По умолчанию пустая строка
+      language_code: params.languageCode || "",
     };
 
     // Формируем тело запроса согласно документации

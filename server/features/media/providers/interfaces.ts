@@ -30,6 +30,12 @@ export interface GenerateParams {
   seed?: string | number; // Seed для Imagen4
   cfgScale?: number; // CFG scale для Kling 2.5 Turbo Pro
   tailImageUrl?: string; // Tail frame image для Kling 2.5 Turbo Pro (image-to-video)
+  // Параметры для ElevenLabs Multilingual v2
+  voice?: string; // Голос для TTS (по умолчанию "Rachel")
+  stability?: number; // Стабильность (0-1, по умолчанию 0.5)
+  similarityBoost?: number; // Усиление сходства (0-1, по умолчанию 0.75)
+  speed?: number; // Скорость (0.5-2, по умолчанию 1)
+  languageCode?: string; // Код языка (опционально)
 }
 
 // Результат создания задачи (для async провайдеров)

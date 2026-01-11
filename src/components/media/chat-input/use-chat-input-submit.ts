@@ -42,6 +42,12 @@ interface SubmitParams {
     isImagen4: boolean;
     isSeedream4_5: boolean;
     isSeedream4_5_Edit: boolean;
+    isElevenLabs: boolean;
+    voice: string;
+    stability: number;
+    similarityBoost: number;
+    speed: number;
+    languageCode: string;
     isLockEnabled: boolean;
     onClearForm: () => void;
 }
@@ -333,6 +339,13 @@ export function useChatInputSubmit({
                             tailImageUrl && {
                                 tailImageUrl,
                             }),
+                        ...(params.isElevenLabs && {
+                            voice: params.voice,
+                            stability: params.stability,
+                            similarityBoost: params.similarityBoost,
+                            speed: params.speed,
+                            ...(params.languageCode && { languageCode: params.languageCode }),
+                        }),
                     }).unwrap();
                     console.log(
                         '[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:',

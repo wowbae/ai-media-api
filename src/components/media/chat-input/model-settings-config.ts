@@ -213,6 +213,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
     },
     MIDJOURNEY: {},
     SORA_2: {},
+    ELEVENLABS_MULTILINGUAL_V2: {}, // Настройки через отдельные поля в UI
 };
 
 // Получить конфигурацию для модели

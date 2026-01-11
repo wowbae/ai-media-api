@@ -506,6 +506,11 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             seed,
             cfgScale,
             tailImageUrl,
+            voice,
+            stability,
+            similarityBoost,
+            speed,
+            languageCode,
         } = req.body as GenerateMediaRequest;
 
         console.log('[API] POST /generate - получен запрос:', {
@@ -659,6 +664,11 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
         if (negativePrompt !== undefined && negativePrompt.trim() !== '') requestSettings.negativePrompt = negativePrompt;
         if (cfgScale !== undefined) requestSettings.cfgScale = cfgScale;
         if (tailImageUrl !== undefined && tailImageUrl.trim() !== '') requestSettings.tailImageUrl = tailImageUrl;
+        if (voice !== undefined && voice.trim() !== '') requestSettings.voice = voice;
+        if (stability !== undefined) requestSettings.stability = stability;
+        if (similarityBoost !== undefined) requestSettings.similarityBoost = similarityBoost;
+        if (speed !== undefined) requestSettings.speed = speed;
+        if (languageCode !== undefined && languageCode.trim() !== '') requestSettings.languageCode = languageCode;
 
         const mediaRequest = await prisma.mediaRequest.create({
             data: {
@@ -708,7 +718,12 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             negativePrompt,
             seed,
             cfgScale,
-            tailImageUrl
+            tailImageUrl,
+            voice,
+            stability,
+            similarityBoost,
+            speed,
+            languageCode
         ).catch((error) => {
             console.error('Ошибка генерации:', error);
         });

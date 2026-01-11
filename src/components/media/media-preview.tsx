@@ -103,8 +103,8 @@ export function MediaPreview({
           <AudioPreview originalUrl={originalFileUrl || ''} filename={file.filename} />
         )}
 
-        {/* Overlay с действиями (не показываем для видео, чтобы не перекрывать нативные контролы) */}
-        {file.type !== "VIDEO" && (
+        {/* Overlay с действиями (не показываем для видео и аудио, чтобы не перекрывать нативные контролы) */}
+        {file.type !== "VIDEO" && file.type !== "AUDIO" && (
           <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
             {file.type === "IMAGE" && (
               <Button
@@ -434,33 +434,18 @@ interface AudioPreviewProps {
 }
 
 function AudioPreview({ originalUrl, filename }: AudioPreviewProps) {
-  const [shouldLoadOriginal, setShouldLoadOriginal] = useState(false);
-
-  function handlePlay() {
-    // Загружаем оригинал только при попытке воспроизведения
-    setShouldLoadOriginal(true);
-  }
-
+  // Загружаем аудио сразу, чтобы можно было воспроизвести
   return (
     <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-slate-800 p-4">
       <AudioLines className="h-12 w-12 text-cyan-400" />
       <p className="text-xs text-slate-400 text-center max-w-full truncate">
         {filename}
       </p>
-      {shouldLoadOriginal ? (
-        <audio
-          src={originalUrl}
-          controls
-          // autoPlay
-          // muted
-          className="w-full"
-        />
-      ) : (
-        <Button onClick={handlePlay} variant="secondary" className="mt-2">
-          <AudioLines className="mr-2 h-4 w-4" />
-          Воспроизвести
-        </Button>
-      )}
+      <audio
+        src={originalUrl}
+        controls
+        className="w-full"
+      />
     </div>
   );
 }

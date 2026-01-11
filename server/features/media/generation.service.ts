@@ -44,6 +44,11 @@ export async function generateMedia(
   seed?: string | number,
   cfgScale?: number,
   tailImageUrl?: string,
+  voice?: string,
+  stability?: number,
+  similarityBoost?: number,
+  speed?: number,
+  languageCode?: string,
 ): Promise<SavedFileInfo[]> {
   const providerManager = getProviderManager();
   const provider = providerManager.getProvider(model);
@@ -88,6 +93,11 @@ export async function generateMedia(
       seed,
       cfgScale,
       tailImageUrl,
+      voice,
+      stability,
+      similarityBoost,
+      speed,
+      languageCode,
     };
 
     const result = await provider.generate(generateParams);
