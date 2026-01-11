@@ -6,6 +6,7 @@ import {
     useEffect,
     useImperativeHandle,
     forwardRef,
+    useMemo,
 } from 'react';
 import { Send, Paperclip, X, Loader2, Lock, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ import {
     type MediaSettings,
 } from '@/lib/media-settings';
 import { loadLockButtonState, saveLockButtonState } from '@/lib/saved-prompts';
+import { createLoadingEffectForAttachFile } from '@/lib/media-utils';
 import { ModelSelector } from './model-selector';
 import {
     useGenerateMediaMutation,
@@ -32,6 +34,7 @@ import {
     type MediaModel,
 } from '@/redux/media-api';
 import { useTestMode } from '@/hooks/use-test-mode';
+import { useModelType } from '@/hooks/use-model-type';
 import { useChatInputFiles } from './chat-input/use-chat-input-files';
 import { useChatInputSubmit } from './chat-input/use-chat-input-submit';
 import { ModelSettingsPanel } from './chat-input/model-settings';
@@ -139,21 +142,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
         // Поле не блокируется на время выполнения запроса для поддержки параллельных запросов
         const isDisabled = disabled ?? false;
-        const isNanoBanana = currentModel === 'NANO_BANANA_OPENROUTER';
-        const isNanoBananaPro = currentModel === 'NANO_BANANA_PRO_LAOZHANG';
-        const isNanoBananaProKieai =
-            (currentModel as string) === 'NANO_BANANA_PRO_KIEAI';
-        const isVeo =
-            currentModel === 'VEO_3_1_FAST' || currentModel === 'VEO_3_1';
-        const isKling = (currentModel as string) === 'KLING_2_6';
-        const isKling25 = (currentModel as string) === 'KLING_2_5_TURBO_PRO';
-        const isImagen4 = (currentModel as string) === 'IMAGEN4_KIEAI' || (currentModel as string) === 'IMAGEN4_ULTRA_KIEAI';
-        const isImagen4Ultra = (currentModel as string) === 'IMAGEN4_ULTRA_KIEAI';
-        const isSeedream4_5 = (currentModel as string) === 'SEEDREAM_4_5';
-        const isSeedream4_5_Edit =
-            (currentModel as string) === 'SEEDREAM_4_5_EDIT';
-        const isElevenLabs =
-            (currentModel as string) === 'ELEVENLABS_MULTILINGUAL_V2';
+
+        // Используем хук для получения всех флагов модели
+        const modelType = useModelType(currentModel);
 
         // Хуки для работы с файлами и отправкой
         const {
@@ -172,12 +163,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             getFileAsBase64,
         } = useChatInputFiles();
 
-        function loadingEffectForAttachFile() {
-            setAttachingFile(true);
-            setTimeout(() => {
-                setAttachingFile(false);
-            }, 1500);
-        }
+        // Создаем функцию для эффекта загрузки
+        const loadingEffectForAttachFile = useMemo(
+            () => createLoadingEffectForAttachFile(setAttachingFile),
+            []
+        );
 
         const { handleSubmit, isSubmitting, submitInProgressRef } =
             useChatInputSubmit({
@@ -276,10 +266,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             // Загружаем format (универсальный для всех моделей)
             if (settings.format) {
                 setFormat(settings.format);
-            } else if (isVeo && settings.videoFormat) {
+            } else if (modelType.isVeo && settings.videoFormat) {
                 // Для Veo используем videoFormat из старых настроек
                 setFormat(settings.videoFormat);
-            } else if ((isKling || isKling25) && settings.klingAspectRatio) {
+            } else if (
+                (modelType.isKling || modelType.isKling25) &&
+                settings.klingAspectRatio
+            ) {
                 // Для Kling используем klingAspectRatio из старых настроек
                 setFormat(settings.klingAspectRatio);
             } else if (config.format?.defaultValue) {
@@ -294,7 +287,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             }
 
             // Загружаем veoGenerationType
-            if (isVeo && settings.veoGenerationType) {
+            if (modelType.isVeo && settings.veoGenerationType) {
                 setVeoGenerationType(settings.veoGenerationType);
             } else if (config.generationType?.defaultValue) {
                 setVeoGenerationType(config.generationType.defaultValue);
@@ -329,7 +322,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             }
 
             // Сохраняем настройки в зависимости от модели
-            if (isVeo) {
+            if (modelType.isVeo) {
                 // Для Veo сохраняем в videoFormat
                 saveMediaSettings({
                     videoFormat:
@@ -338,7 +331,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             : undefined,
                     veoGenerationType,
                 } as MediaSettings);
-            } else if (isKling || isKling25) {
+            } else if (modelType.isKling || modelType.isKling25) {
                 // Для Kling сохраняем в klingAspectRatio, klingDuration, klingSound (только для Kling 2.6)
                 saveMediaSettings({
                     klingAspectRatio:
@@ -346,7 +339,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             ? (format as '16:9' | '9:16')
                             : undefined,
                     klingDuration: duration,
-                    klingSound: isKling ? sound : undefined,
+                    klingSound: modelType.isKling ? sound : undefined,
                 });
             } else {
                 // Для остальных моделей сохраняем в format и quality
@@ -355,7 +348,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     quality,
                 });
             }
-        }, [format, quality, duration, sound, veoGenerationType, isVeo, isKling, isKling25]);
+        }, [format, quality, duration, sound, veoGenerationType, modelType]);
 
         // Очистка URL.createObjectURL при размонтировании компонента для предотвращения утечек памяти
         useEffect(() => {
@@ -390,11 +383,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 // Определяем videoFormat и klingAspectRatio для отправки (нужны разные параметры API)
                 // Для Veo и Kling формат '1:1' не поддерживается, поэтому фильтруем его
                 const videoFormat =
-                    isVeo && format && format !== '1:1'
+                    modelType.isVeo && format && format !== '1:1'
                         ? (format as '16:9' | '9:16')
                         : undefined;
                 const klingAspectRatio =
-                    (isKling || isKling25) && format && format !== '1:1'
+                    (modelType.isKling || modelType.isKling25) &&
+                    format &&
+                    format !== '1:1'
                         ? (format as '16:9' | '9:16')
                         : undefined;
 
@@ -420,17 +415,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     negativePrompt,
                     seed,
                     cfgScale,
-                    isNanoBanana,
-                    isNanoBananaPro,
-                    isNanoBananaProKieai,
-                    isVeo,
-                    isKling,
-                    isKling25,
-                    isImagen4,
-                    isImagen4Ultra,
-                    isSeedream4_5,
-                    isSeedream4_5_Edit,
-                    isElevenLabs,
+                    modelType,
                     voice,
                     stability,
                     similarityBoost,
@@ -439,13 +424,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     isLockEnabled,
                     onClearForm: () => {
                         setPrompt('');
-                        if (isVeo || isImagen4) {
+                        if (modelType.isVeo || modelType.isImagen4) {
                             setSeed(undefined);
                         }
-                        if (isImagen4) {
+                        if (modelType.isImagen4) {
                             setNegativePrompt('');
                         }
-                        if (isKling25) {
+                        if (modelType.isKling25) {
                             setNegativePrompt('');
                             setCfgScale(undefined);
                         }
@@ -465,16 +450,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 negativePrompt,
                 seed,
                 cfgScale,
-                isNanoBanana,
-                isNanoBananaPro,
-                isNanoBananaProKieai,
-                isVeo,
-                isKling,
-                isKling25,
-                isImagen4,
-                isSeedream4_5,
-                isSeedream4_5_Edit,
-                isElevenLabs,
+                modelType,
                 voice,
                 stability,
                 similarityBoost,
@@ -554,7 +530,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 )}
 
                 {/* Подсказка для Kling 2.5 Turbo Pro */}
-                {isKling25 && (
+                {modelType.isKling25 && (
                     <p className='mb-2 text-xs text-slate-400'>
                         Для image-to-video: первое изображение — начальный кадр,
                         второе — финальный кадр (tail)
@@ -562,7 +538,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 )}
 
                 {/* Подсказка для Seedream 4.5 Edit */}
-                {isSeedream4_5_Edit && (
+                {modelType.isSeedream4_5_Edit && (
                     <p className='mb-2 text-xs text-slate-400'>
                         Seedream 4.5 Edit поддерживает до 14 изображений для
                         редактирования
@@ -580,8 +556,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         }}
                         disabled={isDisabled}
                     />
-
-
 
                     <ModelSettingsPanel
                         model={currentModel}
@@ -611,7 +585,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         disabled={isDisabled}
                     />
                     {/* Поле для Veo 3.1: seed */}
-                    {isVeo && (
+                    {modelType.isVeo && (
                         <div className='w-74'>
                             <Input
                                 type='number'
@@ -636,9 +610,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 </div>
 
                 {/* Поля для Imagen4: negativePrompt и seed */}
-                {isImagen4 && (
+                {modelType.isImagen4 && (
                     <div className='flex gap-2 mb-2'>
-
                         <Input
                             type='text'
                             placeholder='Негативный промпт (опционально)'
@@ -668,7 +641,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 )}
 
                 {/* Поля для Kling 2.5 Turbo Pro: negativePrompt и cfgScale */}
-                {isKling25 && (
+                {modelType.isKling25 && (
                     <div className='flex gap-2 mb-2'>
                         <Input
                             type='text'
@@ -708,7 +681,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 )}
 
                 {/* Поля для ElevenLabs Multilingual v2 */}
-                {isElevenLabs && (
+                {modelType.isElevenLabs && (
                     <div className='mb-2 space-y-2'>
                         <div className='flex flex-wrap gap-2'>
                             <div className='flex flex-col'>

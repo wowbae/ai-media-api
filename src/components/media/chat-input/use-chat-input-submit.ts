@@ -8,6 +8,7 @@ import type {
 import { useUploadToImgbbMutation } from '@/redux/media-api';
 import type { AttachedFile } from './use-chat-input-files';
 import { savePrompt } from '@/lib/saved-prompts';
+import type { ModelConfig } from '@/lib/model-config';
 
 interface UseChatInputSubmitParams {
     chatId: number;
@@ -34,17 +35,7 @@ interface SubmitParams {
     negativePrompt: string;
     seed: string | number | undefined;
     cfgScale: number | undefined;
-    isNanoBanana: boolean;
-    isNanoBananaPro: boolean;
-    isNanoBananaProKieai: boolean;
-    isVeo: boolean;
-    isKling: boolean;
-    isKling25: boolean;
-    isImagen4: boolean;
-    isImagen4Ultra: boolean;
-    isSeedream4_5: boolean;
-    isSeedream4_5_Edit: boolean;
-    isElevenLabs: boolean;
+    modelType: ModelConfig;
     voice: string;
     stability: number;
     similarityBoost: number;
@@ -94,7 +85,7 @@ export function useChatInputSubmit({
             }
 
             // Валидация для Seedream 4.5 Edit: максимум 14 файлов
-            if (params.isSeedream4_5_Edit && params.attachedFiles.length > 14) {
+            if (params.modelType.isSeedream4_5_Edit && params.attachedFiles.length > (params.modelType.maxInputFiles || 0)) {
                 submitInProgressRef.current = false;
                 setIsSubmitting(false);
                 if (onSendError) {
@@ -113,7 +104,7 @@ export function useChatInputSubmit({
             // ВАЖНО: делаем это ДО pending-сообщения чтобы prompt совпадал
             let finalPrompt = params.prompt.trim();
 
-            if (params.isNanoBanana && !params.isNanoBananaPro) {
+            if (params.modelType.isNanoBanana && !params.modelType.isNanoBananaPro) {
                 const promptParts: string[] = [];
 
                 if (params.format) {
@@ -195,10 +186,10 @@ export function useChatInputSubmit({
                             model: currentModel,
                             format: params.format,
                             quality: params.quality,
-                            videoFormat: params.isVeo
+                            videoFormat: params.modelType.isVeo
                                 ? params.videoFormat
                                 : undefined,
-                            veoGenerationType: params.isVeo
+                            veoGenerationType: params.modelType.isVeo
                                 ? params.veoGenerationType
                                 : undefined,
                             inputFilesCount: params.attachedFiles.length,
@@ -214,7 +205,7 @@ export function useChatInputSubmit({
                     let tailImageUrl: string | undefined;
 
                     // Для Kling 2.5 Turbo Pro: первое изображение - image_url, второе - tail_image_url
-                    if (params.isKling25 && imageFiles.length > 0) {
+                    if (params.modelType.isKling25 && imageFiles.length > 0) {
                         // Загружаем первое изображение для image_url
                         const firstImage = imageFiles[0];
                         if (firstImage.imgbbUrl) {
@@ -287,68 +278,60 @@ export function useChatInputSubmit({
                             inputFilesUrls.length > 0
                                 ? inputFilesUrls
                                 : undefined,
-                        ...((params.isNanoBanana ||
-                            params.isNanoBananaPro ||
-                            params.isNanoBananaProKieai ||
-                            params.isImagen4 ||
-                            params.isSeedream4_5 ||
-                            params.isSeedream4_5_Edit) &&
-                            params.format && { format: params.format }),
-                        ...((params.isNanoBanana ||
-                            params.isNanoBananaPro ||
-                            params.isNanoBananaProKieai ||
-                            params.isSeedream4_5 ||
-                            params.isSeedream4_5_Edit) &&
-                            params.quality && { quality: params.quality }),
-                        ...(params.isVeo &&
+                        ...((params.modelType.supportsFormat &&
+                            params.format) && { format: params.format }),
+                        ...((params.modelType.supportsQuality &&
+                            params.quality) && { quality: params.quality }),
+                        ...(params.modelType.isVeo &&
                             params.videoFormat && { ar: params.videoFormat }),
-                        ...(params.isVeo &&
+                        ...(params.modelType.supportsVeoGenerationType &&
                             params.veoGenerationType && {
                                 generationType: params.veoGenerationType,
                             }),
-                        ...(params.isKling &&
+                        ...(params.modelType.isKling &&
                             params.klingAspectRatio && {
                                 format: params.klingAspectRatio,
                             }),
-                        ...(params.isKling &&
+                        ...(params.modelType.supportsDuration &&
                             params.klingDuration && {
                                 duration: params.klingDuration,
                             }),
-                        ...(params.isKling &&
+                        ...(params.modelType.supportsSound &&
                             params.klingSound !== undefined && {
                                 sound: params.klingSound,
                             }),
-                        ...(params.isImagen4 &&
+                        ...(params.modelType.supportsNegativePrompt &&
                             params.negativePrompt &&
                             params.negativePrompt.trim() && {
                                 negativePrompt: params.negativePrompt.trim(),
                             }),
-                        ...(params.seed !== undefined &&
+                        ...(params.modelType.supportsSeed &&
+                            params.seed !== undefined &&
                             params.seed !== null &&
                             params.seed !== '' && { seed: params.seed }),
-                        ...(params.isKling25 &&
+                        ...(params.modelType.isKling25 &&
                             params.klingAspectRatio && {
                                 format: params.klingAspectRatio,
                             }),
-                        ...(params.isKling25 &&
+                        ...(params.modelType.isKling25 &&
                             params.klingDuration && {
                                 duration: params.klingDuration,
                             }),
-                        ...(params.isKling25 &&
+                        ...(params.modelType.isKling25 &&
                             params.negativePrompt &&
                             params.negativePrompt.trim() && {
                                 negativePrompt: params.negativePrompt.trim(),
                             }),
-                        ...(params.isKling25 &&
+                        ...(params.modelType.supportsCfgScale &&
                             params.cfgScale !== undefined &&
                             params.cfgScale !== null && {
                                 cfgScale: params.cfgScale,
                             }),
-                        ...(params.isKling25 &&
+                        ...(params.modelType.supportsTailImageUrl &&
                             tailImageUrl && {
                                 tailImageUrl,
                             }),
-                        ...(params.isElevenLabs && {
+                        ...(params.modelType.supportsElevenLabsParams && {
                             voice: params.voice,
                             stability: params.stability,
                             similarityBoost: params.similarityBoost,

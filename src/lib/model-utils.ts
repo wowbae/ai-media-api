@@ -1,6 +1,8 @@
 // Утилиты для работы с моделями медиа-генерации
 // Названия моделей получаем из API через useGetModelsQuery()
 
+import type { ModelInfo } from '@/redux/api/base';
+
 // Маппинг моделей на их иконки (эмодзи)
 const MODEL_ICONS: Record<string, string> = {
     NANO_BANANA_OPENROUTER: '🍌',
@@ -23,4 +25,45 @@ const DEFAULT_ICON = '✨';
 // Получить иконку (эмодзи) для модели
 export function getModelIcon(model: string): string {
     return MODEL_ICONS[model] || DEFAULT_ICON;
+}
+
+// Функция сравнения для сортировки моделей
+// Приоритет: kieai провайдер, затем по имени
+function compareModels(a: ModelInfo, b: ModelInfo): number {
+    if (a.provider === 'kieai' && b.provider !== 'kieai') return -1;
+    if (a.provider !== 'kieai' && b.provider === 'kieai') return 1;
+    return a.name.localeCompare(b.name);
+}
+
+// Сортировать модели по типу с приоритетом kieai провайдера
+export function sortModelsByType(
+    models: ModelInfo[] | undefined,
+    type: 'IMAGE' | 'VIDEO' | 'AUDIO'
+): ModelInfo[] {
+    if (!models) return [];
+    const filtered = models.filter((model) => model.types.includes(type));
+    return filtered.sort(compareModels);
+}
+
+// Группировать модели по типам с сортировкой
+export function groupModelsByType(
+    models: ModelInfo[] | undefined
+): {
+    imageModels: ModelInfo[];
+    videoModels: ModelInfo[];
+    audioModels: ModelInfo[];
+} {
+    if (!models) {
+        return {
+            imageModels: [],
+            videoModels: [],
+            audioModels: [],
+        };
+    }
+
+    return {
+        imageModels: sortModelsByType(models, 'IMAGE'),
+        videoModels: sortModelsByType(models, 'VIDEO'),
+        audioModels: sortModelsByType(models, 'AUDIO'),
+    };
 }
