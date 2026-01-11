@@ -276,8 +276,9 @@ function MediaChatPage() {
     }, [isTestMode, pollingRequestId]);
 
     // Обновляем чат когда статус запроса изменился
-    // Используем ref для отслеживания предыдущего статуса, чтобы обновлять чат при любых изменениях
+    // Используем ref для отслеживания предыдущего статуса и количества файлов, чтобы обновлять чат при любых изменениях
     const previousStatusRef = useRef<string | null>(null);
+    const previousFilesCountRef = useRef<number | null>(null);
     const pollingStartTimeRef = useRef<number | null>(null);
     const maxPollingTime = 5 * 60 * 1000; // Максимальное время polling - 5 минут
 
@@ -305,6 +306,8 @@ function MediaChatPage() {
 
             const currentStatus = pollingRequest.status;
             const previousStatus = previousStatusRef.current;
+            const currentFilesCount = pollingRequest.files?.length || 0;
+            const previousFilesCount = previousFilesCountRef.current;
 
             // Проверяем таймаут polling
             if (pollingStartTimeRef.current) {
@@ -317,6 +320,7 @@ function MediaChatPage() {
                     setPollingRequestId(null);
                     pollingStartTimeRef.current = null;
                     previousStatusRef.current = null;
+                    previousFilesCountRef.current = null;
                     // Принудительно обновляем чат при таймауте
                     refetch();
                     return;
@@ -325,6 +329,9 @@ function MediaChatPage() {
 
             // Обновляем чат при первом получении данных или при изменении статуса
             const statusChanged = previousStatus !== currentStatus;
+            const filesCountChanged =
+                previousFilesCount !== null &&
+                previousFilesCount !== currentFilesCount;
             const isFirstRequest = previousStatus === null;
 
             console.log('[Chat] Polling request статус:', {
@@ -332,8 +339,10 @@ function MediaChatPage() {
                 status: currentStatus,
                 previousStatus,
                 statusChanged,
+                filesCount: currentFilesCount,
+                previousFilesCount,
+                filesCountChanged,
                 isFirstRequest,
-                filesCount: pollingRequest.files?.length || 0,
                 errorMessage: pollingRequest.errorMessage || null,
             });
 
@@ -371,14 +380,15 @@ function MediaChatPage() {
                 };
             });
 
-            // Обновляем чат при первом получении данных (даже если уже FAILED) или при изменении статуса
-            // Также обновляем периодически для PROCESSING статуса (каждые 5 секунд)
+            // Обновляем чат при первом получении данных, изменении статуса или изменении количества файлов
+            // Также обновляем периодически для PROCESSING статуса (каждые 3 секунды)
             const shouldUpdate =
                 isFirstRequest ||
                 statusChanged ||
+                filesCountChanged ||
                 (currentStatus === 'PROCESSING' &&
                     previousStatus === 'PROCESSING' &&
-                    Date.now() % 5000 < 1500); // Примерно каждые 5 секунд
+                    Date.now() % 3000 < 1500); // Примерно каждые 3 секунды (синхронизировано с pollingInterval)
 
             if (shouldUpdate) {
                 console.log('[Chat] Обновляем чат');
@@ -393,6 +403,7 @@ function MediaChatPage() {
                 setPollingRequestId(null);
                 pollingStartTimeRef.current = null;
                 previousStatusRef.current = null; // Сбрасываем для следующего запроса
+                previousFilesCountRef.current = null;
 
                 // Финальное обновление чата для отображения финального статуса и файлов
                 // Делаем несколько обновлений с задержками для гарантии получения всех файлов
@@ -415,8 +426,9 @@ function MediaChatPage() {
                     });
                 }, 1500);
             } else {
-                // Сохраняем текущий статус для следующей проверки
+                // Сохраняем текущий статус и количество файлов для следующей проверки
                 previousStatusRef.current = currentStatus;
+                previousFilesCountRef.current = currentFilesCount;
             }
         }
     }, [pollingRequest, pollingRequestId, refetch, maxPollingTime]);
@@ -574,8 +586,14 @@ function MediaChatPage() {
     }
 
     // Обработчик повторения запроса
-    async function handleRepeatRequest(request: MediaRequest) {
-        if (!request.model) {
+    async function handleRepeatRequest(
+        request: MediaRequest,
+        model?: MediaModel
+    ) {
+        // Используем переданную модель или модель из запроса
+        const selectedModel = model || request.model;
+
+        if (!selectedModel) {
             console.error('[Chat] Нельзя повторить запрос: модель не указана');
             alert('Нельзя повторить запрос: модель не указана');
             return;
@@ -590,7 +608,7 @@ function MediaChatPage() {
             const params = {
                 chatId: chatIdNum,
                 prompt: request.prompt,
-                model: request.model,
+                model: selectedModel,
                 inputFiles: request.inputFiles || [],
                 format: settings.format as
                     | '1:1'

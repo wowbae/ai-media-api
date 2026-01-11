@@ -55,7 +55,16 @@ export function MediaGallery({
     const [isImageExpanded, setIsImageExpanded] = useState(true);
     const [isPinnedExpanded, setIsPinnedExpanded] = useState(true);
     const [attachingFile, setAttachingFile] = useState(false);
-    const [pinnedImageIds, setPinnedImageIds] = useState<Set<number>>(new Set());
+    const [pinnedImageIds, setPinnedImageIds] = useState<Set<number>>(
+        new Set()
+    );
+    // Используем ref для доступа к актуальному значению pinnedImageIds в useEffect
+    const pinnedImageIdsRef = useRef<Set<number>>(new Set());
+
+    // Синхронизируем ref с state
+    useEffect(() => {
+        pinnedImageIdsRef.current = pinnedImageIds;
+    }, [pinnedImageIds]);
 
     // Загружаем закрепленные изображения из localStorage
     useEffect(() => {
@@ -65,12 +74,16 @@ export function MediaGallery({
         if (stored) {
             try {
                 const ids = JSON.parse(stored) as number[];
-                setPinnedImageIds(new Set(ids));
+                const newSet = new Set(ids);
+                setPinnedImageIds(newSet);
+                pinnedImageIdsRef.current = newSet;
             } catch (error) {
                 console.error('Error loading pinned images:', error);
             }
         } else {
-            setPinnedImageIds(new Set());
+            const newSet = new Set<number>();
+            setPinnedImageIds(newSet);
+            pinnedImageIdsRef.current = newSet;
         }
     }, [chatId]);
 
@@ -119,7 +132,18 @@ export function MediaGallery({
         if (page === 1) {
             // Для первой страницы заменяем все файлы
             // Это гарантирует, что при смене чата мы показываем только файлы нового чата
-            setAccumulatedFiles(filesData.data);
+            setAccumulatedFiles((prev) => {
+                const newFilesIds = new Set(filesData.data.map((f) => f.id));
+                // Используем ref для получения актуального значения pinnedImageIds
+                const currentPinnedIds = pinnedImageIdsRef.current;
+
+                // Сохраняем закрепленные файлы из предыдущего списка
+                const preservedPinnedFiles = prev.filter(
+                    (f) => currentPinnedIds.has(f.id) && !newFilesIds.has(f.id)
+                );
+
+                return [...preservedPinnedFiles, ...filesData.data];
+            });
         } else {
             // Для последующих страниц добавляем новые файлы
             setAccumulatedFiles((prev) => {
@@ -131,6 +155,35 @@ export function MediaGallery({
             });
         }
     }, [filesData, page]);
+
+    // Предзагрузка закрепленных файлов из chatData, если они еще не загружены через пагинацию
+    useEffect(() => {
+        if (!chatData?.requests || pinnedImageIds.size === 0) return;
+
+        setAccumulatedFiles((prev) => {
+            const existingIds = new Set(prev.map((f) => f.id));
+            const currentPinnedIds = pinnedImageIdsRef.current;
+            const newPinnedFiles: MediaFile[] = [];
+
+            // Извлекаем все файлы из chatData
+            chatData.requests.forEach((request) => {
+                request.files.forEach((file) => {
+                    // Добавляем только закрепленные файлы, которых еще нет в списке
+                    if (
+                        currentPinnedIds.has(file.id) &&
+                        !existingIds.has(file.id)
+                    ) {
+                        newPinnedFiles.push(file);
+                    }
+                });
+            });
+
+            if (newPinnedFiles.length === 0) return prev;
+
+            // Добавляем закрепленные файлы в начало списка
+            return [...newPinnedFiles, ...prev];
+        });
+    }, [chatData, pinnedImageIds]);
 
     const allFiles = useMemo(() => accumulatedFiles, [accumulatedFiles]);
 
@@ -173,13 +226,20 @@ export function MediaGallery({
             }
         });
 
-        return { videoFiles: videos, pinnedImages: pinned, unpinnedImages: unpinned };
+        return {
+            videoFiles: videos,
+            pinnedImages: pinned,
+            unpinnedImages: unpinned,
+        };
     }, [allFiles, pinnedImageIds]);
 
     // Отображаемые файлы
     const visibleVideoFiles = useMemo(() => videoFiles, [videoFiles]);
     const visiblePinnedImages = useMemo(() => pinnedImages, [pinnedImages]);
-    const visibleUnpinnedImages = useMemo(() => unpinnedImages, [unpinnedImages]);
+    const visibleUnpinnedImages = useMemo(
+        () => unpinnedImages,
+        [unpinnedImages]
+    );
 
     // Автоматическая подгрузка следующей страницы при скролле
     useEffect(() => {
@@ -275,7 +335,12 @@ export function MediaGallery({
         <>
             <div className='flex h-full w-[30%] flex-col border-l border-slate-700 bg-slate-800/50'>
                 {/* Заголовок */}
-                <div className={cn(PANEL_HEADER_CLASSES, 'flex-row items-center justify-between')}>
+                <div
+                    className={cn(
+                        PANEL_HEADER_CLASSES,
+                        'flex-row items-center justify-between'
+                    )}
+                >
                     <h2 className={PANEL_HEADER_TITLE_CLASSES}>
                         Медиафайлы ({allFiles.length})
                     </h2>
@@ -436,7 +501,8 @@ export function MediaGallery({
                                     <div className='flex gap-2 items-center'>
                                         <ImageIcon className='h-4 w-4' />
                                         <span>
-                                            Изображения ({unpinnedImages.length})
+                                            Изображения ({unpinnedImages.length}
+                                            )
                                         </span>
                                     </div>
                                     <ChevronDown

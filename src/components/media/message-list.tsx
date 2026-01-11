@@ -13,22 +13,36 @@ import {
     Sparkles,
     RefreshCcw,
     ChevronDown,
+    ImageIcon,
+    Video,
+    Music,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { MediaPreview } from './media-preview';
-import { ModelBadge } from './model-selector';
+import { ModelBadge, ProviderBadge } from './model-selector';
 import {
     type MediaRequest,
     type RequestStatus,
     type MediaModel,
     type MediaFile,
+    type MediaProviderType,
     useDeleteFileMutation,
     useGetModelsQuery,
 } from '@/redux/media-api';
+import { getModelIcon } from '@/lib/model-utils';
 import { getMediaFileUrl } from '@/lib/constants';
 import { downloadFile } from '@/lib/utils';
 
@@ -38,7 +52,7 @@ interface MessageListProps {
     isLoading?: boolean;
     onEditPrompt?: (prompt: string) => void;
     onAttachFile?: (fileUrl: string, filename: string) => void;
-    onRepeatRequest?: (request: MediaRequest) => void;
+    onRepeatRequest?: (request: MediaRequest, model?: MediaModel) => void;
 }
 
 export function MessageList({
@@ -168,7 +182,202 @@ interface MessageItemProps {
     request: MediaRequest;
     onEditPrompt?: (prompt: string) => void;
     onAttachFile?: (fileUrl: string, filename: string) => void;
-    onRepeatRequest?: (request: MediaRequest) => void;
+    onRepeatRequest?: (request: MediaRequest, model?: MediaModel) => void;
+}
+
+interface RepeatRequestDropdownProps {
+    request: MediaRequest;
+    onRepeatRequest: (request: MediaRequest, model?: MediaModel) => void;
+}
+
+function RepeatRequestDropdown({
+    request,
+    onRepeatRequest,
+}: RepeatRequestDropdownProps) {
+    const { data: models, isLoading } = useGetModelsQuery();
+
+    // Мемоизируем разделение моделей по типам
+    const imageModels = useMemo(() => {
+        const filtered =
+            models?.filter((model) => model.types.includes('IMAGE')) || [];
+        return filtered.sort((a, b) => {
+            if (a.provider === 'kieai' && b.provider !== 'kieai') return -1;
+            if (a.provider !== 'kieai' && b.provider === 'kieai') return 1;
+            return a.name.localeCompare(b.name);
+        });
+    }, [models]);
+
+    const videoModels = useMemo(() => {
+        const filtered =
+            models?.filter((model) => model.types.includes('VIDEO')) || [];
+        return filtered.sort((a, b) => {
+            if (a.provider === 'kieai' && b.provider !== 'kieai') return -1;
+            if (a.provider !== 'kieai' && b.provider === 'kieai') return 1;
+            return a.name.localeCompare(b.name);
+        });
+    }, [models]);
+
+    const audioModels = useMemo(() => {
+        const filtered =
+            models?.filter((model) => model.types.includes('AUDIO')) || [];
+        return filtered.sort((a, b) => {
+            if (a.provider === 'kieai' && b.provider !== 'kieai') return -1;
+            if (a.provider !== 'kieai' && b.provider === 'kieai') return 1;
+            return a.name.localeCompare(b.name);
+        });
+    }, [models]);
+
+    function handleSelectModel(model: MediaModel) {
+        onRepeatRequest(request, model);
+    }
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button
+                    type='button'
+                    size='icon'
+                    variant='ghost'
+                    className='h-8 w-8 shrink-0 text-purple-400 opacity-0 transition-opacity hover:text-purple-300 hover:bg-purple-600/20 group-hover:opacity-100'
+                    title='Повторить запрос к нейронке'
+                >
+                    <RefreshCcw className='h-4 w-4' />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+                align='end'
+                className='max-h-[400px] w-64 overflow-y-auto border-slate-700 bg-slate-800'
+            >
+                {isLoading ? (
+                    <div className='flex items-center gap-2 p-2 text-slate-400'>
+                        <Loader2 className='h-4 w-4 animate-spin' />
+                        <span>Загрузка моделей...</span>
+                    </div>
+                ) : (
+                    <>
+                        {/* Блок моделей для изображений */}
+                        {imageModels.length > 0 && (
+                            <DropdownMenuGroup>
+                                <DropdownMenuLabel className='flex items-center gap-2 text-slate-400'>
+                                    <ImageIcon className='h-4 w-4' />
+                                    <span>Изображения</span>
+                                </DropdownMenuLabel>
+                                {imageModels.map((model) => (
+                                    <DropdownMenuItem
+                                        key={model.key}
+                                        onClick={() =>
+                                            handleSelectModel(
+                                                model.key as MediaModel
+                                            )
+                                        }
+                                        className='cursor-pointer text-slate-300 focus:bg-slate-700 focus:text-white'
+                                    >
+                                        <div className='flex items-center gap-2 w-full min-w-[200px]'>
+                                            <span>
+                                                {getModelIcon(model.key)}
+                                            </span>
+                                            <span>{model.name}</span>
+                                            {model.provider && (
+                                                <ProviderBadge
+                                                    provider={
+                                                        model.provider as MediaProviderType
+                                                    }
+                                                    className='ml-auto'
+                                                />
+                                            )}
+                                        </div>
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuGroup>
+                        )}
+
+                        {/* Блок моделей для видео */}
+                        {videoModels.length > 0 && (
+                            <>
+                                {imageModels.length > 0 && (
+                                    <DropdownMenuSeparator className='bg-slate-700' />
+                                )}
+                                <DropdownMenuGroup>
+                                    <DropdownMenuLabel className='flex items-center gap-2 text-slate-400'>
+                                        <Video className='h-4 w-4' />
+                                        <span>Видео</span>
+                                    </DropdownMenuLabel>
+                                    {videoModels.map((model) => (
+                                        <DropdownMenuItem
+                                            key={model.key}
+                                            onClick={() =>
+                                                handleSelectModel(
+                                                    model.key as MediaModel
+                                                )
+                                            }
+                                            className='cursor-pointer text-slate-300 focus:bg-slate-700 focus:text-white'
+                                        >
+                                            <div className='flex items-center gap-2 w-full min-w-[200px]'>
+                                                <span>
+                                                    {getModelIcon(model.key)}
+                                                </span>
+                                                <span>{model.name}</span>
+                                                {model.provider && (
+                                                    <ProviderBadge
+                                                        provider={
+                                                            model.provider as MediaProviderType
+                                                        }
+                                                        className='ml-auto'
+                                                    />
+                                                )}
+                                            </div>
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuGroup>
+                            </>
+                        )}
+
+                        {/* Блок моделей для аудио */}
+                        {audioModels.length > 0 && (
+                            <>
+                                {(imageModels.length > 0 ||
+                                    videoModels.length > 0) && (
+                                    <DropdownMenuSeparator className='bg-slate-700' />
+                                )}
+                                <DropdownMenuGroup>
+                                    <DropdownMenuLabel className='flex items-center gap-2 text-slate-400'>
+                                        <Music className='h-4 w-4' />
+                                        <span>Аудио</span>
+                                    </DropdownMenuLabel>
+                                    {audioModels.map((model) => (
+                                        <DropdownMenuItem
+                                            key={model.key}
+                                            onClick={() =>
+                                                handleSelectModel(
+                                                    model.key as MediaModel
+                                                )
+                                            }
+                                            className='cursor-pointer text-slate-300 focus:bg-slate-700 focus:text-white'
+                                        >
+                                            <div className='flex items-center gap-2 w-full min-w-[200px]'>
+                                                <span>
+                                                    {getModelIcon(model.key)}
+                                                </span>
+                                                <span>{model.name}</span>
+                                                {model.provider && (
+                                                    <ProviderBadge
+                                                        provider={
+                                                            model.provider as MediaProviderType
+                                                        }
+                                                        className='ml-auto'
+                                                    />
+                                                )}
+                                            </div>
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuGroup>
+                            </>
+                        )}
+                    </>
+                )}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
 }
 
 function MessageItem({
@@ -251,18 +460,12 @@ function MessageItem({
                             <span className='text-lg'>✨</span>
                         </Button>
                     )}
-                    {/* Кнопка повторить запрос */}
+                    {/* Кнопка повторить запрос с выбором модели */}
                     {onRepeatRequest && (
-                        <Button
-                            type='button'
-                            size='icon'
-                            variant='ghost'
-                            className='h-8 w-8 shrink-0 text-purple-400 opacity-0 transition-opacity hover:text-purple-300 hover:bg-purple-600/20 group-hover:opacity-100'
-                            onClick={() => onRepeatRequest(request)}
-                            title='Повторить запрос'
-                        >
-                            <RefreshCcw className='h-4 w-4' />
-                        </Button>
+                        <RepeatRequestDropdown
+                            request={request}
+                            onRepeatRequest={onRepeatRequest}
+                        />
                     )}
                 </div>
                 <div className='max-w-[80%] rounded-2xl rounded-tr-sm bg-cyan-600 px-4 py-3'>
