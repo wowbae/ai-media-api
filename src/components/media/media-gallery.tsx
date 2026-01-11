@@ -9,6 +9,7 @@ import {
     ImageIcon,
     VideoIcon,
     Loader2,
+    Pin,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -44,7 +45,26 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
     const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
     const [isVideoExpanded, setIsVideoExpanded] = useState(true);
     const [isImageExpanded, setIsImageExpanded] = useState(true);
+    const [isPinnedExpanded, setIsPinnedExpanded] = useState(true);
     const [attachingFile, setAttachingFile] = useState(false);
+    const [pinnedImageIds, setPinnedImageIds] = useState<Set<number>>(new Set());
+
+    // Загружаем закрепленные изображения из localStorage
+    useEffect(() => {
+        if (chatId === undefined) return;
+        const storageKey = `pinned-images-chat-${chatId}`;
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+            try {
+                const ids = JSON.parse(stored) as number[];
+                setPinnedImageIds(new Set(ids));
+            } catch (error) {
+                console.error('Error loading pinned images:', error);
+            }
+        } else {
+            setPinnedImageIds(new Set());
+        }
+    }, [chatId]);
 
     // Сбрасываем страницу и накопленные файлы при смене чата
     useEffect(() => {
@@ -94,25 +114,52 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
 
     const allFiles = useMemo(() => accumulatedFiles, [accumulatedFiles]);
 
-    // Разделяем файлы на видео и изображения
-    const { videoFiles, imageFiles } = useMemo(() => {
+    // Функции для работы с закрепленными изображениями
+    function togglePinImage(fileId: number) {
+        setPinnedImageIds((prev) => {
+            const newPinned = new Set(prev);
+            if (newPinned.has(fileId)) {
+                newPinned.delete(fileId);
+            } else {
+                newPinned.add(fileId);
+            }
+            // Сохраняем в localStorage
+            if (chatId !== undefined) {
+                const storageKey = `pinned-images-chat-${chatId}`;
+                localStorage.setItem(
+                    storageKey,
+                    JSON.stringify(Array.from(newPinned))
+                );
+            }
+            return newPinned;
+        });
+    }
+
+    // Разделяем файлы на видео и изображения, и на закрепленные/незакрепленные
+    const { videoFiles, pinnedImages, unpinnedImages } = useMemo(() => {
         const videos: MediaFile[] = [];
-        const images: MediaFile[] = [];
+        const pinned: MediaFile[] = [];
+        const unpinned: MediaFile[] = [];
 
         allFiles.forEach((file) => {
             if (file.type === 'VIDEO') {
                 videos.push(file);
             } else if (file.type === 'IMAGE') {
-                images.push(file);
+                if (pinnedImageIds.has(file.id)) {
+                    pinned.push(file);
+                } else {
+                    unpinned.push(file);
+                }
             }
         });
 
-        return { videoFiles: videos, imageFiles: images };
-    }, [allFiles]);
+        return { videoFiles: videos, pinnedImages: pinned, unpinnedImages: unpinned };
+    }, [allFiles, pinnedImageIds]);
 
     // Отображаемые файлы
     const visibleVideoFiles = useMemo(() => videoFiles, [videoFiles]);
-    const visibleImageFiles = useMemo(() => imageFiles, [imageFiles]);
+    const visiblePinnedImages = useMemo(() => pinnedImages, [pinnedImages]);
+    const visibleUnpinnedImages = useMemo(() => unpinnedImages, [unpinnedImages]);
 
     // Автоматическая подгрузка следующей страницы при скролле
     useEffect(() => {
@@ -217,8 +264,126 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
                 {/* Grid с файлами */}
                 <ScrollArea className='flex-1'>
                     <div className='p-4 space-y-4'>
+                        {/* Секция закрепленных изображений */}
+                        {pinnedImages.length > 0 && (
+                            <div>
+                                <button
+                                    onClick={() =>
+                                        setIsPinnedExpanded(!isPinnedExpanded)
+                                    }
+                                    className='flex w-full items-center justify-between rounded-lg bg-slate-700/0 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors'
+                                >
+                                    <div className='flex gap-2 items-center'>
+                                        <Pin className='h-4 w-4 text-yellow-400' />
+                                        <span>
+                                            Закрепленные ({pinnedImages.length})
+                                        </span>
+                                    </div>
+                                    <ChevronDown
+                                        className={`h-4 w-4 transition-transform ${
+                                            isPinnedExpanded ? 'rotate-180' : ''
+                                        }`}
+                                    />
+                                </button>
+                                {isPinnedExpanded && (
+                                    <div className='grid grid-cols-3 gap-2 mt-2'>
+                                        {visiblePinnedImages.map((file) => (
+                                            <div
+                                                key={file.id}
+                                                className='group relative cursor-pointer transition-transform hover:scale-105'
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleFileClick(file);
+                                                }}
+                                                role='button'
+                                                tabIndex={0}
+                                                onKeyDown={(e) => {
+                                                    if (
+                                                        e.key === 'Enter' ||
+                                                        e.key === ' '
+                                                    ) {
+                                                        e.preventDefault();
+                                                        handleFileClick(file);
+                                                    }
+                                                }}
+                                            >
+                                                <div
+                                                    onClick={(e) =>
+                                                        e.stopPropagation()
+                                                    }
+                                                >
+                                                    <MediaPreview
+                                                        file={file}
+                                                        className='h-full w-full'
+                                                    />
+                                                </div>
+                                                {/* Кнопка прикрепления слева вверху */}
+                                                {onAttachFile && (
+                                                    <Button
+                                                        size='icon'
+                                                        variant='ghost'
+                                                        className='absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100'
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (!file.path)
+                                                                return;
+                                                            loadingEffectForAttachFile();
+                                                            const fileUrl =
+                                                                getMediaFileUrl(
+                                                                    file.path
+                                                                );
+                                                            onAttachFile(
+                                                                fileUrl,
+                                                                file.filename
+                                                            );
+                                                        }}
+                                                        title='Прикрепить к промпту'
+                                                    >
+                                                        {attachingFile ? (
+                                                            <Loader2 className='h-3.5 w-3.5 animate-spin' />
+                                                        ) : (
+                                                            <Paperclip className='h-3.5 w-3.5' />
+                                                        )}
+                                                    </Button>
+                                                )}
+                                                {/* Кнопка закрепления */}
+                                                <Button
+                                                    size='icon'
+                                                    variant='ghost'
+                                                    className='absolute right-7 top-1 h-6 w-6 text-yellow-400 opacity-0 transition-opacity hover:text-yellow-300 hover:bg-yellow-600/20 group-hover:opacity-100'
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        togglePinImage(file.id);
+                                                    }}
+                                                    title='Открепить'
+                                                >
+                                                    <Pin className='h-3.5 w-3.5 fill-current' />
+                                                </Button>
+                                                {/* Кнопка удаления справа вверху */}
+                                                <Button
+                                                    size='icon'
+                                                    variant='ghost'
+                                                    className='absolute right-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-red-400 hover:bg-red-600/20 group-hover:opacity-100'
+                                                    onClick={(e) =>
+                                                        handleDeleteFile(
+                                                            e,
+                                                            file.id
+                                                        )
+                                                    }
+                                                    disabled={isDeleting}
+                                                    title='Удалить файл'
+                                                >
+                                                    <Trash2 className='h-3.5 w-3.5' />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Секция изображений */}
-                        {imageFiles.length > 0 && (
+                        {unpinnedImages.length > 0 && (
                             <div>
                                 <button
                                     onClick={() =>
@@ -229,7 +394,7 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
                                     <div className='flex gap-2 items-center'>
                                         <ImageIcon className='h-4 w-4' />
                                         <span>
-                                            Изображения ({imageFiles.length})
+                                            Изображения ({unpinnedImages.length})
                                         </span>
                                     </div>
                                     <ChevronDown
@@ -240,7 +405,7 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
                                 </button>
                                 {isImageExpanded && (
                                     <div className='grid grid-cols-3 gap-2 mt-2'>
-                                        {visibleImageFiles.map((file) => (
+                                        {visibleUnpinnedImages.map((file) => (
                                             <div
                                                 key={file.id}
                                                 className='group relative cursor-pointer transition-transform hover:scale-105'
@@ -299,6 +464,19 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
                                                         )}
                                                     </Button>
                                                 )}
+                                                {/* Кнопка закрепления */}
+                                                <Button
+                                                    size='icon'
+                                                    variant='ghost'
+                                                    className='absolute right-7 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-yellow-400 hover:bg-yellow-600/20 group-hover:opacity-100'
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        togglePinImage(file.id);
+                                                    }}
+                                                    title='Закрепить'
+                                                >
+                                                    <Pin className='h-3.5 w-3.5' />
+                                                </Button>
                                                 {/* Кнопка удаления справа вверху */}
                                                 <Button
                                                     size='icon'
@@ -448,6 +626,8 @@ export function MediaGallery({ chatId, onAttachFile }: MediaGalleryProps) {
                     file={selectedFile}
                     onClose={() => setSelectedFile(null)}
                     onAttachFile={onAttachFile}
+                    isPinned={pinnedImageIds.has(selectedFile.id)}
+                    onTogglePin={() => togglePinImage(selectedFile.id)}
                 />
             )}
         </>
@@ -458,12 +638,16 @@ interface MediaFullscreenViewProps {
     file: MediaFile;
     onClose: () => void;
     onAttachFile?: (fileUrl: string, filename: string) => void;
+    isPinned?: boolean;
+    onTogglePin?: () => void;
 }
 
 function MediaFullscreenView({
     file,
     onClose,
     onAttachFile,
+    isPinned = false,
+    onTogglePin,
 }: MediaFullscreenViewProps) {
     if (!file.path) return null;
     const fileUrl = getMediaFileUrl(file.path);
@@ -555,6 +739,29 @@ function MediaFullscreenView({
                     >
                         <Download className='h-4 w-4' />
                     </Button>
+                    {/* Кнопка закрепления (только для изображений) */}
+                    {file.type === 'IMAGE' && onTogglePin && (
+                        <Button
+                            size='icon'
+                            variant='secondary'
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onTogglePin();
+                            }}
+                            className={`h-8 w-8 ${
+                                isPinned
+                                    ? 'text-yellow-400 hover:text-yellow-300'
+                                    : ''
+                            }`}
+                            title={isPinned ? 'Открепить' : 'Закрепить'}
+                        >
+                            <Pin
+                                className={`h-4 w-4 ${
+                                    isPinned ? 'fill-current' : ''
+                                }`}
+                            />
+                        </Button>
+                    )}
                     <Button
                         size='icon'
                         variant='secondary'
