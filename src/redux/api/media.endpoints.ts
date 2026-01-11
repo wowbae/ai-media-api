@@ -361,6 +361,31 @@ export const mediaEndpoints = baseApi.injectEndpoints({
             },
         }),
 
+        // Загрузить пользовательские медиа
+        uploadUserMedia: build.mutation<
+            { requestId: number; files: MediaFile[] },
+            {
+                chatId: number;
+                files: { base64: string; mimeType: string; filename: string }[];
+            }
+        >({
+            query: (body) => ({
+                url: '/upload-user-media',
+                method: 'POST',
+                body,
+            }),
+            transformResponse: (
+                response: ApiResponse<{ requestId: number; files: MediaFile[] }>
+            ) => response.data,
+            invalidatesTags: (result, _error, { chatId }) => [
+                { type: 'Chat', id: chatId },
+                { type: 'Chat', id: 'LIST' },
+                { type: 'Request', id: result?.requestId || 'LIST' },
+                { type: 'Request', id: 'LIST' },
+                { type: 'File', id: 'LIST' },
+            ],
+        }),
+
         // Удалить файл
         deleteFile: build.mutation<void, number>({
             query: (id) => ({
@@ -474,4 +499,5 @@ export const {
     useUploadThumbnailMutation,
     useDeleteFileMutation,
     useUploadToImgbbMutation,
+    useUploadUserMediaMutation,
 } = mediaEndpoints;

@@ -384,5 +384,111 @@ export function createFilesRouter(): Router {
         }
     });
 
+    // Загрузить пользовательские медиа (сохранение в ai-media и БД)
+    router.post('/upload-user-media', async (req: Request, res: Response) => {
+        try {
+            const { chatId, files } = req.body as {
+                chatId: number;
+                files: { base64: string; mimeType: string; filename: string }[];
+            };
+
+            if (!chatId || !files || !Array.isArray(files) || files.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'chatId и массив файлов обязательны',
+                });
+            }
+
+            console.log(`[API] POST /upload-user-media - chatId: ${chatId}, файлов: ${files.length}`);
+
+            // Проверяем существование чата
+            const chat = await prisma.mediaChat.findUnique({
+                where: { id: chatId },
+            });
+
+            if (!chat) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Чат не найден',
+                });
+            }
+
+            // Импортируем сервисы
+            const { saveBase64File } = await import('../file.service');
+            const { notifyTelegramGroup } = await import('../telegram.notifier');
+
+            // Создаем MediaRequest для этой загрузки
+            const filenames = files.map(f => f.filename).join(', ');
+            const mediaRequest = await prisma.mediaRequest.create({
+                data: {
+                    chatId,
+                    prompt: `User Upload: ${filenames}`,
+                    status: 'COMPLETED',
+                    completedAt: new Date(),
+                },
+            });
+
+            const savedFiles: any[] = [];
+
+            // Сохраняем каждый файл
+            for (const fileData of files) {
+                try {
+                    // Извлекаем чистый base64 если есть префикс data:...;base64,
+                    const base64Clean = fileData.base64.replace(/^data:.*?;base64,/, '');
+
+                    const savedFileInfo = await saveBase64File(base64Clean, fileData.mimeType);
+
+                    // Создаем запись в БД
+                    const mediaFile = await prisma.mediaFile.create({
+                        data: {
+                            requestId: mediaRequest.id,
+                            type: savedFileInfo.type,
+                            filename: fileData.filename || savedFileInfo.filename,
+                            path: savedFileInfo.path,
+                            url: savedFileInfo.url,
+                            previewPath: savedFileInfo.previewPath,
+                            previewUrl: savedFileInfo.previewUrl,
+                            size: savedFileInfo.size,
+                            width: savedFileInfo.width,
+                            height: savedFileInfo.height,
+                        },
+                    });
+
+                    savedFiles.push(mediaFile);
+
+                    // Уведомляем Telegram
+                    notifyTelegramGroup(mediaFile, chat.name, `User Upload: ${fileData.filename}`).catch(err => {
+                        console.error('[API] Ошибка уведомления в Telegram (upload):', err);
+                    });
+                } catch (error) {
+                    console.error(`[API] Ошибка сохранения файла ${fileData.filename}:`, error);
+                }
+            }
+
+            // Обновляем updatedAt чата
+            await prisma.mediaChat.update({
+                where: { id: chatId },
+                data: { updatedAt: new Date() },
+            });
+
+            // Инвалидируем кеш
+            invalidateChatCache(chatId);
+
+            res.status(201).json({
+                success: true,
+                data: {
+                    requestId: mediaRequest.id,
+                    files: savedFiles,
+                },
+            });
+        } catch (error) {
+            console.error('[API] ❌ Ошибка загрузки пользовательских медиа:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Ошибка при загрузке файлов',
+            });
+        }
+    });
+
     return router;
 }

@@ -162,7 +162,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             cleanup,
             clearFiles,
             getFileAsBase64,
-        } = useChatInputFiles();
+        } = useChatInputFiles(chatId);
 
         // Создаем функцию для эффекта загрузки
         const loadingEffectForAttachFile = useMemo(

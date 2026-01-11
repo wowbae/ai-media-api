@@ -1,6 +1,6 @@
 // Хук для работы с файлами в chat-input
 import { useState, useRef, useCallback } from 'react';
-import { useUploadToImgbbMutation } from '@/redux/media-api';
+import { useUploadToImgbbMutation, useUploadUserMediaMutation } from '@/redux/media-api';
 
 export interface AttachedFile {
     id: string;
@@ -19,10 +19,11 @@ function fileToBase64(file: File): Promise<string> {
     });
 }
 
-export function useChatInputFiles() {
+export function useChatInputFiles(chatId?: number) {
     const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
     const [isDragging, setIsDragging] = useState(false);
     const [uploadToImgbb] = useUploadToImgbbMutation();
+    const [uploadUserMedia] = useUploadUserMediaMutation();
     // Ref для отслеживания всех созданных preview URLs для очистки при размонтировании
     const previewUrlsRef = useRef<Set<string>>(new Set());
 
@@ -125,9 +126,52 @@ export function useChatInputFiles() {
                 }
             }
 
+            // Загружаем файлы в БД и в ai-media (по запросу пользователя)
+            if (chatId && newFiles.length > 0) {
+                try {
+                    const uploadFiles = await Promise.all(
+                        newFiles.map(async (f) => ({
+                            base64: await fileToBase64(f.file),
+                            mimeType: f.file.type,
+                            filename: f.file.name,
+                        }))
+                    );
+
+                    console.log(`[ChatInput] Загрузка ${uploadFiles.length} файлов в БД (ai-media)...`);
+                    const result = await uploadUserMedia({
+                        chatId,
+                        files: uploadFiles,
+                    }).unwrap();
+
+                    console.log('[ChatInput] ✅ Файлы успешно сохранены в БД и ai-media');
+
+                    // Обновляем attachedFiles с полученными URL (чтобы при отправке промпта не загружать заново)
+                    if (result && result.files) {
+                        setAttachedFiles(prev => {
+                            const updated = [...prev];
+                            // Сопоставляем по имени файла (лучшее что у нас есть)
+                            result.files.forEach(serverFile => {
+                                const localFileIndex = updated.findIndex(
+                                    f => f.file.name === serverFile.filename && !f.imgbbUrl
+                                );
+                                if (localFileIndex !== -1 && serverFile.url) {
+                                    updated[localFileIndex] = {
+                                        ...updated[localFileIndex],
+                                        imgbbUrl: serverFile.url
+                                    };
+                                }
+                            });
+                            return updated;
+                        });
+                    }
+                } catch (error) {
+                    console.error('[ChatInput] ❌ Ошибка сохранения файлов в БД:', error);
+                }
+            }
+
             return newFiles;
         },
-        [uploadToImgbb]
+        [uploadToImgbb, uploadUserMedia, chatId]
     );
 
     // Загрузка файла по URL и конвертация в File объект
