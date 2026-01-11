@@ -616,20 +616,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             disabled={isDisabled}
                             className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500'
                         />
-                        <Input
-                            type='text'
+                        <NumberInput
                             placeholder='Seed (опционально)'
-                            value={seed === undefined ? '' : String(seed)}
-                            onChange={(e) => {
-                                const value = e.target.value.trim();
-                                if (value === '') {
-                                    setSeed(undefined);
-                                } else if (!isNaN(Number(value))) {
-                                    setSeed(Number(value));
-                                } else {
-                                    setSeed(value);
-                                }
-                            }}
+                            value={seed}
+                            onValueChange={setSeed}
                             disabled={isDisabled}
                             className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-40'
                         />

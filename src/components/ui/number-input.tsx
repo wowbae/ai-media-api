@@ -2,7 +2,6 @@
 import * as React from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from './button';
 import { Input } from './input';
 
 export interface NumberInputProps
@@ -89,38 +88,36 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
                     onChange={handleChange}
                     onBlur={handleBlur}
                     disabled={disabled}
-                    className={cn('pr-8', className)}
+                    className={cn('pr-7', className)}
                     min={min}
                     max={max}
                     {...props}
                 />
-                <div className='absolute right-0.5 flex flex-col gap-px'>
-                    <Button
+                <div className='absolute right-1 flex flex-col'>
+                    <button
                         type='button'
-                        variant='ghost'
-                        size='icon-sm'
-                        className='h-3.5 w-4 rounded-none'
+                        tabIndex={-1}
+                        className='flex h-3 w-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-foreground disabled:opacity-20'
                         onClick={handleIncrement}
                         disabled={
                             disabled ||
                             (max !== undefined && numValue !== undefined && numValue >= max)
                         }
                     >
-                        <ChevronUp className='h-3 w-3' />
-                    </Button>
-                    <Button
+                        <ChevronUp className='size-3' />
+                    </button>
+                    <button
                         type='button'
-                        variant='ghost'
-                        size='icon-sm'
-                        className='h-3.5 w-4 rounded-none'
+                        tabIndex={-1}
+                        className='flex h-3 w-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-foreground disabled:opacity-20'
                         onClick={handleDecrement}
                         disabled={
                             disabled ||
                             (min !== undefined && numValue !== undefined && numValue <= min)
                         }
                     >
-                        <ChevronDown className='h-3 w-3' />
-                    </Button>
+                        <ChevronDown className='size-3' />
+                    </button>
                 </div>
             </div>
         );
