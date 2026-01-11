@@ -1,5 +1,5 @@
 // Список сообщений (запросов и результатов)
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import {
     Loader2,
     AlertCircle,
@@ -12,6 +12,7 @@ import {
     X,
     Sparkles,
     RefreshCcw,
+    ChevronDown,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -58,10 +59,32 @@ export function MessageList({
         [requests]
     );
 
+    const [showScrollButton, setShowScrollButton] = useState(false);
+
+    // Обработчик скролла для отображения кнопки "Вниз"
+    const handleScroll = useCallback(() => {
+        if (scrollRef.current) {
+            const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+            // Показываем кнопку, если отступили от низа более чем на 200 пикселей
+            const isNearBottom = scrollHeight - scrollTop - clientHeight < 200;
+            setShowScrollButton(!isNearBottom);
+        }
+    }, []);
+
+    // Привязываем обработчик скролла к вьюпорту
+    useEffect(() => {
+        const viewport = scrollRef.current;
+        if (viewport) {
+            viewport.addEventListener('scroll', handleScroll);
+            return () => viewport.removeEventListener('scroll', handleScroll);
+        }
+    }, [handleScroll]);
+
     // Автопрокрутка к последнему сообщению
     // Используем scrollIntoView на элементе-маркере в конце списка
     useEffect(() => {
-        // Используем двойной requestAnimationFrame для гарантии, что DOM полностью обновлен
+        // Если пользователь не в самом низу, не прокручиваем автоматически (опционально)
+        // Но здесь мы оставим как было, чтобы новые сообщения всегда были видны
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 if (messagesEndRef.current) {
@@ -72,6 +95,12 @@ export function MessageList({
             });
         });
     }, [requests.length, requestsStatusKey]);
+
+    const scrollToBottom = () => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
 
     if (isLoading) {
         return (
@@ -104,21 +133,34 @@ export function MessageList({
     }
 
     return (
-        <ScrollArea className='flex-1 bg-slate-900' ref={scrollRef}>
-            <div className='space-y-6 p-4'>
-                {requests.map((request) => (
-                    <MessageItem
-                        key={request.id}
-                        request={request}
-                        onEditPrompt={onEditPrompt}
-                        onAttachFile={onAttachFile}
-                        onRepeatRequest={onRepeatRequest}
-                    />
-                ))}
-                {/* Маркер для автоскролла */}
-                <div ref={messagesEndRef} />
-            </div>
-        </ScrollArea>
+        <div className='relative flex-1 overflow-hidden'>
+            <ScrollArea className='h-full bg-slate-900' ref={scrollRef}>
+                <div className='space-y-6 p-4'>
+                    {requests.map((request) => (
+                        <MessageItem
+                            key={request.id}
+                            request={request}
+                            onEditPrompt={onEditPrompt}
+                            onAttachFile={onAttachFile}
+                            onRepeatRequest={onRepeatRequest}
+                        />
+                    ))}
+                    {/* Маркер для автоскролла */}
+                    <div ref={messagesEndRef} />
+                </div>
+            </ScrollArea>
+
+            {showScrollButton && (
+                <Button
+                    size='icon'
+                    variant='secondary'
+                    className='absolute bottom-4 right-8 z-10 h-10 w-10 rounded-full bg-slate-800/80 text-white shadow-lg backdrop-blur-sm hover:bg-slate-700'
+                    onClick={scrollToBottom}
+                >
+                    <ChevronDown className='h-6 w-6' />
+                </Button>
+            )}
+        </div>
     );
 }
 
@@ -141,6 +183,17 @@ function MessageItem({
         null
     );
     const [attachingFile, setAttachingFile] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [isClamped, setIsClamped] = useState(false);
+    const textRef = useRef<HTMLParagraphElement>(null);
+
+    // Проверяем, переполнен ли текст (превышает 2 строки)
+    useEffect(() => {
+        if (textRef.current) {
+            const { scrollHeight, clientHeight } = textRef.current;
+            setIsClamped(scrollHeight > clientHeight);
+        }
+    }, [request.prompt]);
 
     // Получаем информацию о модели и провайдере из сохранённой модели запроса
     // Показываем только если модель сохранена в запросе
@@ -213,9 +266,24 @@ function MessageItem({
                     )}
                 </div>
                 <div className='max-w-[80%] rounded-2xl rounded-tr-sm bg-cyan-600 px-4 py-3'>
-                    <p className='whitespace-pre-wrap text-white text-sm'>
-                        {request.prompt}
-                    </p>
+                    <div className='relative'>
+                        <p
+                            ref={textRef}
+                            className={`whitespace-pre-wrap text-sm text-white transition-all duration-200 ${
+                                !isExpanded ? 'line-clamp-2' : ''
+                            }`}
+                        >
+                            {request.prompt}
+                        </p>
+                        {isClamped && (
+                            <button
+                                onClick={() => setIsExpanded(!isExpanded)}
+                                className='mt-1 text-xs font-medium text-cyan-200 hover:text-white transition-colors'
+                            >
+                                {isExpanded ? 'Свернуть' : 'Показать полностью'}
+                            </button>
+                        )}
+                    </div>
                     {/* Превью прикрепленных файлов */}
                     {request.inputFiles && request.inputFiles.length > 0 && (
                         <div className='mt-2 flex flex-wrap gap-2'>
