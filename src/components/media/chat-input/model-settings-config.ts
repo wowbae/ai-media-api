@@ -157,14 +157,14 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
     },
     VEO_3_1_FAST: {
         format: {
-            options: FORMAT_OPTIONS_WITH_DEFAULT,
-            allowDefault: true,
+            options: FORMAT_OPTIONS_16_9_9_16,
+            defaultValue: '16:9',
         },
     },
     VEO_3_1: {
         format: {
-            options: FORMAT_OPTIONS_WITH_DEFAULT,
-            allowDefault: true,
+            options: FORMAT_OPTIONS_16_9_9_16,
+            defaultValue: '16:9',
         },
     },
     KLING_2_6: {

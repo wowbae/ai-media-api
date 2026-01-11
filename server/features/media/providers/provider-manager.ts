@@ -11,6 +11,7 @@ import {
     createKieAiNanoBananaProvider,
     createKieAiImagen4Provider,
     createKieAiSeedreamProvider,
+    createKieAiVeo3Provider,
 } from './kieai';
 import { MEDIA_MODELS, type MediaModelConfig } from '../config';
 import 'dotenv/config';
@@ -122,6 +123,13 @@ export function createProviderManager(): ProviderManager {
                 if (model === 'IMAGEN4_KIEAI') {
                     kieaiProviders[model] =
                         createKieAiImagen4Provider(kieaiConfig);
+                    return kieaiProviders[model];
+                }
+
+                // Для Veo 3.1 (Quality и Fast) используем veo3 провайдер
+                if (model === 'VEO_3_1' || model === 'VEO_3_1_FAST') {
+                    kieaiProviders[model] =
+                        createKieAiVeo3Provider(kieaiConfig);
                     return kieaiProviders[model];
                 }
 

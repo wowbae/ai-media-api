@@ -90,6 +90,29 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.1, // TODO: уточнить цену для Seedream 4.5 Edit
         },
     },
+    // Kie.ai провайдер - Veo 3.1 модели для генерации видео
+    VEO_3_1: {
+        id: 'veo3',
+        name: 'Veo 3.1 Quality',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 4096,
+        supportsImageInput: true, // Поддерживает image-to-video
+        provider: 'kieai',
+        pricing: {
+            output: 0.1, // TODO: уточнить цену для Veo 3.1 Quality
+        },
+    },
+    VEO_3_1_FAST: {
+        id: 'veo3_fast',
+        name: 'Veo 3.1 Fast',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 4096,
+        supportsImageInput: true, // Поддерживает image-to-video
+        provider: 'kieai',
+        pricing: {
+            output: 0.1, // TODO: уточнить цену для Veo 3.1 Fast
+        },
+    },
     // пока выключил, не нужны, НО НЕ УДАЛЯТЬ ИХ
     // NANO_BANANA_OPENROUTER: {
     //     id: 'google/gemini-3-pro-image-preview',
