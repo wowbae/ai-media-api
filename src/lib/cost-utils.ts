@@ -1,7 +1,7 @@
 import { type MediaRequest, type MediaModel } from '@/redux/media-api';
 
 /**
- * Тарифы для разных моделей (стоимость за одну генерацию)
+ * Тарифы для разных моделей в долларах (стоимость за одну генерацию)
  * Эти значения можно легко корректировать здесь.
  */
 export const MODEL_RATES: Record<MediaModel, number> = {
@@ -20,26 +20,6 @@ export const MODEL_RATES: Record<MediaModel, number> = {
     'MIDJOURNEY': 0.5,
     'SORA_2': 0.3,
 };
-
-
-
-// OpenRouter
-// - banana pro - 11₽
-
-// Laozhang (https://api.laozhang.ai)
-// - nano banana pro - 4.8₽ ($0.05 за изображение = 3.9р)
-// - sora 2 - 14₽ ($0.30 за видео 540p, 10s)
-// - veo 3.1 - ~50₽ ($0.50 за видео 720p, async)
-
-// Kie.ai
-// - nano banana pro - 24 кредита = 9.46р (было указано $0.09 = 7р)
-// - imagen4 		  - 4 кредита - $0.02
-// - Imagen 4 Ultra  - 12 кредитов - $0.06
-
-// - kling 2.6 		  - 110 кредитов за 10 секунд - $0.55 = 43 р
-// - kling 2.5 turbo pro - 84 кредита за 10 секунд - $0.42 = 33р
-
-// - seedream 4.5		  - 6.5 кредитов = $0.0325 = 2.54р
 
 
 /**
