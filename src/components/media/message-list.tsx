@@ -10,6 +10,8 @@ import {
     Maximize2,
     Download,
     X,
+    Sparkles,
+    RefreshCcw,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,6 +37,7 @@ interface MessageListProps {
     isLoading?: boolean;
     onEditPrompt?: (prompt: string) => void;
     onAttachFile?: (fileUrl: string, filename: string) => void;
+    onRepeatRequest?: (request: MediaRequest) => void;
 }
 
 export function MessageList({
@@ -43,6 +46,7 @@ export function MessageList({
     isLoading,
     onEditPrompt,
     onAttachFile,
+    onRepeatRequest,
 }: MessageListProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -108,6 +112,7 @@ export function MessageList({
                         request={request}
                         onEditPrompt={onEditPrompt}
                         onAttachFile={onAttachFile}
+                        onRepeatRequest={onRepeatRequest}
                     />
                 ))}
                 {/* Маркер для автоскролла */}
@@ -121,12 +126,14 @@ interface MessageItemProps {
     request: MediaRequest;
     onEditPrompt?: (prompt: string) => void;
     onAttachFile?: (fileUrl: string, filename: string) => void;
+    onRepeatRequest?: (request: MediaRequest) => void;
 }
 
 function MessageItem({
     request,
     onEditPrompt,
     onAttachFile,
+    onRepeatRequest,
 }: MessageItemProps) {
     const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
     const { data: models } = useGetModelsQuery();
@@ -176,19 +183,35 @@ function MessageItem({
         <div className='space-y-3'>
             {/* Промпт пользователя */}
             <div className='group flex items-start justify-end gap-2'>
-                {/* Кнопка редактирования слева от сообщения */}
-                {onEditPrompt && (
-                    <Button
-                        type='button'
-                        size='icon'
-                        variant='ghost'
-                        className='mt-1 h-8 w-8 shrink-0 text-cyan-400 opacity-0 transition-opacity hover:text-cyan-300 hover:bg-cyan-600/20 group-hover:opacity-100'
-                        onClick={() => onEditPrompt(request.prompt)}
-                        title='Редактировать промпт'
-                    >
-                        <span className='text-lg'>✨</span>
-                    </Button>
-                )}
+                {/* Кнопки действий слева от сообщения */}
+                <div className='flex flex-col gap-1'>
+                    {/* Кнопка редактирования */}
+                    {onEditPrompt && (
+                        <Button
+                            type='button'
+                            size='icon'
+                            variant='ghost'
+                            className='h-8 w-8 shrink-0 text-cyan-400 opacity-0 transition-opacity hover:text-cyan-300 hover:bg-cyan-600/20 group-hover:opacity-100'
+                            onClick={() => onEditPrompt(request.prompt)}
+                            title='Редактировать промпт'
+                        >
+                            <span className='text-lg'>✨</span>
+                        </Button>
+                    )}
+                    {/* Кнопка повторить запрос */}
+                    {onRepeatRequest && (
+                        <Button
+                            type='button'
+                            size='icon'
+                            variant='ghost'
+                            className='h-8 w-8 shrink-0 text-purple-400 opacity-0 transition-opacity hover:text-purple-300 hover:bg-purple-600/20 group-hover:opacity-100'
+                            onClick={() => onRepeatRequest(request)}
+                            title='Повторить запрос'
+                        >
+                            <RefreshCcw className='h-4 w-4' />
+                        </Button>
+                    )}
+                </div>
                 <div className='max-w-[80%] rounded-2xl rounded-tr-sm bg-cyan-600 px-4 py-3'>
                     <p className='whitespace-pre-wrap text-white text-sm'>
                         {request.prompt}

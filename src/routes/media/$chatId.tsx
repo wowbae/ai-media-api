@@ -15,6 +15,7 @@ import {
     useUpdateChatMutation,
     useGetRequestQuery,
     useGetModelsQuery,
+    useGenerateMediaMutation,
     type MediaModel,
     type MediaRequest,
 } from '@/redux/media-api';
@@ -78,6 +79,7 @@ function MediaChatPage() {
     }, [chatIdNum, isChatLoading, isChatFetching, chat, chatError]);
 
     const [updateChat] = useUpdateChatMutation();
+    const [generateMedia] = useGenerateMediaMutation();
 
     const { isTestMode } = useTestMode();
 
@@ -569,6 +571,76 @@ function MediaChatPage() {
         await chatInputRef.current?.addFileFromUrl(fileUrl, filename);
     }
 
+    // Обработчик повторения запроса
+    async function handleRepeatRequest(request: MediaRequest) {
+        if (!request.model) {
+            console.error('[Chat] Нельзя повторить запрос: модель не указана');
+            alert('Нельзя повторить запрос: модель не указана');
+            return;
+        }
+
+        try {
+            // Добавляем pending-сообщение для оптимистичного отображения
+            handleAddPendingMessage(request.prompt);
+
+            // Восстанавливаем параметры из settings
+            const settings = request.settings || {};
+            const params = {
+                chatId: chatIdNum,
+                prompt: request.prompt,
+                model: request.model,
+                inputFiles: request.inputFiles || [],
+                format: settings.format as
+                    | '1:1'
+                    | '4:3'
+                    | '3:4'
+                    | '9:16'
+                    | '16:9'
+                    | '2:3'
+                    | '3:2'
+                    | '21:9'
+                    | undefined,
+                quality: settings.quality as '1k' | '2k' | '4k' | undefined,
+                videoQuality: settings.videoQuality as
+                    | '480p'
+                    | '720p'
+                    | '1080p'
+                    | undefined,
+                duration: settings.duration as number | undefined,
+                ar: settings.ar as '16:9' | '9:16' | undefined,
+                sound: settings.sound as boolean | undefined,
+                outputFormat: settings.outputFormat as
+                    | 'png'
+                    | 'jpg'
+                    | undefined,
+                negativePrompt: settings.negativePrompt as string | undefined,
+                seed:
+                    request.seed ||
+                    (settings.seed as string | number | undefined),
+                cfgScale: settings.cfgScale as number | undefined,
+                tailImageUrl: settings.tailImageUrl as string | undefined,
+            };
+
+            // Отправляем запрос
+            const result = await generateMedia(params).unwrap();
+            handleRequestCreated(result.requestId);
+        } catch (error) {
+            console.error('[Chat] Ошибка повторения запроса:', error);
+            const errorMessage =
+                error &&
+                typeof error === 'object' &&
+                'data' in error &&
+                error.data &&
+                typeof error.data === 'object' &&
+                'error' in error.data &&
+                typeof error.data.error === 'string'
+                    ? error.data.error
+                    : 'Не удалось повторить запрос. Попробуйте еще раз.';
+            handleSendError(errorMessage);
+            alert(`Ошибка повторения запроса: ${errorMessage}`);
+        }
+    }
+
     // Показываем индикатор обновления только если есть кешированные данные
     const showUpdatingIndicator = isChatFetching && !isChatLoading;
 
@@ -592,6 +664,7 @@ function MediaChatPage() {
                     chatModel={currentModel}
                     onEditPrompt={handleEditPrompt}
                     onAttachFile={handleAttachFile}
+                    onRepeatRequest={handleRepeatRequest}
                 />
 
                 {/* Ввод */}

@@ -376,9 +376,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     isLockEnabled,
                     onClearForm: () => {
                         setPrompt('');
+                        if (isVeo || isImagen4) {
+                            setSeed(undefined);
+                        }
                         if (isImagen4) {
                             setNegativePrompt('');
-                            setSeed(undefined);
                         }
                         if (isKling25) {
                             setNegativePrompt('');
@@ -534,6 +536,35 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         onSoundChange={setSound}
                         disabled={isDisabled}
                     />
+                    {/* Поле для Veo 3.1: seed */}
+                    {isVeo && (
+                        <div className='w-74'>
+                            <Input
+                                type='number'
+                                placeholder='Seed (опционально, 10000-99999)'
+                                value={seed === undefined ? '' : String(seed)}
+                                onChange={(e) => {
+                                    const value = e.target.value.trim();
+                                    if (value === '') {
+                                        setSeed(undefined);
+                                    } else {
+                                        const numValue = Number(value);
+                                        if (
+                                            !isNaN(numValue) &&
+                                            numValue >= 10000 &&
+                                            numValue <= 99999
+                                        ) {
+                                            setSeed(numValue);
+                                        }
+                                    }
+                                }}
+                                disabled={isDisabled}
+                                className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500'
+                                min={10000}
+                                max={99999}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* Поля для Imagen4: negativePrompt и seed */}

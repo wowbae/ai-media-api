@@ -208,6 +208,7 @@ mediaRouter.get('/chats/:id', async (req: Request, res: Response) => {
                         completedAt: true,
                         inputFiles: true, // ВАЖНО: Всегда включаем для отображения превью
                         seed: true,
+                        settings: true, // Параметры запроса для повторения
                         files: {
                             select: {
                                 id: true,
@@ -646,6 +647,19 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
         }
 
         // Создаем запрос в БД (сохраняем обработанные inputFiles - URL для изображений, base64 для видео)
+        // Сохраняем все параметры запроса в поле settings для возможности повтора
+        const requestSettings: Record<string, unknown> = {};
+        if (format !== undefined) requestSettings.format = format;
+        if (quality !== undefined) requestSettings.quality = quality;
+        if (videoQuality !== undefined) requestSettings.videoQuality = videoQuality;
+        if (duration !== undefined) requestSettings.duration = duration;
+        if (ar !== undefined) requestSettings.ar = ar;
+        if (sound !== undefined) requestSettings.sound = sound;
+        if (outputFormat !== undefined) requestSettings.outputFormat = outputFormat;
+        if (negativePrompt !== undefined && negativePrompt.trim() !== '') requestSettings.negativePrompt = negativePrompt;
+        if (cfgScale !== undefined) requestSettings.cfgScale = cfgScale;
+        if (tailImageUrl !== undefined && tailImageUrl.trim() !== '') requestSettings.tailImageUrl = tailImageUrl;
+
         const mediaRequest = await prisma.mediaRequest.create({
             data: {
                 chatId,
@@ -659,6 +673,7 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
                     String(seed).trim() !== ''
                         ? String(seed)
                         : null,
+                settings: requestSettings as Prisma.InputJsonValue,
             },
         });
 

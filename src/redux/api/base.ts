@@ -54,6 +54,7 @@ export interface MediaRequest {
     createdAt: string;
     completedAt: string | null;
     seed: string | null;
+    settings?: Record<string, unknown>; // Параметры запроса для повторения (format, quality, duration, sound, и т.д.)
     files: MediaFile[];
 }
 

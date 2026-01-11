@@ -31,6 +31,7 @@ model MediaRequest {
   taskId       String? // ID задачи от провайдера (для async генерации)
   seed         String? // Seed для воспроизводимости генерации
   inputFiles   String[]      @default([])
+  settings     Json          @default("{}") // Дополнительные параметры запроса (format, quality, duration, sound, negativePrompt, cfgScale, и т.д.)
   files        MediaFile[]
   errorMessage String?
   createdAt    DateTime      @default(now())
