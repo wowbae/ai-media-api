@@ -272,8 +272,8 @@ export function createOpenRouterProvider(
                 messages,
             };
 
-            // Специфичные параметры для NANO_BANANA (Gemini)
-            if (params.model === 'NANO_BANANA') {
+            // Специфичные параметры для NANO_BANANA_OPENROUTER (Gemini)
+            if (params.model === 'NANO_BANANA_OPENROUTER') {
                 requestBody.modalities = ['image', 'text'];
 
                 if (params.aspectRatio) {
@@ -318,7 +318,7 @@ export function createOpenRouterProvider(
             let savedFiles: SavedFileInfo[] = [];
 
             // Парсим ответ в зависимости от модели
-            if (params.model === 'NANO_BANANA') {
+            if (params.model === 'NANO_BANANA_OPENROUTER') {
                 savedFiles = await parseGeminiImageResponse(data);
             } else {
                 savedFiles = await parseGenericResponse(data);

@@ -11,7 +11,7 @@ datasource db {
 model MediaChat {
   id        Int            @id @default(autoincrement())
   name      String
-  model     MediaModel     @default(NANO_BANANA)
+  model     MediaModel     @default(NANO_BANANA_PRO_KIEAI)
   settings  Json           @default("{}")
   requests  MediaRequest[]
   createdAt DateTime       @default(now())
@@ -63,12 +63,12 @@ model MediaFile {
 }
 
 enum MediaModel {
-  NANO_BANANA
+  NANO_BANANA_OPENROUTER
   MIDJOURNEY
   VEO_3_1_FAST
   SORA
   // LaoZhang провайдер
-  NANO_BANANA_PRO
+  NANO_BANANA_PRO_LAOZHANG
   SORA_2
   VEO_3_1
   // Kie.ai провайдер

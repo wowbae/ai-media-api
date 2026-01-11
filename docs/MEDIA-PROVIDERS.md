@@ -8,7 +8,7 @@
 Провайдер для работы с моделями через OpenRouter API.
 
 **Модели:**
-- `NANO_BANANA` - Google Gemini 3 Pro Image Preview (генерация изображений)
+- `NANO_BANANA_OPENROUTER` - Google Gemini 3 Pro Image Preview (генерация изображений)
 - `MIDJOURNEY` - Midjourney (генерация изображений)
 
 **Переменные окружения:**
@@ -120,7 +120,7 @@ interface GenerateParams {
 
 ### Специфичные параметры моделей
 
-**Для изображений (NANO_BANANA, MIDJOURNEY):**
+**Для изображений (NANO_BANANA_OPENROUTER, MIDJOURNEY):**
 - `quality`: '1k' | '2k' | '4k' - разрешение изображения
 - `aspectRatio`: '1:1' | '9:16' | '16:9' - соотношение сторон
 

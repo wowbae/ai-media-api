@@ -119,7 +119,7 @@ const SOUND_OPTIONS: SoundOption[] = [
 
 // Конфигурация настроек для всех моделей (значения по умолчанию прописываем здесь)
 export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
-    NANO_BANANA: {
+    NANO_BANANA_OPENROUTER: {
         format: {
             options: FORMAT_OPTIONS_WITH_DEFAULT,
             allowDefault: true,
@@ -129,7 +129,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             allowDefault: true,
         },
     },
-    NANO_BANANA_PRO: {
+    NANO_BANANA_PRO_LAOZHANG: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,
             defaultValue: '9:16',

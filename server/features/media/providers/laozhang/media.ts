@@ -364,8 +364,8 @@ export function createLaoZhangImageProvider(
         throw new Error(`Модель ${params.model} не поддерживается LaoZhang`);
       }
 
-      // Определяем, используем ли Google Native Format для NANO_BANANA_PRO
-      const isNanoBananaPro = params.model === "NANO_BANANA_PRO";
+      // Определяем, используем ли Google Native Format для NANO_BANANA_PRO_LAOZHANG
+      const isNanoBananaPro = params.model === "NANO_BANANA_PRO_LAOZHANG";
 
       console.log("[LaoZhang Image] 🚀 Генерация:", {
         requestId: params.requestId,
@@ -381,7 +381,7 @@ export function createLaoZhangImageProvider(
         );
       }
 
-      // Для NANO_BANANA_PRO используем Google Native Format
+      // Для NANO_BANANA_PRO_LAOZHANG используем Google Native Format
       if (isNanoBananaPro) {
         // Преобразуем quality: 2k -> 2K, 4k -> 4K
         const quality = params.quality

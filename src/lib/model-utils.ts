@@ -3,10 +3,10 @@
 
 // Маппинг моделей на их иконки (эмодзи)
 const MODEL_ICONS: Record<string, string> = {
-    NANO_BANANA: '🍌',
+    NANO_BANANA_OPENROUTER: '🍌',
     MIDJOURNEY: '🎨',
     VEO_3_1_FAST: '🎥',
-    NANO_BANANA_PRO: '🍌',
+    NANO_BANANA_PRO_LAOZHANG: '🍌',
     SORA_2: '🌊',
     VEO_3_1: '🎥',
     KLING_2_6: '🎬',

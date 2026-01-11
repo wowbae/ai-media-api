@@ -298,7 +298,7 @@ mediaRouter.post('/chats', async (req: Request, res: Response) => {
         const chat = await prisma.mediaChat.create({
             data: {
                 name: name.trim(),
-                model: model || 'NANO_BANANA',
+                model: model || 'NANO_BANANA_PRO_KIEAI',
                 settings: (settings || {}) as Prisma.InputJsonValue,
             },
         });

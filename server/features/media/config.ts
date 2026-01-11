@@ -91,7 +91,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         },
     },
     // пока выключил, не нужны, НО НЕ УДАЛЯТЬ ИХ
-    // NANO_BANANA: {
+    // NANO_BANANA_OPENROUTER: {
     //     id: 'google/gemini-3-pro-image-preview',
     //     name: 'Nano Banana Pro',
     //     types: ['IMAGE'] as const,
@@ -126,7 +126,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
     //   },
     // },
     // // LaoZhang провайдер - модели для генерации изображений и видео
-    // NANO_BANANA_PRO: {
+    // NANO_BANANA_PRO_LAOZHANG: {
     //   id: "gemini-3-pro-image-preview",
     //   name: "Nano Banana Pro",
     //   types: ["IMAGE"] as const,

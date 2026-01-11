@@ -95,8 +95,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
         // Поле не блокируется на время выполнения запроса для поддержки параллельных запросов
         const isDisabled = disabled ?? false;
-        const isNanoBanana = currentModel === 'NANO_BANANA';
-        const isNanoBananaPro = currentModel === 'NANO_BANANA_PRO';
+        const isNanoBanana = currentModel === 'NANO_BANANA_OPENROUTER';
+        const isNanoBananaPro = currentModel === 'NANO_BANANA_PRO_LAOZHANG';
         const isNanoBananaProKieai =
             (currentModel as string) === 'NANO_BANANA_PRO_KIEAI';
         const isVeo =

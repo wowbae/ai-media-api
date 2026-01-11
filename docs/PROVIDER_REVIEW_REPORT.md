@@ -1,7 +1,7 @@
 # Отчет о проверке провайдеров и моделей
 
-**Дата:** 2025-01-XX  
-**Проверенные провайдеры:** LaoZhang API, Kie.ai API  
+**Дата:** 2025-01-XX
+**Проверенные провайдеры:** LaoZhang API, Kie.ai API
 **Топ модели:** Nano Banana Pro (LaoZhang), Kling 2.6 (Kie.ai)
 
 ---
@@ -138,7 +138,7 @@ const taskId = responseData.data.taskId;
 
 **Проблема:** Google Native Format API требует uppercase формат для `imageSize`: "1K", "2K", "4K", но типы использовали lowercase.
 
-**Файлы:** 
+**Файлы:**
 - `server/features/media/providers/laozhang/interfaces.ts`
 - `server/features/media/providers/laozhang/media.ts`
 
@@ -207,7 +207,7 @@ params.quality.toUpperCase() as Quality
 Все модели корректно настроены:
 
 ```typescript
-NANO_BANANA_PRO: {
+NANO_BANANA_PRO_LAOZHANG: {
   id: 'gemini-3-pro-image-preview',
   name: 'Nano Banana Pro',
   types: ['IMAGE'] as const,
@@ -327,6 +327,6 @@ Kie.ai предлагает множество других моделей:
 
 ---
 
-**Проверил:** AI Assistant  
-**Изменения применены:** ✅  
+**Проверил:** AI Assistant
+**Изменения применены:** ✅
 **Тесты пройдены:** ✅ (No errors or warnings found)

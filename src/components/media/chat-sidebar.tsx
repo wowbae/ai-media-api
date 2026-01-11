@@ -154,7 +154,7 @@ export function ChatSidebar() {
 
             {/* Chat list */}
             <ScrollArea className='flex-1'>
-                <div className='p-2'>
+                <div className='p-2 w-64 truncate'>
                     {isChatsLoading ? (
                         // Skeleton loader
                         Array.from({ length: 5 }).map((_, i) => (
@@ -282,23 +282,24 @@ function ChatItem({ chat, isActive, onDelete, onEdit }: ChatItemProps) {
             <Link
                 to='/media/$chatId'
                 params={{ chatId: chat.id.toString() }}
-                className='flex flex-1 items-center gap-2 truncate'
+                className='flex min-w-0 flex-1 items-center gap-2'
             >
                 <MessageSquare className='h-4 w-4 shrink-0' />
-                <span className='truncate text-sm'>{chat.name}</span>
-                {chat._count && chat._count.files > 0 && (
-                    <span className='ml-auto text-xs text-slate-500'>
-                        {chat._count.files}
-                    </span>
-                )}
+                <span className='min-w-0 truncate text-sm'>{chat.name}</span>
             </Link>
+
+            {chat._count && chat._count.files > 0 && (
+                <span className='shrink-0 text-xs text-slate-500'>
+                    {chat._count.files}
+                </span>
+            )}
 
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button
                         size='icon'
                         variant='ghost'
-                        className='h-6 w-6 opacity-0 group-hover:opacity-100'
+                        className='h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100'
                     >
                         <MoreVertical className='h-4 w-4' />
                     </Button>

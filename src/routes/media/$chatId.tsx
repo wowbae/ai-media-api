@@ -81,8 +81,9 @@ function MediaChatPage() {
 
     const { isTestMode } = useTestMode();
 
-    const [currentModel, setCurrentModel] =
-        useState<MediaModel>('NANO_BANANA_PRO');
+    const [currentModel, setCurrentModel] = useState<MediaModel>(
+        'NANO_BANANA_PRO_KIEAI'
+    );
     const [pollingRequestId, setPollingRequestId] = useState<number | null>(
         null
     );
