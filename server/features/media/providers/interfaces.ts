@@ -24,6 +24,7 @@ export interface GenerateParams {
   videoQuality?: "480p" | "720p" | "1080p";
   duration?: number;
   ar?: "16:9" | "9:16"; // Формат видео для Veo (передается как ar в теле запроса)
+  generationType?: "TEXT_2_VIDEO" | "FIRST_AND_LAST_FRAMES_2_VIDEO" | "REFERENCE_2_VIDEO"; // Режим генерации для Veo 3.1
   sound?: boolean; // Звук для Kling 2.6
   outputFormat?: "png" | "jpg" | "jpeg"; // Формат выходного изображения для Nano Banana Pro
   negativePrompt?: string; // Негативный промпт для Imagen4 и Kling 2.5 Turbo Pro

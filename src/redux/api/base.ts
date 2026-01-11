@@ -18,7 +18,8 @@ export type MediaModel =
     | 'NANO_BANANA_PRO_KIEAI'
     | 'IMAGEN4_KIEAI'
     | 'SEEDREAM_4_5'
-    | 'SEEDREAM_4_5_EDIT';
+    | 'SEEDREAM_4_5_EDIT'
+    | 'ELEVENLABS_MULTILINGUAL_V2';
 
 export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
 export type RequestStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
@@ -111,6 +112,7 @@ export interface GenerateMediaRequest {
     videoQuality?: '480p' | '720p' | '1080p';
     duration?: number;
     ar?: '16:9' | '9:16'; // Формат видео для Veo
+    generationType?: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO'; // Режим генерации для Veo 3.1
     sound?: boolean; // Звук для Kling 2.6
     outputFormat?: 'png' | 'jpg'; // Формат выходного файла для Nano Banana Pro (Kie.ai)
     negativePrompt?: string; // Негативный промпт для Imagen4 и Kling 2.5 Turbo Pro

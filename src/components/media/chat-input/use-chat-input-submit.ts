@@ -27,6 +27,7 @@ interface SubmitParams {
     format: '1:1' | '4:3' | '3:4' | '9:16' | '16:9' | '2:3' | '3:2' | '21:9' | undefined;
     quality: '1k' | '2k' | '4k' | undefined;
     videoFormat: '16:9' | '9:16' | undefined;
+    veoGenerationType: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | undefined;
     klingAspectRatio: '16:9' | '9:16' | undefined;
     klingDuration: 5 | 10 | undefined;
     klingSound: boolean | undefined;
@@ -196,6 +197,9 @@ export function useChatInputSubmit({
                             videoFormat: params.isVeo
                                 ? params.videoFormat
                                 : undefined,
+                            veoGenerationType: params.isVeo
+                                ? params.veoGenerationType
+                                : undefined,
                             inputFilesCount: params.attachedFiles.length,
                             timestamp: new Date().toISOString(),
                         }
@@ -297,6 +301,10 @@ export function useChatInputSubmit({
                             params.quality && { quality: params.quality }),
                         ...(params.isVeo &&
                             params.videoFormat && { ar: params.videoFormat }),
+                        ...(params.isVeo &&
+                            params.veoGenerationType && {
+                                generationType: params.veoGenerationType,
+                            }),
                         ...(params.isKling &&
                             params.klingAspectRatio && {
                                 format: params.klingAspectRatio,

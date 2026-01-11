@@ -6,6 +6,7 @@ export interface MediaSettings {
   format?: "1:1" | "4:3" | "3:4" | "9:16" | "16:9" | "2:3" | "3:2" | "21:9";
   quality?: "1k" | "2k" | "4k";
   videoFormat?: "16:9" | "9:16"; // Формат видео для Veo
+  veoGenerationType?: "TEXT_2_VIDEO" | "FIRST_AND_LAST_FRAMES_2_VIDEO" | "REFERENCE_2_VIDEO"; // Режим генерации для Veo 3.1
   klingAspectRatio?: "16:9" | "9:16"; // Формат видео для Kling 2.6
   klingDuration?: 5 | 10; // Длительность видео для Kling 2.6
   klingSound?: boolean; // Звук для Kling 2.6
@@ -25,6 +26,7 @@ export function loadMediaSettings(): MediaSettings {
         format: parsed.format,
         quality: parsed.quality,
         videoFormat: parsed.videoFormat,
+        veoGenerationType: parsed.veoGenerationType,
         klingAspectRatio: parsed.klingAspectRatio,
         klingDuration: parsed.klingDuration,
         klingSound: parsed.klingSound,

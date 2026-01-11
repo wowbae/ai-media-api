@@ -21,6 +21,16 @@ export interface SoundOption {
     label: string;
 }
 
+export interface GenerationTypeOption {
+    value: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO';
+    label: string;
+}
+
+export interface GenerationTypeConfig {
+    options: GenerationTypeOption[];
+    defaultValue?: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO';
+}
+
 export interface FormatConfig {
     options: FormatOption[];
     defaultValue?: '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '2:3' | '3:2' | '21:9';
@@ -48,6 +58,7 @@ export interface ModelSettingConfig {
     quality?: QualityConfig;
     duration?: DurationConfig;
     sound?: SoundConfig;
+    generationType?: GenerationTypeConfig;
 }
 
 // Общие опции для форматов
@@ -117,6 +128,13 @@ const SOUND_OPTIONS: SoundOption[] = [
     { value: 'false', label: 'звук off' },
 ];
 
+// Опции для режима генерации Veo 3.1
+const GENERATION_TYPE_OPTIONS: GenerationTypeOption[] = [
+    { value: 'TEXT_2_VIDEO', label: 'Текст → Видео' },
+    { value: 'FIRST_AND_LAST_FRAMES_2_VIDEO', label: 'Кадры → Видео' },
+    { value: 'REFERENCE_2_VIDEO', label: 'Референс → Видео' },
+];
+
 // Конфигурация настроек для всех моделей (значения по умолчанию прописываем здесь)
 export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
     NANO_BANANA_OPENROUTER: {
@@ -160,11 +178,19 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             options: FORMAT_OPTIONS_16_9_9_16,
             defaultValue: '9:16',
         },
+        generationType: {
+            options: GENERATION_TYPE_OPTIONS,
+            defaultValue: 'TEXT_2_VIDEO',
+        },
     },
     VEO_3_1: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,
             defaultValue: '9:16',
+        },
+        generationType: {
+            options: GENERATION_TYPE_OPTIONS,
+            defaultValue: 'TEXT_2_VIDEO',
         },
     },
     KLING_2_6: {

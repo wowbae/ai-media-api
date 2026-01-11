@@ -83,6 +83,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             undefined
         );
         const [duration, setDuration] = useState<5 | 10 | undefined>(undefined);
+        const [veoGenerationType, setVeoGenerationType] = useState<
+            | 'TEXT_2_VIDEO'
+            | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
+            | 'REFERENCE_2_VIDEO'
+            | undefined
+        >(undefined);
         const [sound, setSound] = useState<boolean | undefined>(undefined);
         const [negativePrompt, setNegativePrompt] = useState<string>('');
         const [seed, setSeed] = useState<string | number | undefined>(
@@ -286,6 +292,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 setQuality(config.quality.defaultValue);
             }
 
+            // Загружаем veoGenerationType
+            if (isVeo && settings.veoGenerationType) {
+                setVeoGenerationType(settings.veoGenerationType);
+            } else if (config.generationType?.defaultValue) {
+                setVeoGenerationType(config.generationType.defaultValue);
+            }
+
             // Загружаем duration (только для Kling)
             if (settings.klingDuration) {
                 setDuration(settings.klingDuration);
@@ -322,6 +335,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         format && format !== '1:1'
                             ? (format as '16:9' | '9:16')
                             : undefined,
+                    veoGenerationType,
                 } as MediaSettings);
             } else if (isKling || isKling25) {
                 // Для Kling сохраняем в klingAspectRatio, klingDuration, klingSound (только для Kling 2.6)
@@ -340,7 +354,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     quality,
                 });
             }
-        }, [format, quality, duration, sound, isVeo, isKling, isKling25]);
+        }, [format, quality, duration, sound, veoGenerationType, isVeo, isKling, isKling25]);
 
         // Очистка URL.createObjectURL при размонтировании компонента для предотвращения утечек памяти
         useEffect(() => {
@@ -398,6 +412,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         | undefined,
                     quality,
                     videoFormat,
+                    veoGenerationType,
                     klingAspectRatio,
                     klingDuration: duration,
                     klingSound: sound,
@@ -464,6 +479,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 speed,
                 languageCode,
                 isLockEnabled,
+                veoGenerationType,
                 clearFiles,
             ]
         );
@@ -586,6 +602,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         onQualityChange={setQuality}
                         onDurationChange={setDuration}
                         onSoundChange={setSound}
+                        veoGenerationType={veoGenerationType}
+                        onVeoGenerationTypeChange={setVeoGenerationType}
                         disabled={isDisabled}
                     />
                     {/* Поле для Veo 3.1: seed */}

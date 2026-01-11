@@ -511,6 +511,7 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             similarityBoost,
             speed,
             languageCode,
+            generationType,
         } = req.body as GenerateMediaRequest;
 
         console.log('[API] POST /generate - получен запрос:', {
@@ -522,6 +523,7 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             videoQuality,
             duration,
             ar,
+            generationType,
             outputFormat,
             negativePrompt: negativePrompt?.substring(0, 50),
             seed,
@@ -659,6 +661,7 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
         if (videoQuality !== undefined) requestSettings.videoQuality = videoQuality;
         if (duration !== undefined) requestSettings.duration = duration;
         if (ar !== undefined) requestSettings.ar = ar;
+        if (generationType !== undefined) requestSettings.generationType = generationType;
         if (sound !== undefined) requestSettings.sound = sound;
         if (outputFormat !== undefined) requestSettings.outputFormat = outputFormat;
         if (negativePrompt !== undefined && negativePrompt.trim() !== '') requestSettings.negativePrompt = negativePrompt;
@@ -713,6 +716,7 @@ mediaRouter.post('/generate', async (req: Request, res: Response) => {
             videoQuality,
             duration,
             ar,
+            generationType,
             sound,
             outputFormat,
             negativePrompt,

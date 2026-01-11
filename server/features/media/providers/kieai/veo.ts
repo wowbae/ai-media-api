@@ -168,7 +168,7 @@ export function createKieAiVeo3Provider(config: KieAiConfig): MediaProvider {
         }
 
         const veo3Model = mapVeo3Model(params.model as string);
-        // Для Veo 3.1 используем параметр ar (16:9 | 9:16), если он есть, иначе aspectRatio
+       // Для Veo 3.1 используем параметр ar (16:9 | 9:16), если он есть, иначе aspectRatio
         // Veo 3.1 поддерживает только 16:9 и 9:16, поэтому фильтруем другие форматы
         const aspectRatioForVeo =
             params.ar ||
@@ -176,8 +176,11 @@ export function createKieAiVeo3Provider(config: KieAiConfig): MediaProvider {
                 ? params.aspectRatio
                 : undefined);
         const aspectRatio = mapVeo3AspectRatio(aspectRatioForVeo);
-        // Определяем тип генерации с учетом модели и aspectRatio
-        const generationType = determineGenerationType(
+
+        // Определяем тип генерации:
+        // 1. Если передан явно через params - используем его
+        // 2. Иначе определяем автоматически на основе файлов, модели и aspectRatio
+        const generationType = params.generationType || determineGenerationType(
             params.inputFiles,
             veo3Model,
             aspectRatio

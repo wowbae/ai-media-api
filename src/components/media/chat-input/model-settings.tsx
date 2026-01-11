@@ -11,6 +11,7 @@ import {
     type QualityConfig,
     type DurationConfig,
     type SoundConfig,
+    type GenerationTypeConfig,
     getModelSettingsConfig,
 } from './model-settings-config';
 import type { MediaModel } from '@/redux/api/base';
@@ -252,6 +253,72 @@ export function SoundSelect({
     );
 }
 
+// Селект для типа генерации (для Veo 3.1)
+interface GenerationTypeSelectProps {
+    value:
+        | 'TEXT_2_VIDEO'
+        | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
+        | 'REFERENCE_2_VIDEO'
+        | undefined;
+    config: GenerationTypeConfig;
+    onValueChange: (
+        value:
+            | 'TEXT_2_VIDEO'
+            | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
+            | 'REFERENCE_2_VIDEO'
+    ) => void;
+    disabled?: boolean;
+    className?: string;
+}
+
+export function GenerationTypeSelect({
+    value,
+    config,
+    onValueChange,
+    disabled,
+    className = 'w-[160px]',
+}: GenerationTypeSelectProps) {
+    const handleChange = (newValue: string) => {
+        onValueChange(
+            newValue as
+                | 'TEXT_2_VIDEO'
+                | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
+                | 'REFERENCE_2_VIDEO'
+        );
+    };
+
+    const displayValue = value || config.defaultValue;
+    const selectedOption = config.options.find((o) => o.value === displayValue);
+    const placeholder = selectedOption ? selectedOption.label : 'Режим';
+
+    return (
+        <Select
+            value={displayValue || undefined}
+            onValueChange={handleChange}
+            disabled={disabled}
+        >
+            <SelectTrigger
+                className={`${className} border-slate-600 bg-slate-700 text-white`}
+            >
+                <SelectValue placeholder={placeholder}>
+                    {selectedOption?.label || placeholder}
+                </SelectValue>
+            </SelectTrigger>
+            <SelectContent className='border-slate-700 bg-slate-800 focus:bg-slate-700 focus:text-white'>
+                {config.options.map((option) => (
+                    <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                    >
+                        {option.label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
 // Основной компонент для отображения настроек модели
 interface ModelSettingsPanelProps {
     model: string;
@@ -263,6 +330,17 @@ interface ModelSettingsPanelProps {
     onQualityChange: (value: '1k' | '2k' | '4k' | undefined) => void;
     onDurationChange: (value: 5 | 10) => void;
     onSoundChange: (value: boolean) => void;
+    veoGenerationType?:
+        | 'TEXT_2_VIDEO'
+        | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
+        | 'REFERENCE_2_VIDEO'
+        | undefined;
+    onVeoGenerationTypeChange?: (
+        value:
+            | 'TEXT_2_VIDEO'
+            | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
+            | 'REFERENCE_2_VIDEO'
+    ) => void;
     disabled?: boolean;
 }
 
@@ -276,6 +354,8 @@ export function ModelSettingsPanel({
     onQualityChange,
     onDurationChange,
     onSoundChange,
+    veoGenerationType,
+    onVeoGenerationTypeChange,
     disabled,
 }: ModelSettingsPanelProps) {
     const config = getModelSettingsConfig(model as MediaModel);
@@ -319,6 +399,15 @@ export function ModelSettingsPanel({
                     value={sound}
                     config={config.sound}
                     onValueChange={onSoundChange}
+                    disabled={disabled}
+                />
+            )}
+
+            {config.generationType && onVeoGenerationTypeChange && (
+                <GenerationTypeSelect
+                    value={veoGenerationType}
+                    config={config.generationType}
+                    onValueChange={onVeoGenerationTypeChange}
                     disabled={disabled}
                 />
             )}
