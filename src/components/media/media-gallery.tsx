@@ -814,7 +814,7 @@ export function MediaGallery({
                                                         selectedFile.requestId
                                                     );
                                                 }}
-                                                className='h-8 w-8 text-slate-400 hover:text-cyan-400 focus:text-cyan-400'
+                                                className='h-9 w-9 text-slate-400 hover:text-cyan-400 focus:text-cyan-400'
                                                 title='Повторить запрос'
                                             >
                                                 <RefreshCcw className='h-4 w-4' />
