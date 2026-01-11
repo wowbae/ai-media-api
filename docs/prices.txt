@@ -12,6 +12,7 @@ Laozhang (https://api.laozhang.ai)
 Kie.ai
 - nano banana pro - 24 кредита = 9.46р (было указано $0.09 = 7р)
 - imagen4 		  - 4 кредита - $0.02
+- Imagen 4 Ultra  - 12 кредитов - $0.06
 
 - kling 2.6 		  - 110 кредитов за 10 секунд - $0.55 = 43 р
 - kling 2.5 turbo pro - 84 кредита за 10 секунд - $0.42 = 33р

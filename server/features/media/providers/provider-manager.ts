@@ -121,7 +121,7 @@ export function createProviderManager(): ProviderManager {
                 }
 
                 // Для Google Imagen4 используем imagen4 провайдер
-                if (model === 'IMAGEN4_KIEAI') {
+                if ((model as string) === 'IMAGEN4_KIEAI' || (model as string) === 'IMAGEN4_ULTRA_KIEAI') {
                     kieaiProviders[model] =
                         createKieAiImagen4Provider(kieaiConfig);
                     return kieaiProviders[model];

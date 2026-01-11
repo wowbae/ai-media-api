@@ -173,6 +173,12 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: '9:16',
         },
     },
+    IMAGEN4_ULTRA_KIEAI: {
+        format: {
+            options: FORMAT_OPTIONS_1_1_16_9_9_16,
+            defaultValue: '9:16',
+        },
+    },
     VEO_3_1_FAST: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,

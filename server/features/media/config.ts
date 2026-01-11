@@ -68,6 +68,17 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.1, // стоимость за изображение (уточнить)
         },
     },
+    IMAGEN4_ULTRA_KIEAI: {
+        id: 'google/imagen4-ultra',
+        name: 'Google Imagen4 Ultra',
+        types: ['IMAGE'] as const,
+        maxPromptLength: 8192,
+        supportsImageInput: false,
+        provider: 'kieai',
+        pricing: {
+            output: 0.15, // Ultra может быть дороже (уточнить)
+        },
+    },
     SEEDREAM_4_5: {
         id: 'seedream/4.5-text-to-image',
         name: 'Seedream 4.5',

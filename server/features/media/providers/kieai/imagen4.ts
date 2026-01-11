@@ -15,6 +15,8 @@ import type {
   KieAiUnifiedTaskResponse,
 } from "./interfaces";
 
+import { MEDIA_MODELS } from "../../config";
+
 // Интерфейс для input параметров Imagen4
 interface KieAiImagen4Input {
   prompt: string;
@@ -25,7 +27,7 @@ interface KieAiImagen4Input {
 
 // Интерфейс для тела запроса
 interface KieAiImagen4Request {
-  model: "google/imagen4";
+  model: string;
   callBackUrl?: string;
   input: KieAiImagen4Input;
 }
@@ -58,12 +60,13 @@ export function createKieAiImagen4Provider(
     });
 
     // Формируем тело запроса согласно документации
+    const modelConfig = MEDIA_MODELS[params.model];
     const requestBody: KieAiImagen4Request = {
-      model: "google/imagen4",
+      model: modelConfig?.id || "google/imagen4",
       input: {
         prompt,
         negative_prompt: negativePrompt || "",
-        aspect_ratio: aspectRatio || "1:1",
+        aspect_ratio: (aspectRatio as any) || "1:1",
         seed: seed?.toString() || "",
       },
     };

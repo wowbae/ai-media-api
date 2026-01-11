@@ -17,6 +17,7 @@ export type MediaModel =
     | 'KLING_2_5_TURBO_PRO'
     | 'NANO_BANANA_PRO_KIEAI'
     | 'IMAGEN4_KIEAI'
+    | 'IMAGEN4_ULTRA_KIEAI'
     | 'SEEDREAM_4_5'
     | 'SEEDREAM_4_5_EDIT'
     | 'ELEVENLABS_MULTILINGUAL_V2';

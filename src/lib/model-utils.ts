@@ -11,6 +11,10 @@ const MODEL_ICONS: Record<string, string> = {
     VEO_3_1: '🎥',
     KLING_2_6: '🎬',
     KLING_2_5_TURBO_PRO: '🎬',
+    IMAGEN4_KIEAI: '🖼️',
+    IMAGEN4_ULTRA_KIEAI: '💎',
+    SEEDREAM_4_5: '🌌',
+    SEEDREAM_4_5_EDIT: '🪄',
     ELEVENLABS_MULTILINGUAL_V2: '🎤',
 };
 

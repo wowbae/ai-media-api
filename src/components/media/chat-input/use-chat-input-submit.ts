@@ -41,6 +41,7 @@ interface SubmitParams {
     isKling: boolean;
     isKling25: boolean;
     isImagen4: boolean;
+    isImagen4Ultra: boolean;
     isSeedream4_5: boolean;
     isSeedream4_5_Edit: boolean;
     isElevenLabs: boolean;

@@ -147,7 +147,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             currentModel === 'VEO_3_1_FAST' || currentModel === 'VEO_3_1';
         const isKling = (currentModel as string) === 'KLING_2_6';
         const isKling25 = (currentModel as string) === 'KLING_2_5_TURBO_PRO';
-        const isImagen4 = (currentModel as string) === 'IMAGEN4_KIEAI';
+        const isImagen4 = (currentModel as string) === 'IMAGEN4_KIEAI' || (currentModel as string) === 'IMAGEN4_ULTRA_KIEAI';
+        const isImagen4Ultra = (currentModel as string) === 'IMAGEN4_ULTRA_KIEAI';
         const isSeedream4_5 = (currentModel as string) === 'SEEDREAM_4_5';
         const isSeedream4_5_Edit =
             (currentModel as string) === 'SEEDREAM_4_5_EDIT';
@@ -426,6 +427,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     isKling,
                     isKling25,
                     isImagen4,
+                    isImagen4Ultra,
                     isSeedream4_5,
                     isSeedream4_5_Edit,
                     isElevenLabs,
@@ -579,6 +581,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         disabled={isDisabled}
                     />
 
+                  
+
                     <ModelSettingsPanel
                         model={currentModel}
                         format={
@@ -634,6 +638,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 {/* Поля для Imagen4: negativePrompt и seed */}
                 {isImagen4 && (
                     <div className='flex gap-2 mb-2'>
+
                         <Input
                             type='text'
                             placeholder='Негативный промпт (опционально)'
@@ -657,7 +662,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 }
                             }}
                             disabled={isDisabled}
-                            className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500'
+                            className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-40'
                         />
                     </div>
                 )}
