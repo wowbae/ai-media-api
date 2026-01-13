@@ -153,7 +153,7 @@ export function MessageList({
             : 300; // Значение по умолчанию до загрузки
 
     return (
-        <div className='relative flex-1 overflow-hidden min-h-0'>
+        <div className='relative flex-1 overflow-hidden min-h-0 mx-0'>
             <ScrollArea className='h-full bg-background' ref={scrollRef}>
                 <div
                     className='space-y-6 p-4'
