@@ -93,7 +93,7 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
                     max={max}
                     {...props}
                 />
-                <div className='absolute right-1 flex flex-col'>
+                <div className='absolute right-3 flex flex-col'>
                     <button
                         type='button'
                         tabIndex={-1}

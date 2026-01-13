@@ -613,7 +613,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 )}
 
                 {/* Верхняя панель с выбором модели и настроек */}
-                <div className='mb-2 flex flex-wrap items-center gap-3'>
+                <div className='mb-2 flex flex-wrap items-center gap-2'>
                     <ModelSelector
                         value={currentModel}
                         onChange={(model) => {
@@ -651,8 +651,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         onVeoGenerationTypeChange={setVeoGenerationType}
                         disabled={isDisabled}
                     />
-                    {/* Поле для Veo 3.1: seed */}
-                    {modelType.isVeo && (
+                </div>
+                {/* Поле для Veo 3.1: seed */}
+                {modelType.isVeo && (
+                    <div className='flex gap-2 mb-2'>
                         <div className='w-74'>
                             <NumberInput
                                 placeholder='Seed (опционально, 10000-99999)'
@@ -664,8 +666,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 max={99999}
                             />
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
 
                 {/* Поля для Imagen4: negativePrompt и seed */}
                 {modelType.isImagen4 && (
