@@ -12,9 +12,10 @@ commandsComposer.command('start', async (ctx, next) => {
             return;
         }
 
-        const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
+        const isGroup =
+            ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
         if (isGroup) {
-            next();
+            return next();
         }
 
         // Парсим payload из команды: /start id123 -> userId = 123
@@ -75,8 +76,7 @@ commandsComposer.command('start', async (ctx, next) => {
 
         await ctx.reply(
             '✅ Ваш аккаунт успешно привязан!\n\n' +
-                'Нажмите на кнопку ниже, чтобы выбрать Telegram группу, куда вы хотите получать уведомления о генерации медиа.\n\n' +
-                'Бот будет автоматически добавлен в выбранную группу.',
+                'Нажмите на кнопку ниже, чтобы выбрать Telegram группу, куда вы хотите получать уведомления о генерации медиа.',
             {
                 reply_markup: inlineKeyboard,
             }
