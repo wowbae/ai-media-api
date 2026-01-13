@@ -286,7 +286,7 @@ function ChatItem({ chat, isActive, onDelete, onEdit }: ChatItemProps) {
     return (
         <div
             className={cn(
-                'group flex items-center gap-2 rounded-lg p-2 transition-colors',
+                'group flex items-center gap-2 rounded-xl py-2 px-3 transition-colors',
                 isActive
                     ? 'bg-primary/20 text-primary'
                     : 'text-muted-foreground hover:bg-secondary hover:text-foreground'

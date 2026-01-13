@@ -10,13 +10,13 @@ export const MODEL_RATES: Record<MediaModel, number> = {
     'NANO_BANANA_PRO_LAOZHANG': 0.05,
     'IMAGEN4_KIEAI': 0.02,
     'IMAGEN4_ULTRA_KIEAI': 0.06,
-    'SEEDREAM_4_5': 0.0325,
-    'SEEDREAM_4_5_EDIT': 0.0325,
-    'KLING_2_5_TURBO_PRO': 0.42,
-    'KLING_2_6': 0.55,
-    'VEO_3_1_FAST': 0.3, // kie.ai
-    'VEO_3_1': 1.25,
-    'ELEVENLABS_MULTILINGUAL_V2': 0.05,
+    'SEEDREAM_4_5_KIEAI': 0.0325,
+    'SEEDREAM_4_5_EDIT_KIEAI': 0.0325,
+    'KLING_2_5_TURBO_PRO_KIEAI': 0.42,
+    'KLING_2_6_KIEAI': 0.55,
+    'VEO_3_1_FAST_KIEAI': 0.3, // kie.ai
+    'VEO_3_1_KIEAI': 1.25,
+    'ELEVENLABS_MULTILINGUAL_V2_KIEAI': 0.05,
     'MIDJOURNEY': 0.5,
     'SORA_2': 0.3,
 };

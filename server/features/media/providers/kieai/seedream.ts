@@ -130,11 +130,11 @@ export function createKieAiSeedreamProvider(
       quality,
     });
 
-    // Определяем режим работы: если есть inputFiles и модель SEEDREAM_4_5_EDIT -> Edit режим
+    // Определяем режим работы: если есть inputFiles и модель SEEDREAM_4_5_EDIT_KIEAI -> Edit режим
     const isEditMode =
-      (model === "SEEDREAM_4_5_EDIT" ||
+      (model === "SEEDREAM_4_5_EDIT_KIEAI" ||
         (inputFiles && inputFiles.length > 0)) &&
-      model !== "SEEDREAM_4_5";
+      model !== "SEEDREAM_4_5_KIEAI";
 
     // Валидация: для Edit режима максимум 14 файлов
     if (isEditMode && inputFiles && inputFiles.length > 14) {

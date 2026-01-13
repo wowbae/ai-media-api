@@ -179,7 +179,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: '9:16',
         },
     },
-    VEO_3_1_FAST: {
+    VEO_3_1_FAST_KIEAI: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,
             defaultValue: '9:16',
@@ -189,7 +189,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: 'TEXT_2_VIDEO',
         },
     },
-    VEO_3_1: {
+    VEO_3_1_KIEAI: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,
             defaultValue: '9:16',
@@ -199,7 +199,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: 'TEXT_2_VIDEO',
         },
     },
-    KLING_2_6: {
+    KLING_2_6_KIEAI: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,
             defaultValue: '9:16',
@@ -213,7 +213,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: false,
         },
     },
-    KLING_2_5_TURBO_PRO: {
+    KLING_2_5_TURBO_PRO_KIEAI: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,
             defaultValue: '9:16',
@@ -223,7 +223,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: 5,
         },
     },
-    SEEDREAM_4_5: {
+    SEEDREAM_4_5_KIEAI: {
         format: {
             options: FORMAT_OPTIONS_SEEDREAM,
             defaultValue: '9:16',
@@ -233,7 +233,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: '4k', // по цене одинаково с 2к
         },
     },
-    SEEDREAM_4_5_EDIT: {
+    SEEDREAM_4_5_EDIT_KIEAI: {
         format: {
             options: FORMAT_OPTIONS_SEEDREAM,
             defaultValue: '9:16',
@@ -245,7 +245,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
     },
     MIDJOURNEY: {},
     SORA_2: {},
-    ELEVENLABS_MULTILINGUAL_V2: {}, // Настройки через отдельные поля в UI
+    ELEVENLABS_MULTILINGUAL_V2_KIEAI: {}, // Настройки через отдельные поля в UI
 };
 
 // Получить конфигурацию для модели

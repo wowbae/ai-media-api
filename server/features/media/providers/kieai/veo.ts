@@ -51,8 +51,8 @@ interface Veo3GenerateRequest {
 
 // Маппинг модели из MediaModel в Veo3Model
 function mapVeo3Model(model: string): Veo3Model {
-    if (model === 'VEO_3_1') return 'veo3';
-    if (model === 'VEO_3_1_FAST') return 'veo3_fast';
+    if (model === 'VEO_3_1_KIEAI') return 'veo3';
+    if (model === 'VEO_3_1_FAST_KIEAI') return 'veo3_fast';
     // По умолчанию fast для совместимости
     return 'veo3_fast';
 }

@@ -10,7 +10,7 @@ export interface ModelConfig {
     isKling: boolean;
     isKling25: boolean;
     isImagen4: boolean;
-    isImagen4Ultra: boolean; 
+    isImagen4Ultra: boolean;
     isSeedream4_5: boolean;
     isSeedream4_5_Edit: boolean;
     isElevenLabs: boolean;
@@ -79,7 +79,7 @@ const MODEL_CONFIGS: Record<MediaModel, ModelConfig> = {
         supportsTailImageUrl: false,
         supportsElevenLabsParams: false,
     },
-    VEO_3_1_FAST: {
+    VEO_3_1_FAST_KIEAI: {
         isNanoBanana: false,
         isNanoBananaPro: false,
         isNanoBananaProKieai: false,
@@ -148,7 +148,7 @@ const MODEL_CONFIGS: Record<MediaModel, ModelConfig> = {
         supportsTailImageUrl: false,
         supportsElevenLabsParams: false,
     },
-    VEO_3_1: {
+    VEO_3_1_KIEAI: {
         isNanoBanana: false,
         isNanoBananaPro: false,
         isNanoBananaProKieai: false,
@@ -171,7 +171,7 @@ const MODEL_CONFIGS: Record<MediaModel, ModelConfig> = {
         supportsTailImageUrl: false,
         supportsElevenLabsParams: false,
     },
-    KLING_2_6: {
+    KLING_2_6_KIEAI: {
         isNanoBanana: false,
         isNanoBananaPro: false,
         isNanoBananaProKieai: false,
@@ -194,7 +194,7 @@ const MODEL_CONFIGS: Record<MediaModel, ModelConfig> = {
         supportsTailImageUrl: false,
         supportsElevenLabsParams: false,
     },
-    KLING_2_5_TURBO_PRO: {
+    KLING_2_5_TURBO_PRO_KIEAI: {
         isNanoBanana: false,
         isNanoBananaPro: false,
         isNanoBananaProKieai: false,
@@ -286,7 +286,7 @@ const MODEL_CONFIGS: Record<MediaModel, ModelConfig> = {
         supportsTailImageUrl: false,
         supportsElevenLabsParams: false,
     },
-    SEEDREAM_4_5: {
+    SEEDREAM_4_5_KIEAI: {
         isNanoBanana: false,
         isNanoBananaPro: false,
         isNanoBananaProKieai: false,
@@ -309,7 +309,7 @@ const MODEL_CONFIGS: Record<MediaModel, ModelConfig> = {
         supportsTailImageUrl: false,
         supportsElevenLabsParams: false,
     },
-    SEEDREAM_4_5_EDIT: {
+    SEEDREAM_4_5_EDIT_KIEAI: {
         isNanoBanana: false,
         isNanoBananaPro: false,
         isNanoBananaProKieai: false,
@@ -333,7 +333,7 @@ const MODEL_CONFIGS: Record<MediaModel, ModelConfig> = {
         supportsElevenLabsParams: false,
         maxInputFiles: 14,
     },
-    ELEVENLABS_MULTILINGUAL_V2: {
+    ELEVENLABS_MULTILINGUAL_V2_KIEAI: {
         isNanoBanana: false,
         isNanoBananaPro: false,
         isNanoBananaProKieai: false,

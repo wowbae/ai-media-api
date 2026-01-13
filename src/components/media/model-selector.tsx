@@ -160,7 +160,15 @@ export function ModelSelector({
                     </div>
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className='border-border bg-card'>
+            <SelectContent
+                side='top'
+                sideOffset={8}
+                position='popper'
+                collisionPadding={20}
+                avoidCollisions={true}
+                className='border-border bg-card data-[side=top]:animate-none!'
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
                 {/* Если модели еще загружаются */}
                 {isLoading ? (
                     <div className='flex items-center gap-2 p-2 text-slate-400'>

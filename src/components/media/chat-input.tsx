@@ -56,7 +56,9 @@ export interface ChatInputProps {
 export interface ChatInputRef {
     setPrompt: (prompt: string) => void;
     addFileFromUrl: (url: string, filename: string) => Promise<void>;
-    setRequestData: (request: import('@/redux/media-api').MediaRequest) => Promise<void>;
+    setRequestData: (
+        request: import('@/redux/media-api').MediaRequest
+    ) => Promise<void>;
 }
 
 export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
@@ -262,7 +264,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 }, 0);
             },
             addFileFromUrl,
-            setRequestData: async (request: import('@/redux/media-api').MediaRequest) => {
+            setRequestData: async (
+                request: import('@/redux/media-api').MediaRequest
+            ) => {
                 setPrompt(request.prompt);
 
                 const settings = request.settings || {};
@@ -555,7 +559,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         return (
             <div
                 id='chat-input'
-                className='absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-3xl bg-slate-950/60 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl shadow-cyan-900/20 p-4 z-20 transition-all duration-300'
+                className='absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-3xl bg-slate-950/60 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl shadow-cyan-900/20 p-4 z-20'
             >
                 {/* Прикрепленные файлы */}
                 {attachedFiles.length > 0 ? (
@@ -728,11 +732,22 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                     value={voice}
                                     onValueChange={setVoice}
                                     disabled={isDisabled}
+                                    modal={false}
                                 >
                                     <SelectTrigger className='w-40 border-border bg-secondary text-foreground focus-visible:ring-primary rounded-xl'>
                                         <SelectValue placeholder='Выберите голос' />
                                     </SelectTrigger>
-                                    <SelectContent className='border-border bg-card'>
+                                    <SelectContent
+                                        side='top'
+                                        sideOffset={8}
+                                        position='popper'
+                                        collisionPadding={20}
+                                        avoidCollisions={true}
+                                        className='border-border bg-card data-[side=top]:animate-none!'
+                                        onOpenAutoFocus={(e) =>
+                                            e.preventDefault()
+                                        }
+                                    >
                                         {elevenLabsVoices.map((voiceOption) => (
                                             <SelectItem
                                                 key={voiceOption}
@@ -861,8 +876,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     <div
                         className={cn(
                             'absolute bottom-2.5 right-12 text-[10px] select-none pointer-events-none transition-colors px-1 rounded bg-background/50',
-                            prompt.length >= MAX_PROMPT_LENGTH ? 'text-destructive' :
-                            prompt.length >= MAX_PROMPT_LENGTH * 0.9 ? 'text-primary' : 'text-muted-foreground'
+                            prompt.length >= MAX_PROMPT_LENGTH
+                                ? 'text-destructive'
+                                : prompt.length >= MAX_PROMPT_LENGTH * 0.9
+                                  ? 'text-primary'
+                                  : 'text-muted-foreground'
                         )}
                     >
                         {prompt.length}/{MAX_PROMPT_LENGTH}

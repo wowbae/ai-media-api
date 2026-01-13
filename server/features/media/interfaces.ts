@@ -4,19 +4,19 @@
 export type MediaModel =
     | 'NANO_BANANA_OPENROUTER'
     | 'MIDJOURNEY'
-    | 'VEO_3_1_FAST'
+    | 'VEO_3_1_FAST_KIEAI'
     | 'SORA'
     | 'NANO_BANANA_PRO_LAOZHANG'
     | 'SORA_2'
-    | 'VEO_3_1'
-    | 'KLING_2_6'
-    | 'KLING_2_5_TURBO_PRO'
+    | 'VEO_3_1_KIEAI'
+    | 'KLING_2_6_KIEAI'
+    | 'KLING_2_5_TURBO_PRO_KIEAI'
     | 'NANO_BANANA_PRO_KIEAI'
     | 'IMAGEN4_KIEAI'
     | 'IMAGEN4_ULTRA_KIEAI'
-    | 'SEEDREAM_4_5'
-    | 'SEEDREAM_4_5_EDIT'
-    | 'ELEVENLABS_MULTILINGUAL_V2';
+    | 'SEEDREAM_4_5_KIEAI'
+    | 'SEEDREAM_4_5_EDIT_KIEAI'
+    | 'ELEVENLABS_MULTILINGUAL_V2_KIEAI';
 
 export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
 

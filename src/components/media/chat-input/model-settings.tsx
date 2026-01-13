@@ -1,4 +1,5 @@
 // Переиспользуемые компоненты настроек для моделей
+import React from 'react';
 import {
     Select,
     SelectContent,
@@ -37,6 +38,7 @@ interface FormatSelectProps {
     className?: string;
 }
 
+
 export function FormatSelect({
     value,
     config,
@@ -65,6 +67,7 @@ export function FormatSelect({
             value={displayValue || undefined}
             onValueChange={handleChange}
             disabled={disabled}
+            modal={false}
         >
             <SelectTrigger
                 className={`${className} border-border bg-secondary text-foreground rounded-xl`}
@@ -73,7 +76,15 @@ export function FormatSelect({
                     {value || placeholder}
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className='border-border bg-card'>
+            <SelectContent
+                side='top'
+                sideOffset={8}
+                position='popper'
+                collisionPadding={20}
+                avoidCollisions={true}
+                className='border-border bg-card data-[side=top]:animate-none!'
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
                 {config.options.map((option) => (
                     <SelectItem
                         key={option.value}
@@ -125,6 +136,7 @@ export function QualitySelect({
             value={displayValue || undefined}
             onValueChange={handleChange}
             disabled={disabled}
+            modal={false}
         >
             <SelectTrigger
                 className={`${className} border-border bg-secondary text-foreground rounded-xl`}
@@ -133,7 +145,15 @@ export function QualitySelect({
                     {value ? value.toUpperCase() : placeholder}
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className='border-border bg-card'>
+            <SelectContent
+                side='top'
+                sideOffset={8}
+                position='popper'
+                collisionPadding={20}
+                avoidCollisions={true}
+                className='border-border bg-card data-[side=top]:animate-none!'
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
                 {config.options.map((option) => (
                     <SelectItem
                         key={option.value}
@@ -185,7 +205,15 @@ export function DurationSelect({
                     {value || config.defaultValue} сек
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className='border-border bg-card'>
+            <SelectContent
+                side='top'
+                sideOffset={8}
+                position='popper'
+                collisionPadding={20}
+                avoidCollisions={true}
+                className='border-border bg-card data-[side=top]:animate-none!'
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
                 {config.options.map((option) => (
                     <SelectItem
                         key={option.value}
@@ -238,7 +266,15 @@ export function SoundSelect({
                     {value === undefined || value ? 'звук on' : 'звук off'}
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className='border-border bg-card'>
+            <SelectContent
+                side='top'
+                sideOffset={8}
+                position='popper'
+                collisionPadding={20}
+                avoidCollisions={true}
+                className='border-border bg-card data-[side=top]:animate-none!'
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
                 {config.options.map((option) => (
                     <SelectItem
                         key={option.value}
@@ -296,6 +332,7 @@ export function GenerationTypeSelect({
             value={displayValue || undefined}
             onValueChange={handleChange}
             disabled={disabled}
+            modal={false}
         >
             <SelectTrigger
                 className={`${className} border-border bg-secondary text-foreground rounded-xl`}
@@ -304,7 +341,14 @@ export function GenerationTypeSelect({
                     {selectedOption?.label || placeholder}
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className='border-border bg-card focus:bg-accent focus:text-accent-foreground'>
+            <SelectContent
+                side='top'
+                sideOffset={8}
+                position='popper'
+                collisionPadding={20}
+                avoidCollisions={true}
+                className='border-border bg-card focus:bg-accent focus:text-accent-foreground'
+            >
                 {config.options.map((option) => (
                     <SelectItem
                         key={option.value}

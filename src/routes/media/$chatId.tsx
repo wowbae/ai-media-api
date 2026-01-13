@@ -478,7 +478,9 @@ function MediaChatPage() {
             <div className='flex h-screen bg-background'>
                 <ChatSidebar />
                 <div className='flex flex-1 flex-col items-center justify-center text-center'>
-                    <p className='text-xl text-destructive'>Ошибка загрузки чата</p>
+                    <p className='text-xl text-destructive'>
+                        Ошибка загрузки чата
+                    </p>
                     <p className='text-sm text-muted-foreground mt-2'>
                         Не удалось загрузить чат. Проверьте соединение с
                         сервером.
@@ -494,7 +496,9 @@ function MediaChatPage() {
             <div className='flex h-screen bg-background'>
                 <ChatSidebar />
                 <div className='flex flex-1 flex-col items-center justify-center text-center'>
-                    <p className='text-xl text-muted-foreground'>Чат не найден</p>
+                    <p className='text-xl text-muted-foreground'>
+                        Чат не найден
+                    </p>
                     <p className='text-sm text-muted-foreground'>
                         Выберите чат из списка или создайте новый
                     </p>
@@ -686,7 +690,9 @@ function ChatHeader({ name, model, showUpdating }: ChatHeaderProps) {
                 <span className='text-2xl'>{getModelIcon(model)}</span>
                 <div className='flex-1'>
                     <div className='flex items-center gap-2'>
-                        <h1 className='font-semibold text-foreground'>{name}</h1>
+                        <h1 className='font-semibold text-foreground'>
+                            {name}
+                        </h1>
                         {showUpdating && (
                             <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
                         )}

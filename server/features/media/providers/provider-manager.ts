@@ -1,5 +1,5 @@
 // Менеджер провайдеров - фабрика и маппинг моделей на провайдеры
-import type { MediaModel } from '../interfaces';
+import type { MediaModel } from '../config';
 import type { MediaProvider } from './interfaces';
 import { createOpenRouterProvider } from './openrouter';
 import { createGPTunnelMediaProvider } from './gptunnel';
@@ -14,6 +14,7 @@ import {
     createKieAiVeo3Provider,
     createKieAiElevenLabsProvider,
 } from './kieai';
+import type { KieAiConfig } from './kieai/interfaces';
 import { MEDIA_MODELS, type MediaModelConfig } from '../config';
 import 'dotenv/config';
 
@@ -66,6 +67,23 @@ export function createProviderManager(): ProviderManager {
     // Kie.ai провайдеры - кешируем по модели, чтобы сохранять состояние (например, recordId Map)
     const kieaiProviders: Record<string, MediaProvider> = {};
 
+    // Маппинг моделей kieai на фабрики провайдеров
+    const KIEAI_MODEL_FACTORIES: Record<
+        string,
+        (config: KieAiConfig) => MediaProvider
+    > = {
+        KLING_2_6_KIEAI: createKieAiKlingProvider,
+        KLING_2_5_TURBO_PRO_KIEAI: createKieAiKling25Provider,
+        NANO_BANANA_PRO_KIEAI: createKieAiNanoBananaProvider,
+        IMAGEN4_KIEAI: createKieAiImagen4Provider,
+        IMAGEN4_ULTRA_KIEAI: createKieAiImagen4Provider,
+        VEO_3_1_KIEAI: createKieAiVeo3Provider,
+        VEO_3_1_FAST_KIEAI: createKieAiVeo3Provider,
+        SEEDREAM_4_5_KIEAI: createKieAiSeedreamProvider,
+        SEEDREAM_4_5_EDIT_KIEAI: createKieAiSeedreamProvider,
+        ELEVENLABS_MULTILINGUAL_V2_KIEAI: createKieAiElevenLabsProvider,
+    };
+
     // LaoZhang провайдер (Nano Banana Pro, Sora 2, Veo 3.1)
     const laozhangApiKey = process.env.LAOZHANG_API_KEY || '';
     if (laozhangApiKey) {
@@ -82,7 +100,7 @@ export function createProviderManager(): ProviderManager {
                 throw new Error(`Неизвестная модель: ${model}`);
             }
 
-            // Для kieai провайдера выбираем правильный подпровайдер по модели
+            // Для kieai провайдера используем маппинг фабрик
             if (modelConfig.provider === 'kieai') {
                 // Кешируем провайдеры, чтобы сохранять состояние между вызовами
                 if (kieaiProviders[model]) {
@@ -94,66 +112,25 @@ export function createProviderManager(): ProviderManager {
                     throw new Error('KIEAI_API_KEY не настроен');
                 }
 
-                const kieaiConfig = {
+                const kieaiConfig: KieAiConfig = {
                     apiKey: kieaiApiKey,
                     baseURL: 'https://api.kie.ai',
                 };
 
-                // Для Kling 2.6 используем kling провайдер
-                if (model === 'KLING_2_6') {
+                // Используем маппинг фабрик
+                const factory = KIEAI_MODEL_FACTORIES[model];
+                if (!factory) {
+                    // Fallback на midjourney провайдер для неизвестных kieai моделей
                     kieaiProviders[model] =
-                        createKieAiKlingProvider(kieaiConfig);
+                        createKieAiMidjourneyProvider(kieaiConfig);
                     return kieaiProviders[model];
                 }
 
-                // Для Kling 2.5 Turbo Pro используем kling-25 провайдер
-                if (model === 'KLING_2_5_TURBO_PRO') {
-                    kieaiProviders[model] =
-                        createKieAiKling25Provider(kieaiConfig);
-                    return kieaiProviders[model];
-                }
-
-                // Для Nano Banana Pro используем nano-banana провайдер
-                if (model === 'NANO_BANANA_PRO_KIEAI') {
-                    kieaiProviders[model] =
-                        createKieAiNanoBananaProvider(kieaiConfig);
-                    return kieaiProviders[model];
-                }
-
-                // Для Google Imagen4 используем imagen4 провайдер
-                if ((model as string) === 'IMAGEN4_KIEAI' || (model as string) === 'IMAGEN4_ULTRA_KIEAI') {
-                    kieaiProviders[model] =
-                        createKieAiImagen4Provider(kieaiConfig);
-                    return kieaiProviders[model];
-                }
-
-                // Для Veo 3.1 (Quality и Fast) используем veo3 провайдер
-                if (model === 'VEO_3_1' || model === 'VEO_3_1_FAST') {
-                    kieaiProviders[model] =
-                        createKieAiVeo3Provider(kieaiConfig);
-                    return kieaiProviders[model];
-                }
-
-                // Для Seedream 4.5 (Text-to-Image и Edit) используем seedream провайдер
-                if (model === 'SEEDREAM_4_5' || model === 'SEEDREAM_4_5_EDIT') {
-                    kieaiProviders[model] =
-                        createKieAiSeedreamProvider(kieaiConfig);
-                    return kieaiProviders[model];
-                }
-
-                // Для ElevenLabs Multilingual v2 используем elevenlabs провайдер
-                if (model === 'ELEVENLABS_MULTILINGUAL_V2') {
-                    kieaiProviders[model] =
-                        createKieAiElevenLabsProvider(kieaiConfig);
-                    return kieaiProviders[model];
-                }
-
-                // Для остальных моделей kieai (Midjourney) используем midjourney провайдер
-                kieaiProviders[model] =
-                    createKieAiMidjourneyProvider(kieaiConfig);
+                kieaiProviders[model] = factory(kieaiConfig);
                 return kieaiProviders[model];
             }
 
+            // Для остальных провайдеров
             const provider = providers[modelConfig.provider];
             if (!provider) {
                 throw new Error(

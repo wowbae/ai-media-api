@@ -51,11 +51,33 @@ export function MediaPreview({
   const originalFileUrl = file.path ? getMediaFileUrl(file.path) : (file.url || null);
 
   // previewUrl для изображений (для видео логика внутри VideoPreview)
-  // Приоритет: previewUrl (imgbb) > previewPath (локальный) > url (imgbb fallback) > path (локальный оригинал)
-  const imagePreviewUrl = file.previewUrl ||
-    (file.previewPath ? getMediaFileUrl(file.previewPath) : null) ||
-    file.url ||
-    originalFileUrl;
+  // Формируем список всех возможных URL для fallback при ошибке загрузки
+  // Приоритет: локальные пути (быстрые) > imgbb URL (медленные)
+  // previewPath (локальный превью) > path (локальный оригинал) > previewUrl (imgbb превью) > url (imgbb оригинал)
+  const imagePreviewUrls = [
+    file.previewPath ? getMediaFileUrl(file.previewPath) : null, // Локальный превью - самый быстрый
+    file.path ? getMediaFileUrl(file.path) : null, // Локальный оригинал - быстрый
+    file.previewUrl, // imgbb превью - медленнее
+    file.url, // imgbb оригинал - самый медленный
+  ]
+    .filter((url): url is string => url !== null && url !== undefined)
+    .filter((url, index, self) => self.indexOf(url) === index); // Убираем дубликаты
+
+  const imagePreviewUrl = imagePreviewUrls[0] || null;
+
+  // Логируем для отладки (только в development)
+  if (process.env.NODE_ENV === 'development' && file.type === 'IMAGE') {
+    console.log('[MediaPreview] URL для изображения:', {
+      fileId: file.id,
+      filename: file.filename,
+      previewUrl: file.previewUrl,
+      previewPath: file.previewPath,
+      url: file.url,
+      path: file.path,
+      imagePreviewUrls,
+      selectedUrl: imagePreviewUrl,
+    });
+  }
 
   async function handleDelete() {
     try {
@@ -85,6 +107,7 @@ export function MediaPreview({
         {file.type === "IMAGE" && (
           <ImagePreview
             src={imagePreviewUrl || ''}
+            fallbackUrls={imagePreviewUrls.slice(1)}
             alt={file.filename}
             onClick={() => setIsFullscreen(true)}
           />
@@ -93,7 +116,7 @@ export function MediaPreview({
         {file.type === "VIDEO" && (
           <VideoPreview
             fileId={file.id}
-            previewUrl={file.previewUrl || file.previewPath}
+            previewUrl={file.previewPath || file.previewUrl || null}
             originalUrl={originalFileUrl || ''}
             filename={file.filename}
           />
@@ -217,13 +240,53 @@ export function MediaPreview({
 // Превью изображения
 interface ImagePreviewProps {
   src: string;
+  fallbackUrls?: string[];
   alt: string;
   onClick?: () => void;
 }
 
-function ImagePreview({ src, alt, onClick }: ImagePreviewProps) {
+function ImagePreview({ src, fallbackUrls = [], alt, onClick }: ImagePreviewProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
+  const [currentSrc, setCurrentSrc] = useState(src);
+
+  // При ошибке загрузки пробуем следующий URL из fallback списка
+  function handleError() {
+    console.warn('[ImagePreview] Ошибка загрузки изображения:', {
+      currentSrc,
+      currentUrlIndex,
+      fallbackUrls,
+      alt,
+    });
+
+    if (currentUrlIndex < fallbackUrls.length) {
+      const nextIndex = currentUrlIndex + 1;
+      setCurrentUrlIndex(nextIndex);
+      const nextUrl = fallbackUrls[currentUrlIndex];
+      console.log('[ImagePreview] Пробуем следующий URL:', nextUrl);
+      setCurrentSrc(nextUrl);
+      setIsLoaded(false);
+      setHasError(false);
+    } else {
+      console.error('[ImagePreview] Все URL исчерпаны, показываем иконку файла');
+      setHasError(true);
+    }
+  }
+
+  // Синхронизируем currentSrc с src при изменении src извне
+  useEffect(() => {
+    setCurrentSrc(src);
+    setCurrentUrlIndex(0);
+    setIsLoaded(false);
+    setHasError(false);
+  }, [src]);
+
+  // Сбрасываем состояние при изменении currentSrc
+  useEffect(() => {
+    setIsLoaded(false);
+    setHasError(false);
+  }, [currentSrc]);
 
   return (
     <div
@@ -241,7 +304,7 @@ function ImagePreview({ src, alt, onClick }: ImagePreviewProps) {
         </div>
       ) : (
         <img
-          src={src}
+          src={currentSrc}
           alt={alt}
           loading="lazy"
           className={cn(
@@ -249,7 +312,7 @@ function ImagePreview({ src, alt, onClick }: ImagePreviewProps) {
             isLoaded ? "opacity-100" : "opacity-0",
           )}
           onLoad={() => setIsLoaded(true)}
-          onError={() => setHasError(true)}
+          onError={handleError}
         />
       )}
     </div>
@@ -340,13 +403,14 @@ function VideoPreview({
   }
 
   // Определяем какой URL использовать для превью
-  // Приоритет: base64 (data:) > HTTP URL (imgbb) > локальный путь
+  // Приоритет: base64 (data:) > локальный путь > HTTP URL (imgbb)
+  // Локальные пути быстрее, поэтому используем их в приоритете
   const displayPreviewUrl = actualPreviewUrl
     ? actualPreviewUrl.startsWith("data:")
       ? actualPreviewUrl // base64 из оптимистичного обновления
       : actualPreviewUrl.startsWith("http://") || actualPreviewUrl.startsWith("https://")
-        ? actualPreviewUrl // HTTP URL на imgbb
-        : getMediaFileUrl(actualPreviewUrl) // локальный путь
+        ? actualPreviewUrl // HTTP URL на imgbb (медленнее)
+        : getMediaFileUrl(actualPreviewUrl) // локальный путь (быстрее)
     : localThumbnail;
 
   // Если пользователь хочет воспроизвести - показываем оригинал
