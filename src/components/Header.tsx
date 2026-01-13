@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from '@tanstack/react-router';
+import { Link, useLocation } from '@tanstack/react-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectIsAuthenticated, logout } from '@/redux/auth-slice';
 import { TokenBalance } from './TokenBalance';
@@ -7,6 +7,10 @@ import { TokenBalance } from './TokenBalance';
 export const Header = () => {
     const isAuthenticated = useSelector(selectIsAuthenticated);
     const dispatch = useDispatch();
+    const location = useLocation();
+
+    // Проверяем, находимся ли мы на странице /media
+    const isOnMediaPage = location.pathname.startsWith('/media');
 
     const handleLogout = () => {
         dispatch(logout());
@@ -24,9 +28,11 @@ export const Header = () => {
                         {isAuthenticated ? (
                             <>
                                 <TokenBalance />
-                                <Link to="/media" className="text-sm font-medium text-white hover:text-cyan-400 px-3">
-                                    Generate
-                                </Link>
+                                {!isOnMediaPage && (
+                                    <Link to="/media" className="text-sm font-medium text-white hover:text-cyan-400 px-3">
+                                        Generate
+                                    </Link>
+                                )}
                                 <button onClick={handleLogout} className="text-sm font-medium text-gray-400 hover:text-white px-3">
                                     Logout
                                 </button>

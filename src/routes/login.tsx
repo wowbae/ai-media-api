@@ -16,7 +16,7 @@ export const Login = () => {
         try {
             const { token, user } = await login({ email, password }).unwrap();
             dispatch(setCredentials({ token, user }));
-            navigate({ to: '/' });
+            navigate({ to: '/media' });
         } catch (err) {
             console.error('Login failed', err);
         }

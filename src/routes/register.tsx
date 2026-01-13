@@ -24,7 +24,7 @@ export const Register = () => {
         try {
             const { token, user } = await register({ email, password }).unwrap();
             dispatch(setCredentials({ token, user }));
-            navigate({ to: '/' });
+            navigate({ to: '/media' });
         } catch (err) {
             console.error('Registration failed', err);
         }
