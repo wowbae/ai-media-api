@@ -659,7 +659,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 value={seed}
                                 onValueChange={setSeed}
                                 disabled={isDisabled}
-                                className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500'
+                                className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl'
                                 min={10000}
                                 max={99999}
                             />
@@ -676,14 +676,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             value={negativePrompt}
                             onChange={(e) => setNegativePrompt(e.target.value)}
                             disabled={isDisabled}
-                            className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500'
+                            className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl'
                         />
                         <NumberInput
                             placeholder='Seed (опционально)'
                             value={seed}
                             onValueChange={setSeed}
                             disabled={isDisabled}
-                            className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-40'
+                            className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-40'
                         />
                     </div>
                 )}
@@ -697,14 +697,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             value={negativePrompt}
                             onChange={(e) => setNegativePrompt(e.target.value)}
                             disabled={isDisabled}
-                            className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500'
+                            className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl'
                         />
                         <NumberInput
                             placeholder='CFG Scale (опционально, 1-20)'
                             value={cfgScale}
                             onValueChange={setCfgScale}
                             disabled={isDisabled}
-                            className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-40'
+                            className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-40'
                             min={1}
                             max={20}
                         />
@@ -724,15 +724,15 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                     onValueChange={setVoice}
                                     disabled={isDisabled}
                                 >
-                                    <SelectTrigger className='w-40 border-slate-600 bg-slate-700 text-white focus-visible:ring-cyan-500'>
+                                    <SelectTrigger className='w-40 border-border bg-secondary text-foreground focus-visible:ring-primary rounded-xl'>
                                         <SelectValue placeholder='Выберите голос' />
                                     </SelectTrigger>
-                                    <SelectContent className='border-slate-700 bg-slate-800'>
+                                    <SelectContent className='border-border bg-card'>
                                         {elevenLabsVoices.map((voiceOption) => (
                                             <SelectItem
                                                 key={voiceOption}
                                                 value={voiceOption}
-                                                className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                                className='text-foreground focus:bg-secondary focus:text-foreground'
                                             >
                                                 {voiceOption}
                                             </SelectItem>
@@ -751,7 +751,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                         setStability(value ?? 0.5)
                                     }
                                     disabled={isDisabled}
-                                    className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-36'
+                                    className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-36'
                                     min={0}
                                     max={1}
                                     step={0.1}
@@ -768,7 +768,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                         setSimilarityBoost(value ?? 0.75)
                                     }
                                     disabled={isDisabled}
-                                    className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-44'
+                                    className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-44'
                                     min={0}
                                     max={1}
                                     step={0.1}
@@ -785,7 +785,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                         setSpeed(value ?? 1)
                                     }
                                     disabled={isDisabled}
-                                    className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-36'
+                                    className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-36'
                                     min={0.5}
                                     max={2}
                                     step={0.1}
@@ -803,7 +803,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                         setLanguageCode(e.target.value)
                                     }
                                     disabled={isDisabled}
-                                    className='border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus-visible:ring-cyan-500 w-40'
+                                    className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-40'
                                 />
                             </div>
                         </div>
@@ -813,9 +813,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 {/* Поле ввода с кнопками внутри */}
                 <div
                     className={cn(
-                        'relative rounded-lg transition-all',
+                        'relative rounded-xl transition-all',
                         isDragging &&
-                            'border-2 border-cyan-500 bg-slate-700/90 p-1'
+                            'border-2 border-primary bg-secondary/80 p-1'
                     )}
                     onDragOver={(e) => handleDragOver(e, isDisabled)}
                     onDragLeave={handleDragLeave}
@@ -841,12 +841,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         placeholder='Опишите, что хотите сгенерировать...'
                         maxLength={MAX_PROMPT_LENGTH}
                         className={cn(
-                            'min-h-[76px] max-h-[20vh] resize-none border-slate-600 bg-slate-700 pb-10 pl-4 pr-12 text-white placeholder:text-slate-400',
-                            'focus-visible:ring-cyan-500',
+                            'min-h-[76px] max-h-[20vh] resize-none border-border bg-secondary pb-10 pl-4 pr-12 text-foreground placeholder:text-muted-foreground rounded-xl transition-all',
+                            'focus-visible:ring-primary focus-visible:border-primary',
                             needsScrollbar &&
                                 'overflow-y-auto custom-scrollbar',
                             !needsScrollbar && 'overflow-y-hidden',
-                            isDragging && 'border-cyan-400'
+                            isDragging && 'border-primary'
                         )}
                         style={{ height: 'auto' }}
                         disabled={isDisabled}

@@ -463,10 +463,10 @@ function MediaChatPage() {
     // Показываем загрузку только если нет кешированных данных и идет первичная загрузка
     if (isChatLoading && !chat) {
         return (
-            <div className='flex h-screen bg-slate-900'>
+            <div className='flex h-screen bg-background'>
                 <ChatSidebar />
                 <div className='flex flex-1 items-center justify-center'>
-                    <Loader2 className='h-8 w-8 animate-spin text-cyan-400' />
+                    <Loader2 className='h-8 w-8 animate-spin text-primary' />
                 </div>
             </div>
         );
@@ -475,11 +475,11 @@ function MediaChatPage() {
     // Показываем ошибку только если нет кешированных данных
     if (chatError && !chat) {
         return (
-            <div className='flex h-screen bg-slate-900'>
+            <div className='flex h-screen bg-background'>
                 <ChatSidebar />
                 <div className='flex flex-1 flex-col items-center justify-center text-center'>
                     <p className='text-xl text-red-400'>Ошибка загрузки чата</p>
-                    <p className='text-sm text-slate-500 mt-2'>
+                    <p className='text-sm text-muted-foreground mt-2'>
                         Не удалось загрузить чат. Проверьте соединение с
                         сервером.
                     </p>
@@ -491,11 +491,11 @@ function MediaChatPage() {
     // Показываем "не найден" только если нет кешированных данных и нет ошибки
     if (!chat && !isChatLoading && !chatError) {
         return (
-            <div className='flex h-screen bg-slate-900'>
+            <div className='flex h-screen bg-background'>
                 <ChatSidebar />
                 <div className='flex flex-1 flex-col items-center justify-center text-center'>
-                    <p className='text-xl text-slate-400'>Чат не найден</p>
-                    <p className='text-sm text-slate-500'>
+                    <p className='text-xl text-muted-foreground'>Чат не найден</p>
+                    <p className='text-sm text-muted-foreground'>
                         Выберите чат из списка или создайте новый
                     </p>
                 </div>
@@ -626,7 +626,7 @@ function MediaChatPage() {
     const showUpdatingIndicator = isChatFetching && !isChatLoading;
 
     return (
-        <div className='flex h-screen bg-slate-900'>
+        <div className='flex h-screen bg-background'>
             {/* Сайдбар */}
             <ChatSidebar />
 
@@ -681,7 +681,7 @@ function ChatHeader({ name, model, showUpdating }: ChatHeaderProps) {
     const modelInfo = models?.find((m) => m.key === model);
 
     return (
-        <div className={cn(PANEL_HEADER_CLASSES, 'bg-slate-800/50')}>
+        <div className={cn(PANEL_HEADER_CLASSES, 'bg-secondary/40')}>
             <div className='flex items-center gap-3'>
                 <span className='text-2xl'>{getModelIcon(model)}</span>
                 <div className='flex-1'>

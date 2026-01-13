@@ -92,10 +92,9 @@ export function MessageItem({
     // Определение класса фона для ответа нейросети
     function getResponseBackgroundClass(): string {
         if (request.status === 'FAILED') {
-            return 'bg-red-950/50 border border-red-900/30';
+            return 'bg-destructive/10 border border-destructive/20';
         }
-        // Синеватый фон в тему с глобальным bg-slate-900
-        return 'bg-slate-800/60 border border-slate-700/50';
+        return 'bg-secondary/40 border border-border/50';
     }
 
     return (
@@ -110,7 +109,7 @@ export function MessageItem({
                             type='button'
                             size='icon'
                             variant='ghost'
-                            className='h-8 w-8 shrink-0 text-cyan-400 opacity-0 transition-opacity hover:text-cyan-300 hover:bg-cyan-600/20 group-hover:opacity-100'
+                            className='h-8 w-8 shrink-0 text-primary opacity-0 transition-opacity hover:text-primary/80 hover:bg-primary/20 group-hover:opacity-100'
                             onClick={() => onEditPrompt(request.prompt)}
                             title='Редактировать промпт'
                         >
@@ -123,7 +122,7 @@ export function MessageItem({
                             type='button'
                             size='icon'
                             variant='ghost'
-                            className='h-8 w-8 shrink-0 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100'
+                            className='h-8 w-8 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-primary hover:bg-primary/20 focus:text-primary focus:bg-primary/20 group-hover:opacity-100'
                             onClick={() => onRepeatRequest(request)}
                             title='Повторить запрос к нейронке'
                         >
@@ -131,11 +130,11 @@ export function MessageItem({
                         </Button>
                     )}
                 </div>
-                <div className='max-w-[80%] rounded-2xl rounded-tr-sm bg-cyan-600 px-4 py-3'>
+                <div className='max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-3 shadow-sm'>
                     <div className='relative'>
                         <p
                             ref={textRef}
-                            className={`whitespace-pre-wrap text-sm text-white transition-all duration-200 ${
+                            className={`whitespace-pre-wrap text-sm text-primary-foreground transition-all duration-200 ${
                                 !isExpanded ? 'line-clamp-2' : ''
                             }`}
                         >
@@ -144,7 +143,7 @@ export function MessageItem({
                         {isClamped && (
                             <button
                                 onClick={() => setIsExpanded(!isExpanded)}
-                                className='mt-1 text-xs font-medium text-cyan-200 hover:text-white transition-colors'
+                                className='mt-1 text-xs font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors'
                             >
                                 {isExpanded ? 'Свернуть' : 'Показать полностью'}
                             </button>
@@ -180,7 +179,7 @@ export function MessageItem({
                                 return (
                                     <div
                                         key={index}
-                                        className='h-16 w-16 overflow-hidden rounded-lg border border-cyan-500/30'
+                                        className='h-16 w-16 overflow-hidden rounded-lg border border-primary-foreground/20'
                                     >
                                         {isVideo ? (
                                             <video
@@ -201,17 +200,17 @@ export function MessageItem({
                             })}
                         </div>
                     )}
-                    <div className='mt-1 flex items-center justify-end gap-2 text-xs text-cyan-200/70'>
+                    <div className='mt-1 flex items-center justify-end gap-2 text-xs text-primary-foreground/70'>
                         {modelInfo && (
                             <span className='flex items-center gap-1'>
                                 {modelInfo.name}
                                 {providerName && (
-                                    <span className='text-cyan-300/60'>
+                                    <span className='text-primary-foreground/50'>
                                         • {providerName}
                                     </span>
                                 )}
                                 {request.seed && (
-                                    <span className='text-cyan-300/60'>
+                                    <span className='text-primary-foreground/50'>
                                         • Seed: {request.seed}
                                     </span>
                                 )}
@@ -238,7 +237,7 @@ export function MessageItem({
                             {/* Ошибка */}
                             {request.status === 'FAILED' &&
                                 request.errorMessage && (
-                                    <div className='mt-2 flex items-start gap-2 rounded-lg bg-red-900/30 p-3 text-red-300'>
+                                    <div className='mt-2 flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-destructive'>
                                         <AlertCircle className='mt-0.5 h-4 w-4 shrink-0' />
                                         <p className='min-w-0 flex-1 text-xs whitespace-pre-wrap break-all overflow-x-auto'>
                                             {request.errorMessage}
@@ -269,7 +268,7 @@ export function MessageItem({
                             {/* Сообщение об отсутствии файлов */}
                             {request.status === 'COMPLETED' &&
                                 request.files.length === 0 && (
-                                    <div className='mt-2 rounded-lg bg-yellow-900/30 p-3 text-yellow-300'>
+                                    <div className='mt-2 rounded-lg bg-primary/10 p-3 text-primary'>
                                         <p className='text-sm'>
                                             ⚠️ Генерация завершена, но файлы не
                                             найдены
@@ -314,7 +313,7 @@ export function MessageItem({
                                                                 type='button'
                                                                 size='icon'
                                                                 variant='ghost'
-                                                                className='h-8 w-8 shrink-0 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-slate-600/50 group-hover:opacity-100'
+                                                                className='h-8 w-8 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-primary hover:bg-primary/10 group-hover:opacity-100'
                                                                 onClick={() => {
                                                                     if (
                                                                         !file.path
@@ -362,7 +361,7 @@ export function MessageItem({
                                                             type='button'
                                                             size='icon'
                                                             variant='ghost'
-                                                            className='h-8 w-8 shrink-0 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-slate-600/50 group-hover:opacity-100'
+                                                            className='h-8 w-8 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-primary hover:bg-primary/10 group-hover:opacity-100'
                                                             onClick={() =>
                                                                 setFullscreenVideo(
                                                                     file
@@ -398,7 +397,7 @@ export function MessageItem({
                 >
                     <DialogContent
                         showCloseButton={false}
-                        className='max-h-[95vh] max-w-[95vw] overflow-hidden border-slate-700 bg-slate-900 p-0'
+                        className='max-h-[95vh] max-w-[95vw] overflow-hidden border-border bg-background p-0'
                     >
                         <DialogTitle className='sr-only'>
                             Просмотр видео: {fullscreenVideo.filename}

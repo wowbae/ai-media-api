@@ -91,7 +91,7 @@ export function MessageList({
     if (requests.length === 0) {
         return (
             <div className='flex flex-1 flex-col items-center justify-center p-8 text-center'>
-                <div className='mb-4 rounded-full bg-slate-800 p-6'>
+                <div className='mb-4 rounded-full bg-secondary p-6'>
                     <span className='text-4xl'>🎨</span>
                 </div>
                 <h3 className='mb-2 text-xl font-semibold text-white'>
@@ -110,7 +110,7 @@ export function MessageList({
 
     return (
         <div className='relative flex-1 overflow-hidden'>
-            <ScrollArea className='h-full bg-slate-900' ref={scrollRef}>
+            <ScrollArea className='h-full bg-background' ref={scrollRef}>
                 <div className='space-y-6 p-4'>
                     {requests.map((request) => (
                         <MessageItem
@@ -130,7 +130,7 @@ export function MessageList({
                 <Button
                     size='icon'
                     variant='secondary'
-                    className='absolute bottom-4 right-8 z-10 h-10 w-10 rounded-full bg-slate-800/80 text-white shadow-lg backdrop-blur-sm hover:bg-slate-700'
+                    className='absolute bottom-4 right-8 z-10 h-10 w-10 rounded-full bg-secondary/80 text-foreground shadow-lg backdrop-blur-sm hover:bg-secondary'
                     onClick={scrollToBottom}
                 >
                     <ChevronDown className='h-6 w-6' />

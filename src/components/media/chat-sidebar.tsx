@@ -131,7 +131,7 @@ export function ChatSidebar() {
     }
 
     return (
-        <div className='flex h-full w-64 flex-col border-r border-slate-700 bg-slate-900/50'>
+        <div className='flex h-full w-64 flex-col border-r border-border bg-sidebar'>
             {/* Header */}
             <div className={PANEL_HEADER_CLASSES}>
                 <h2 className={PANEL_HEADER_TITLE_CLASSES}>AI Media</h2>
@@ -204,9 +204,9 @@ export function ChatSidebar() {
                 open={isNewChatDialogOpen}
                 onOpenChange={setIsNewChatDialogOpen}
             >
-                <DialogContent className='border-slate-700 bg-slate-800'>
+                <DialogContent className='border-border bg-card'>
                     <DialogHeader>
-                        <DialogTitle className='text-white'>
+                        <DialogTitle className='text-foreground'>
                             Новый чат
                         </DialogTitle>
                     </DialogHeader>
@@ -217,20 +217,20 @@ export function ChatSidebar() {
                         onKeyDown={(e) =>
                             e.key === 'Enter' && handleCreateChat()
                         }
-                        className='border-slate-600 bg-slate-700 text-white'
+                        className='border-border bg-secondary text-foreground'
                     />
                     <DialogFooter>
                         <Button
                             variant='ghost'
                             onClick={() => setIsNewChatDialogOpen(false)}
-                            className='text-slate-400'
+                            className='text-muted-foreground'
                         >
                             Отмена
                         </Button>
                         <Button
                             onClick={handleCreateChat}
                             disabled={isCreating || !newChatName.trim()}
-                            className='bg-cyan-600 hover:bg-cyan-700'
+                            className='bg-primary hover:bg-primary/90 text-primary-foreground'
                         >
                             Создать
                         </Button>
@@ -240,9 +240,9 @@ export function ChatSidebar() {
 
             {/* Edit chat dialog */}
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogContent className='border-slate-700 bg-slate-800'>
+                <DialogContent className='border-border bg-card'>
                     <DialogHeader>
-                        <DialogTitle className='text-white'>
+                        <DialogTitle className='text-foreground'>
                             Редактировать чат
                         </DialogTitle>
                     </DialogHeader>
@@ -251,20 +251,20 @@ export function ChatSidebar() {
                         value={newChatName}
                         onChange={(e) => setNewChatName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleEditChat()}
-                        className='border-slate-600 bg-slate-700 text-white'
+                        className='border-border bg-secondary text-foreground'
                     />
                     <DialogFooter>
                         <Button
                             variant='ghost'
                             onClick={() => setIsEditDialogOpen(false)}
-                            className='text-slate-400'
+                            className='text-muted-foreground'
                         >
                             Отмена
                         </Button>
                         <Button
                             onClick={handleEditChat}
                             disabled={!newChatName.trim()}
-                            className='bg-cyan-600 hover:bg-cyan-700'
+                            className='bg-primary hover:bg-primary/90 text-primary-foreground'
                         >
                             Сохранить
                         </Button>
@@ -288,8 +288,8 @@ function ChatItem({ chat, isActive, onDelete, onEdit }: ChatItemProps) {
             className={cn(
                 'group flex items-center gap-2 rounded-lg p-2 transition-colors',
                 isActive
-                    ? 'bg-cyan-600/20 text-cyan-400'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                    ? 'bg-primary/20 text-primary'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
             )}
         >
             <Link
@@ -302,7 +302,12 @@ function ChatItem({ chat, isActive, onDelete, onEdit }: ChatItemProps) {
             </Link>
 
             {chat._count && chat._count.files > 0 && (
-                <span className='shrink-0 text-xs text-slate-500'>
+                <span
+                    className={cn(
+                        'shrink-0 text-xs',
+                        isActive ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                >
                     {chat._count.files}
                 </span>
             )}
@@ -319,20 +324,20 @@ function ChatItem({ chat, isActive, onDelete, onEdit }: ChatItemProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                     align='end'
-                    className='border-slate-700 bg-slate-800'
+                    className='border-border bg-card'
                 >
                     <DropdownMenuItem
                         onClick={onEdit}
-                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                        className='text-foreground focus:bg-secondary focus:text-foreground'
                     >
                         <Pencil className='mr-2 h-4 w-4' />
                         Переименовать
                     </DropdownMenuItem>
                     <DropdownMenuItem
                         onClick={onDelete}
-                        className='text-slate-300 focus:bg-red-900/50 focus:text-red-300'
+                        className='text-foreground focus:bg-destructive/10 focus:text-destructive'
                     >
-                        <Trash2 className='mr-2 h-4 w-4 focus:text-red-300' />
+                        <Trash2 className='mr-2 h-4 w-4' />
                         Удалить
                     </DropdownMenuItem>
                 </DropdownMenuContent>
