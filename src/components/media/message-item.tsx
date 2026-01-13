@@ -317,15 +317,22 @@ export function MessageItem({
                                                                 variant='ghost'
                                                                 className='h-8 w-8 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-primary hover:bg-primary/10 group-hover:opacity-100'
                                                                 onClick={() => {
-                                                                    if (
-                                                                        !file.path
-                                                                    )
-                                                                        return;
-                                                                    loadingEffectForAttachFile();
+                                                                    // Используем path если есть, иначе url (для файлов на imgbb)
                                                                     const fileUrl =
-                                                                        getMediaFileUrl(
-                                                                            file.path
+                                                                        file.path
+                                                                            ? getMediaFileUrl(
+                                                                                  file.path
+                                                                              )
+                                                                            : file.url;
+                                                                    if (
+                                                                        !fileUrl
+                                                                    ) {
+                                                                        console.warn(
+                                                                            '[MessageItem] Нет file.path и file.url'
                                                                         );
+                                                                        return;
+                                                                    }
+                                                                    loadingEffectForAttachFile();
                                                                     onAttachFile(
                                                                         fileUrl,
                                                                         file.filename

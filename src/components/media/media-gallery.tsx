@@ -418,13 +418,15 @@ export function MediaGallery({
                                                         className='absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100'
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            if (!file.path)
+                                                            // Используем path если есть, иначе url (для файлов на imgbb)
+                                                            const fileUrl = file.path
+                                                                ? getMediaFileUrl(file.path)
+                                                                : file.url;
+                                                            if (!fileUrl) {
+                                                                console.warn('[MediaGallery] Нет file.path и file.url');
                                                                 return;
+                                                            }
                                                             loadingEffectForAttachFile();
-                                                            const fileUrl =
-                                                                getMediaFileUrl(
-                                                                    file.path
-                                                                );
                                                             onAttachFile(
                                                                 fileUrl,
                                                                 file.filename
@@ -554,13 +556,15 @@ export function MediaGallery({
                                                         className='absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100'
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            if (!file.path)
+                                                            // Используем path если есть, иначе url (для файлов на imgbb)
+                                                            const fileUrl = file.path
+                                                                ? getMediaFileUrl(file.path)
+                                                                : file.url;
+                                                            if (!fileUrl) {
+                                                                console.warn('[MediaGallery] Нет file.path и file.url');
                                                                 return;
+                                                            }
                                                             loadingEffectForAttachFile();
-                                                            const fileUrl =
-                                                                getMediaFileUrl(
-                                                                    file.path
-                                                                );
                                                             onAttachFile(
                                                                 fileUrl,
                                                                 file.filename
@@ -688,12 +692,15 @@ export function MediaGallery({
                                                         className='absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100'
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            if (!file.path)
+                                                            // Используем path если есть, иначе url (для файлов на imgbb)
+                                                            const fileUrl = file.path
+                                                                ? getMediaFileUrl(file.path)
+                                                                : file.url;
+                                                            if (!fileUrl) {
+                                                                console.warn('[MediaGallery] Нет file.path и file.url');
                                                                 return;
-                                                            const fileUrl =
-                                                                getMediaFileUrl(
-                                                                    file.path
-                                                                );
+                                                            }
+                                                            loadingEffectForAttachFile();
                                                             onAttachFile(
                                                                 fileUrl,
                                                                 file.filename
@@ -701,7 +708,11 @@ export function MediaGallery({
                                                         }}
                                                         title='Прикрепить к промпту'
                                                     >
-                                                        <Paperclip className='h-3.5 w-3.5' />
+                                                        {attachingFile ? (
+                                                            <Loader2 className='h-3.5 w-3.5 animate-spin' />
+                                                        ) : (
+                                                            <Paperclip className='h-3.5 w-3.5' />
+                                                        )}
                                                     </Button>
                                                 )}
                                                 {/* Кнопка разворачивания видео */}
