@@ -187,7 +187,7 @@ export function ModelSelector({
                                     <SelectItem
                                         key={model.key}
                                         value={model.key}
-                                        className='text-muted-foreground focus:bg-secondary focus:text-foreground'
+                                        className='text-muted-foreground focus:bg-secondary focus:text-foreground pl-6'
                                     >
                                         <div className='flex items-center gap-2 w-full min-w-[200px]'>
                                             <span>
@@ -220,7 +220,7 @@ export function ModelSelector({
                                     <SelectItem
                                         key={model.key}
                                         value={model.key}
-                                        className='text-muted-foreground focus:bg-secondary focus:text-foreground'
+                                        className='text-muted-foreground focus:bg-secondary focus:text-foreground pl-6'
                                     >
                                         <div className='flex items-center gap-2 w-full min-w-[200px]'>
                                             <span>
@@ -253,7 +253,7 @@ export function ModelSelector({
                                     <SelectItem
                                         key={model.key}
                                         value={model.key}
-                                        className='text-muted-foreground focus:bg-secondary focus:text-foreground'
+                                        className='text-muted-foreground focus:bg-secondary focus:text-foreground pl-6'
                                     >
                                         <div className='flex items-center gap-2 w-full min-w-[200px]'>
                                             <span>

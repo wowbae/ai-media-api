@@ -72,9 +72,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 <head>
                     <HeadContent />
                 </head>
-                <body suppressHydrationWarning className="pt-14">
+                <body suppressHydrationWarning>
                     <Header />
-                    {children}
+                    <div className="pt-14">
+                        {children}
+                    </div>
                     {/* <TanStackDevtools
                         config={{
                             position: 'bottom-right',

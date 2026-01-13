@@ -138,10 +138,13 @@ async function validateChatAccess(
     }
 }
 
-// Удаление видео с сервера после успешной отправки в Telegram
-async function deleteVideoAfterTelegramSend(file: MediaFile): Promise<void> {
-    if (file.type !== 'VIDEO' || !file.path) {
-        return; // Удаляем только видео с локальным путем
+// Удаление медиа-файла с сервера после успешной отправки в Telegram
+// Для VIDEO: удаляет локальные файлы, сохраняет URL провайдера
+// Для IMAGE: удаляет локальные файлы, сохраняет URL на imgbb
+async function deleteMediaAfterTelegramSend(file: MediaFile): Promise<void> {
+    // Удаляем только файлы с локальным путем (IMAGE и VIDEO)
+    if ((file.type !== 'VIDEO' && file.type !== 'IMAGE') || !file.path) {
+        return;
     }
 
     try {
@@ -157,22 +160,24 @@ async function deleteVideoAfterTelegramSend(file: MediaFile): Promise<void> {
 
         await deleteLocalFile(absolutePath, absolutePreviewPath);
 
-        // Обновляем БД: устанавливаем path и previewPath в null, сохраняем url (URL провайдера)
+        // Обновляем БД: устанавливаем path и previewPath в null, сохраняем url
+        // Для VIDEO: url - это URL провайдера
+        // Для IMAGE: url - это URL на imgbb
         await prisma.mediaFile.update({
             where: { id: file.id },
             data: {
                 path: null,
                 previewPath: null,
-                // url остается (URL провайдера для последующего использования)
+                // url остается (URL провайдера для VIDEO или URL на imgbb для IMAGE)
             },
         });
 
         console.log(
-            `[Telegram] ✅ Видео удалено с сервера после отправки: fileId=${file.id}, filename=${file.filename}`
+            `[Telegram] ✅ ${file.type === 'VIDEO' ? 'Видео' : 'Изображение'} удалено с сервера после отправки: fileId=${file.id}, filename=${file.filename}`
         );
     } catch (error) {
         console.error(
-            `[Telegram] ❌ Ошибка удаления видео с сервера (fileId=${file.id}):`,
+            `[Telegram] ❌ Ошибка удаления ${file.type === 'VIDEO' ? 'видео' : 'изображения'} с сервера (fileId=${file.id}):`,
             error
         );
         // Не прерываем процесс, просто логируем ошибку
@@ -190,25 +195,39 @@ export async function notifyTelegramGroupBatch(
 
     try {
         const firstFile = files[0];
+
+        // Получаем request с userId
         const request = await prisma.mediaRequest.findUnique({
             where: { id: firstFile.requestId },
-            include: {
-                user: {
-                    include: {
-                        telegramGroup: true
-                    }
-                }
+            select: {
+                userId: true
             }
         });
 
-        if (request?.user?.telegramGroup) {
-            targetGroupIds = [request.user.telegramGroup.groupId];
+        // Если есть userId, получаем telegramGroup отдельным запросом
+        if (request?.userId) {
+            const telegramGroup = await prisma.telegramGroup.findUnique({
+                where: { userId: request.userId },
+                select: {
+                    groupId: true
+                }
+            });
+
+            if (telegramGroup) {
+                targetGroupIds = [telegramGroup.groupId];
+            } else if (telegramConfig.notificationGroupId) {
+                // Fallback to global config (Admin/Legacy)
+                targetGroupIds = [telegramConfig.notificationGroupId];
+            } else {
+                console.warn('[Telegram] ⚠️ No target group found for user or global config');
+                return false;
+            }
         } else if (telegramConfig.notificationGroupId) {
             // Fallback to global config (Admin/Legacy)
             targetGroupIds = [telegramConfig.notificationGroupId];
         } else {
-             console.warn('[Telegram] ⚠️ No target group found for user or global config');
-             return false;
+            console.warn('[Telegram] ⚠️ No target group found for user or global config');
+            return false;
         }
     } catch (e) {
         console.error('[Telegram] Error fetching user groups:', e);
@@ -385,9 +404,9 @@ export async function notifyTelegramGroupBatch(
                 `[Telegram] ✅ Уведомление отправлено в Telegram: ${firstFile.filename}, группа: ${groupId}`
             );
 
-            // Удаляем видео с сервера после успешной отправки
-            if (firstFile.type === 'VIDEO') {
-                await deleteVideoAfterTelegramSend(firstFile);
+            // Удаляем медиа-файл с сервера после успешной отправки (IMAGE и VIDEO)
+            if (firstFile.type === 'VIDEO' || firstFile.type === 'IMAGE') {
+                await deleteMediaAfterTelegramSend(firstFile);
             }
 
             return true;
@@ -426,10 +445,10 @@ export async function notifyTelegramGroupBatch(
             `[Telegram] ✅ Media group отправлен в Telegram: ${filesToSend.length} файлов, группа: ${groupId}`
         );
 
-        // Удаляем видео с сервера после успешной отправки
-        const videoFiles = filesToSend.filter((file) => file.type === 'VIDEO');
-        for (const videoFile of videoFiles) {
-            await deleteVideoAfterTelegramSend(videoFile);
+        // Удаляем медиа-файлы с сервера после успешной отправки (IMAGE и VIDEO)
+        const mediaFiles = filesToSend.filter((file) => file.type === 'VIDEO' || file.type === 'IMAGE');
+        for (const mediaFile of mediaFiles) {
+            await deleteMediaAfterTelegramSend(mediaFile);
         }
 
         return true;
