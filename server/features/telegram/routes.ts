@@ -8,26 +8,23 @@ export const telegramRouter = Router();
 // Middleware to ensure user is authenticated
 telegramRouter.use(authenticate);
 
-// Get all linked groups for the user
+// Get linked group for the user (one-to-one relationship)
 telegramRouter.get('/groups', async (req: Request, res: Response) => {
     try {
         const user = (req as any).user;
-        const groups = await prisma.telegramGroup.findMany({
-            where: { userId: user.userId },
-            orderBy: { createdAt: 'desc' }
+        const group = await prisma.telegramGroup.findUnique({
+            where: { userId: user.userId }
         });
-        res.json({ success: true, groups });
+        res.json({ success: true, group: group || null });
     } catch (error) {
-        console.error('Error fetching telegram groups:', error);
+        console.error('Error fetching telegram group:', error);
         res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 
-// Add a linked group (simple version: user provides numeric ID)
-// Improved version: User provides a verification code or bot adds directly?
-// For now, allow direct addition with optional title.
+// Add or update linked group (upsert - one group per user)
 const addGroupSchema = z.object({
-    groupId: z.string().or(z.number()).transform(val => BigInt(val)),
+    groupId: z.string(), // Теперь String вместо BigInt
     title: z.string().optional(),
 });
 
@@ -42,55 +39,42 @@ telegramRouter.post('/groups', async (req: Request, res: Response) => {
 
         const { groupId, title } = result.data;
 
-        // Check if already linked
-        const existing = await prisma.telegramGroup.findFirst({
-            where: {
-                userId: user.userId,
-                groupId: groupId
-            }
-        });
-
-        if (existing) {
-             return res.status(400).json({ success: false, error: 'Group already linked' });
-        }
-
-        const group = await prisma.telegramGroup.create({
-            data: {
+        // Upsert: создаем или обновляем группу (заменяем старую если есть)
+        const group = await prisma.telegramGroup.upsert({
+            where: { userId: user.userId },
+            update: {
+                groupId: groupId,
+                title: title || `Group ${groupId}`,
+            },
+            create: {
                 userId: user.userId,
                 groupId: groupId,
                 title: title || `Group ${groupId}`,
-                isActive: true
             }
         });
 
-        // Convert BigInt to string for JSON
-        const responseGroup = {
-            ...group,
-            groupId: group.groupId.toString()
-        };
-
-        res.json({ success: true, group: responseGroup });
+        res.json({ success: true, group });
 
     } catch (error) {
-        console.error('Error adding telegram group:', error);
+        console.error('Error adding/updating telegram group:', error);
         res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 
 // Delete (unlink) group
-telegramRouter.delete('/groups/:id', async (req: Request, res: Response) => {
+telegramRouter.delete('/groups', async (req: Request, res: Response) => {
     try {
         const user = (req as any).user;
-        const id = parseInt(req.params.id);
 
-        await prisma.telegramGroup.deleteMany({
+        await prisma.telegramGroup.delete({
             where: {
-                id: id,
-                userId: user.userId // Ensure ownership
+                userId: user.userId
             }
+        }).catch(() => {
+            // Группа может не существовать, это нормально
         });
 
-        res.json({ success: true, message: 'Group unlink' });
+        res.json({ success: true, message: 'Group unlinked' });
     } catch (error) {
         console.error('Error deleting telegram group:', error);
         res.status(500).json({ success: false, error: 'Internal server error' });

@@ -4,7 +4,7 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { MediaType } from '@prisma/client';
+import type { MediaType } from './interfaces';
 import { mediaStorageConfig } from './config';
 
 const execAsync = promisify(exec);

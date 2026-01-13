@@ -5,7 +5,7 @@
 // - Polling для async провайдеров (проверка статуса задач)
 // - Восстановление незавершенных задач при перезапуске сервера
 // - Сохранение результатов в БД
-import { MediaModel, RequestStatus } from "@prisma/client";
+import type { MediaModel, RequestStatus } from "./interfaces";
 import { prisma } from "prisma/client";
 import {
   getProviderManager,
@@ -67,7 +67,7 @@ export async function generateMedia(
   // Обновляем статус на PROCESSING
   await prisma.mediaRequest.update({
     where: { id: requestId },
-    data: { status: RequestStatus.PROCESSING },
+    data: { status: 'PROCESSING' },
   });
 
   try {
@@ -226,7 +226,7 @@ export async function generateMedia(
     await prisma.mediaRequest.update({
       where: { id: requestId },
       data: {
-        status: RequestStatus.COMPLETED,
+        status: 'COMPLETED',
         completedAt: new Date(),
       },
     });
@@ -254,7 +254,7 @@ export async function generateMedia(
     await prisma.mediaRequest.update({
       where: { id: requestId },
       data: {
-        status: RequestStatus.FAILED,
+        status: 'FAILED',
         errorMessage: formattedErrorMessage,
       },
     });
@@ -294,8 +294,8 @@ async function pollTaskResult(
 
   // Если запрос уже в финальном статусе, не начинаем polling
   if (
-    initialRequest.status === RequestStatus.COMPLETED ||
-    initialRequest.status === RequestStatus.FAILED
+    initialRequest.status === 'COMPLETED' ||
+    initialRequest.status === 'FAILED'
   ) {
     console.log(
       `[MediaService] Запрос уже завершен, polling не требуется: requestId=${requestId}, status=${initialRequest.status}`,
@@ -314,7 +314,7 @@ async function pollTaskResult(
       await prisma.mediaRequest.update({
         where: { id: requestId },
         data: {
-          status: RequestStatus.FAILED,
+          status: 'FAILED',
           errorMessage: "Генерация отменена",
         },
       });
@@ -459,7 +459,7 @@ async function pollTaskResult(
         await prisma.mediaRequest.update({
           where: { id: requestId },
           data: {
-            status: RequestStatus.COMPLETED,
+            status: 'COMPLETED',
             completedAt: new Date(),
           },
         });
@@ -530,7 +530,7 @@ async function pollTaskResult(
       await prisma.mediaRequest.update({
         where: { id: requestId },
         data: {
-          status: RequestStatus.FAILED,
+          status: 'FAILED',
           errorMessage: formattedErrorMessage,
         },
       });
@@ -587,7 +587,7 @@ export async function recoverUnfinishedTasks(): Promise<void> {
     // Находим все задачи со статусом PROCESSING
     const processingRequests = await prisma.mediaRequest.findMany({
       where: {
-        status: RequestStatus.PROCESSING,
+        status: 'PROCESSING',
       },
       include: {
         chat: true,
@@ -620,7 +620,7 @@ export async function recoverUnfinishedTasks(): Promise<void> {
           await prisma.mediaRequest.update({
             where: { id: request.id },
             data: {
-              status: RequestStatus.FAILED,
+              status: 'FAILED',
               errorMessage: "Задача прервана перезапуском сервера",
             },
           });
@@ -645,7 +645,7 @@ export async function recoverUnfinishedTasks(): Promise<void> {
           await prisma.mediaRequest.update({
             where: { id: request.id },
             data: {
-              status: RequestStatus.FAILED,
+              status: 'FAILED',
               errorMessage:
                 "Задача прервана перезапуском сервера (восстановление невозможно без taskId)",
             },
@@ -687,7 +687,7 @@ export async function recoverUnfinishedTasks(): Promise<void> {
         await prisma.mediaRequest.update({
           where: { id: request.id },
           data: {
-            status: RequestStatus.FAILED,
+            status: 'FAILED',
             errorMessage: `Ошибка восстановления: ${error instanceof Error ? error.message : "Unknown error"}`,
           },
         });

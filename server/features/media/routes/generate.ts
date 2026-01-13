@@ -2,13 +2,12 @@
 import { Router, Request, Response } from 'express';
 import path from 'path';
 import { prisma } from 'prisma/client';
-import { MediaModel, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { generateMedia } from '../generation.service';
 import { copyFile } from '../file.service';
 import { mediaStorageConfig } from '../config';
 import { notifyTelegramGroup } from '../telegram.notifier';
-import { RequestStatus } from '@prisma/client';
-import type { GenerateMediaRequest } from '../interfaces';
+import type { GenerateMediaRequest, MediaModel, RequestStatus } from '../interfaces';
 import { invalidateChatCache } from './cache';
 import { authenticate } from '../../auth/routes';
 import { TokenService } from '../../tokens/token.service';
@@ -460,7 +459,7 @@ export function createGenerateRouter(): Router {
                 success: true,
                 data: {
                     requestId: mediaRequest.id,
-                    status: 'COMPLETED' as RequestStatus,
+                    status: 'COMPLETED' as const,
                     message: 'Тестовый запрос создан',
                 },
             });

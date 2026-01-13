@@ -1,16 +1,25 @@
 import React from 'react';
 import { Link, useLocation } from '@tanstack/react-router';
 import { useSelector, useDispatch } from 'react-redux';
-import { selectIsAuthenticated, logout } from '@/redux/auth-slice';
+import { selectIsAuthenticated, selectCurrentUser, logout } from '@/redux/auth-slice';
 import { TokenBalance } from './TokenBalance';
+import { openTelegramBot } from '@/lib/telegram-utils';
+import { Settings } from 'lucide-react';
 
 export const Header = () => {
     const isAuthenticated = useSelector(selectIsAuthenticated);
+    const user = useSelector(selectCurrentUser);
     const dispatch = useDispatch();
     const location = useLocation();
 
     // Проверяем, находимся ли мы на странице /media
     const isOnMediaPage = location.pathname.startsWith('/media');
+
+    function handleTelegramLink() {
+        if (user?.id) {
+            openTelegramBot(user.id);
+        }
+    }
 
     const handleLogout = () => {
         dispatch(logout());
@@ -33,6 +42,14 @@ export const Header = () => {
                                         Generate
                                     </Link>
                                 )}
+                                <button
+                                    onClick={handleTelegramLink}
+                                    className="flex items-center gap-1 text-sm font-medium text-white hover:text-cyan-400 px-3"
+                                    title="Привязать Telegram группу"
+                                >
+                                    <Settings className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Telegram</span>
+                                </button>
                                 <button onClick={handleLogout} className="text-sm font-medium text-gray-400 hover:text-white px-3">
                                     Logout
                                 </button>

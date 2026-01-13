@@ -1,5 +1,26 @@
 // Интерфейсы для медиа-генерации
-import { MediaModel, MediaType, RequestStatus } from "@prisma/client";
+// Типы теперь строковые вместо enum
+
+export type MediaModel =
+    | 'NANO_BANANA_OPENROUTER'
+    | 'MIDJOURNEY'
+    | 'VEO_3_1_FAST'
+    | 'SORA'
+    | 'NANO_BANANA_PRO_LAOZHANG'
+    | 'SORA_2'
+    | 'VEO_3_1'
+    | 'KLING_2_6'
+    | 'KLING_2_5_TURBO_PRO'
+    | 'NANO_BANANA_PRO_KIEAI'
+    | 'IMAGEN4_KIEAI'
+    | 'IMAGEN4_ULTRA_KIEAI'
+    | 'SEEDREAM_4_5'
+    | 'SEEDREAM_4_5_EDIT'
+    | 'ELEVENLABS_MULTILINGUAL_V2';
+
+export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
+
+export type RequestStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export interface GenerateMediaRequest {
   chatId: number;

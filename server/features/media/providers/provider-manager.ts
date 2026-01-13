@@ -1,5 +1,5 @@
 // Менеджер провайдеров - фабрика и маппинг моделей на провайдеры
-import type { MediaModel } from '@prisma/client';
+import type { MediaModel } from '../interfaces';
 import type { MediaProvider } from './interfaces';
 import { createOpenRouterProvider } from './openrouter';
 import { createGPTunnelMediaProvider } from './gptunnel';

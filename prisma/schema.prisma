@@ -15,14 +15,17 @@ model User {
   passwordHash     String
   role             UserRole           @default(USER)
   tokenBalance     Int                @default(0)
+  telegramId       String?            // Telegram User ID для привязки через бота
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
   chats            MediaChat[]
   requests         MediaRequest[]
   transactions     TokenTransaction[]
-  telegramGroups   TelegramGroup[]
+  telegramGroup    TelegramGroup?      // Одна группа на пользователя
   passwordResetTokens PasswordResetToken[]
+
+  @@index([telegramId])
 }
 
 model PasswordResetToken {
@@ -53,14 +56,13 @@ model TokenTransaction {
 
 model TelegramGroup {
   id        Int      @id @default(autoincrement())
-  userId    Int
+  userId    Int      @unique // Одна группа на пользователя
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  groupId   BigInt   // Telegram Chat ID (can be large negative number)
+  groupId   String   // Telegram Chat ID как строка
   title     String?
-  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  @@unique([userId, groupId])
+  @@index([groupId])
 }
 
 enum UserRole {
@@ -82,7 +84,7 @@ model MediaChat {
   userId    Int?           // Optional for migration compatibility, should be required later
   user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   name      String
-  model     MediaModel     @default(NANO_BANANA_PRO_KIEAI)
+  model     String         @default("NANO_BANANA_PRO_KIEAI")
   settings  Json           @default("{}")
   requests  MediaRequest[]
   createdAt DateTime       @default(now())
@@ -91,6 +93,7 @@ model MediaChat {
   @@index([updatedAt])
   @@index([createdAt])
   @@index([userId])
+  @@index([model])
 }
 
 model MediaRequest {
@@ -100,8 +103,8 @@ model MediaRequest {
   chatId       Int
   chat         MediaChat          @relation(fields: [chatId], references: [id], onDelete: Cascade)
   prompt       String
-  model        MediaModel?
-  status       RequestStatus      @default(PENDING)
+  model        String?
+  status       String             @default("PENDING")
   taskId       String?
   seed         String?
   inputFiles   String[]           @default([])
@@ -117,13 +120,14 @@ model MediaRequest {
   @@index([status])
   @@index([chatId, createdAt])
   @@index([userId])
+  @@index([model])
 }
 
 model MediaFile {
   id          Int          @id @default(autoincrement())
   requestId   Int
   request     MediaRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  type        MediaType
+  type        String       // IMAGE, VIDEO, AUDIO
   filename    String
   // Local paths (nullable, used in Dev or if downloaded)
   path        String?
@@ -142,33 +146,3 @@ model MediaFile {
   @@index([type])
 }
 
-enum MediaModel {
-  NANO_BANANA_OPENROUTER
-  MIDJOURNEY
-  VEO_3_1_FAST
-  SORA
-  NANO_BANANA_PRO_LAOZHANG
-  SORA_2
-  VEO_3_1
-  KLING_2_6
-  KLING_2_5_TURBO_PRO
-  NANO_BANANA_PRO_KIEAI
-  IMAGEN4_KIEAI
-  IMAGEN4_ULTRA_KIEAI
-  SEEDREAM_4_5
-  SEEDREAM_4_5_EDIT
-  ELEVENLABS_MULTILINGUAL_V2
-}
-
-enum MediaType {
-  IMAGE
-  VIDEO
-  AUDIO
-}
-
-enum RequestStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-}

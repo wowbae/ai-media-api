@@ -1,5 +1,5 @@
 // Интерфейсы для абстракции провайдеров медиа-генерации
-import type { MediaModel } from "@prisma/client";
+import type { MediaModel } from "../interfaces";
 import type { SavedFileInfo } from "../file.service";
 
 // Реэкспорт MediaModelConfig из config.ts (единственный источник истины)

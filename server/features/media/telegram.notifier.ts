@@ -154,16 +154,14 @@ export async function notifyTelegramGroupBatch(
             include: {
                 user: {
                     include: {
-                        telegramGroups: {
-                            where: { isActive: true }
-                        }
+                        telegramGroup: true
                     }
                 }
             }
         });
 
-        if (request?.user?.telegramGroups?.length) {
-            targetGroupIds = request.user.telegramGroups.map(g => g.groupId.toString());
+        if (request?.user?.telegramGroup) {
+            targetGroupIds = [request.user.telegramGroup.groupId];
         } else if (telegramConfig.notificationGroupId) {
             // Fallback to global config (Admin/Legacy)
             targetGroupIds = [telegramConfig.notificationGroupId];
