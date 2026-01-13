@@ -142,7 +142,7 @@ export function ModelSelector({
             onValueChange={handleValueChange}
             disabled={disabled || isLoading}
         >
-            <SelectTrigger className='w-[280px] border-slate-600 bg-slate-700 text-white'>
+            <SelectTrigger className='w-[280px] border-border bg-secondary text-foreground rounded-xl'>
                 <SelectValue placeholder='Выберите модель'>
                     <div className='flex items-center gap-2 w-full'>
                         <span>{getModelIcon(value)}</span>
@@ -160,7 +160,7 @@ export function ModelSelector({
                     </div>
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className='border-slate-700 bg-slate-800'>
+            <SelectContent className='border-border bg-card'>
                 {/* Если модели еще загружаются */}
                 {isLoading ? (
                     <div className='flex items-center gap-2 p-2 text-slate-400'>
@@ -172,7 +172,7 @@ export function ModelSelector({
                         {/* Блок моделей для изображений */}
                         {imageModels.length > 0 && (
                             <SelectGroup>
-                                <SelectLabel className='flex items-center gap-2 text-slate-400'>
+                                <SelectLabel className='flex items-center gap-2 text-muted-foreground'>
                                     <ImageIcon className='h-4 w-4' />
                                     <span>Изображения</span>
                                 </SelectLabel>
@@ -180,7 +180,7 @@ export function ModelSelector({
                                     <SelectItem
                                         key={model.key}
                                         value={model.key}
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                        className='text-muted-foreground focus:bg-secondary focus:text-foreground'
                                     >
                                         <div className='flex items-center gap-2 w-full min-w-[200px]'>
                                             <span>
@@ -205,7 +205,7 @@ export function ModelSelector({
                         {/* Блок моделей для видео */}
                         {videoModels.length > 0 && (
                             <SelectGroup>
-                                <SelectLabel className='flex items-center gap-2 text-slate-400'>
+                                <SelectLabel className='flex items-center gap-2 text-muted-foreground'>
                                     <Video className='h-4 w-4' />
                                     <span>Видео</span>
                                 </SelectLabel>
@@ -213,7 +213,7 @@ export function ModelSelector({
                                     <SelectItem
                                         key={model.key}
                                         value={model.key}
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                        className='text-muted-foreground focus:bg-secondary focus:text-foreground'
                                     >
                                         <div className='flex items-center gap-2 w-full min-w-[200px]'>
                                             <span>
@@ -238,7 +238,7 @@ export function ModelSelector({
                         {/* Блок моделей для аудио */}
                         {audioModels.length > 0 && (
                             <SelectGroup>
-                                <SelectLabel className='flex items-center gap-2 text-slate-400'>
+                                <SelectLabel className='flex items-center gap-2 text-muted-foreground'>
                                     <Music className='h-4 w-4' />
                                     <span>Аудио</span>
                                 </SelectLabel>
@@ -246,7 +246,7 @@ export function ModelSelector({
                                     <SelectItem
                                         key={model.key}
                                         value={model.key}
-                                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                                        className='text-muted-foreground focus:bg-secondary focus:text-foreground'
                                     >
                                         <div className='flex items-center gap-2 w-full min-w-[200px]'>
                                             <span>
@@ -286,7 +286,7 @@ export function ModelBadge({ model, showProvider = false }: ModelBadgeProps) {
 
     return (
         <div className='flex items-center gap-1.5'>
-            <Badge variant='secondary' className='bg-slate-700 text-slate-300'>
+            <Badge variant='secondary' className='bg-secondary text-muted-foreground'>
                 <span className='mr-1'>{getModelIcon(model)}</span>
                 {modelInfo?.name || model}
             </Badge>

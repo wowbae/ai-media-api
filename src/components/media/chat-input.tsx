@@ -553,7 +553,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         }
 
         return (
-            <div id='chat-input' className='border-t border-slate-700 bg-slate-800/50 p-4'>
+            <div id='chat-input' className='border-t border-border bg-background p-4'>
                 {/* Прикрепленные файлы */}
                 {attachedFiles.length > 0 ? (
                     <div className='mb-3 flex flex-wrap gap-2 items-center'>
@@ -562,7 +562,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             return (
                                 <div
                                     key={file.id}
-                                    className='group relative h-16 w-16 overflow-hidden rounded-lg border border-slate-600'
+                                    className='group relative h-16 w-16 overflow-hidden rounded-xl border border-border bg-secondary shadow-sm'
                                 >
                                     {isVideo ? (
                                         <video
@@ -579,9 +579,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                     )}
                                     <button
                                         onClick={() => removeFile(file.id)}
-                                        className='absolute right-0.5 top-0.5 rounded-full bg-slate-900/80 p-0.5 opacity-0 transition-opacity group-hover:opacity-100'
+                                        className='absolute right-1 top-1 rounded-full bg-background/80 p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground'
                                     >
-                                        <X className='h-3 w-3 text-white' />
+                                        <X className='h-3 w-3' />
                                     </button>
                                 </div>
                             );
@@ -598,7 +598,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
                 {/* Подсказка для Kling 2.5 Turbo Pro */}
                 {modelType.isKling25 && (
-                    <p className='mb-2 text-xs text-slate-400'>
+                    <p className='mb-2 text-xs text-muted-foreground'>
                         Для image-to-video: первое изображение — начальный кадр,
                         второе — финальный кадр (tail)
                     </p>
@@ -606,7 +606,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
                 {/* Подсказка для Seedream 4.5 Edit */}
                 {modelType.isSeedream4_5_Edit && (
-                    <p className='mb-2 text-xs text-slate-400'>
+                    <p className='mb-2 text-xs text-muted-foreground'>
                         Seedream 4.5 Edit поддерживает до 14 изображений для
                         редактирования
                     </p>
@@ -716,7 +716,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     <div className='mb-2 space-y-2'>
                         <div className='flex flex-wrap gap-2'>
                             <div className='flex flex-col'>
-                                <p className='mb-1 text-xs text-slate-400'>
+                                <p className='mb-1 text-xs text-muted-foreground'>
                                     Голос
                                 </p>
                                 <Select
@@ -741,7 +741,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 </Select>
                             </div>
                             <div className='flex flex-col'>
-                                <p className='mb-1 text-xs text-slate-400'>
+                                <p className='mb-1 text-xs text-muted-foreground'>
                                     Стабильность (0-1)
                                 </p>
                                 <NumberInput
@@ -758,7 +758,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 />
                             </div>
                             <div className='flex flex-col'>
-                                <p className='mb-1 text-xs text-slate-400'>
+                                <p className='mb-1 text-xs text-muted-foreground'>
                                     Усиление сходства (0-1)
                                 </p>
                                 <NumberInput
@@ -775,7 +775,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 />
                             </div>
                             <div className='flex flex-col'>
-                                <p className='mb-1 text-xs text-slate-400'>
+                                <p className='mb-1 text-xs text-muted-foreground'>
                                     Скорость (0.5-2)
                                 </p>
                                 <NumberInput
@@ -855,9 +855,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     {/* Счетчик символов */}
                     <div
                         className={cn(
-                            'absolute bottom-2.5 right-12 text-[10px] select-none pointer-events-none transition-colors px-1 rounded bg-slate-800/50',
-                            prompt.length >= MAX_PROMPT_LENGTH ? 'text-red-500' :
-                            prompt.length >= MAX_PROMPT_LENGTH * 0.9 ? 'text-yellow-500' : 'text-slate-500'
+                            'absolute bottom-2.5 right-12 text-[10px] select-none pointer-events-none transition-colors px-1 rounded bg-background/50',
+                            prompt.length >= MAX_PROMPT_LENGTH ? 'text-destructive' :
+                            prompt.length >= MAX_PROMPT_LENGTH * 0.9 ? 'text-primary' : 'text-muted-foreground'
                         )}
                     >
                         {prompt.length}/{MAX_PROMPT_LENGTH}
@@ -870,10 +870,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             size='icon-sm'
                             variant='ghost'
                             className={cn(
-                                'h-8 w-8 hover:bg-slate-600',
+                                'h-8 w-8 hover:bg-secondary',
                                 attachedFiles.length > 0
-                                    ? 'text-cyan-400 hover:text-cyan-300'
-                                    : 'text-slate-400 hover:text-cyan-400'
+                                    ? 'text-primary'
+                                    : 'text-muted-foreground hover:text-primary'
                             )}
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isDisabled}
@@ -887,10 +887,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             size='icon-sm'
                             variant='ghost'
                             className={cn(
-                                'h-8 w-8 hover:bg-slate-600',
+                                'h-8 w-8 hover:bg-secondary',
                                 isLockEnabled
-                                    ? 'text-cyan-400 hover:text-cyan-300'
-                                    : 'text-slate-400 hover:text-slate-300'
+                                    ? 'text-primary'
+                                    : 'text-muted-foreground hover:text-foreground'
                             )}
                             onClick={toggleLock}
                             disabled={isDisabled}
@@ -912,7 +912,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     <Button
                         type='button'
                         size='icon-sm'
-                        className='absolute bottom-1.5 right-1.5 bg-cyan-600 hover:bg-cyan-700 hover:text-cyan-400'
+                        className='absolute bottom-1.5 right-1.5 bg-primary hover:bg-primary/90 text-primary-foreground'
                         onClick={(e) => {
                             // Дополнительная проверка перед вызовом
                             if (submitInProgressRef.current || isDisabled) {
@@ -936,7 +936,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 </div>
 
                 {/* Подсказка */}
-                <p className='mt-2 text-xs text-slate-500'>
+                <p className='mt-2 text-xs text-muted-foreground'>
                     Enter — отправить, Shift+Enter — новая строка. Можно
                     перетаскивать файлы или вставлять из буфера обмена
                     (Ctrl+V/Cmd+V)

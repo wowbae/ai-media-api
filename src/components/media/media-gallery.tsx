@@ -301,7 +301,7 @@ export function MediaGallery({
     // Показываем скелетоны во время загрузки
     if (isLoading) {
         return (
-            <div className='flex h-full w-[30%] flex-col border-l border-slate-700 bg-slate-800/50'>
+            <div className='flex h-full w-[30%] flex-col border-l border-border bg-background'>
                 <div className={PANEL_HEADER_CLASSES}>
                     <h2 className={PANEL_HEADER_TITLE_CLASSES}>Медиафайлы</h2>
                 </div>
@@ -323,12 +323,12 @@ export function MediaGallery({
 
     if (allFiles.length === 0) {
         return (
-            <div className='flex h-full w-[30%] flex-col border-l border-slate-700 bg-slate-800/50'>
+            <div className='flex h-full w-[30%] flex-col border-l border-border bg-background'>
                 <div className={PANEL_HEADER_CLASSES}>
                     <h2 className={PANEL_HEADER_TITLE_CLASSES}>Медиафайлы</h2>
                 </div>
                 <div className='flex flex-1 items-center justify-center'>
-                    <p className='text-sm text-slate-400'>Нет медиафайлов</p>
+                    <p className='text-sm text-muted-foreground'>Нет медиафайлов</p>
                 </div>
             </div>
         );
@@ -336,19 +336,19 @@ export function MediaGallery({
 
     return (
         <>
-            <div className='flex h-full w-[30%] flex-col border-l border-slate-700 bg-slate-800/50'>
+            <div className='flex h-full w-[30%] flex-col border-l border-border bg-background'>
                 {/* Заголовок */}
                 <div
                     className={cn(
                         PANEL_HEADER_CLASSES,
-                        'flex-row items-center justify-between'
+                        'flex-row items-center justify-between bg-background'
                     )}
                 >
                     <h2 className={PANEL_HEADER_TITLE_CLASSES}>
                         Медиафайлы ({allFiles.length})
                     </h2>
                     {totalCost > 0 && (
-                        <div className='text-[10px] font-medium px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'>
+                        <div className='text-[10px] font-medium px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20'>
                             {formatCost(totalCost)}
                         </div>
                     )}
@@ -364,7 +364,7 @@ export function MediaGallery({
                                     onClick={() =>
                                         setIsPinnedExpanded(!isPinnedExpanded)
                                     }
-                                    className='flex w-full items-center justify-between rounded-lg bg-slate-700/0 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors'
+                                    className='flex w-full items-center justify-between rounded-lg bg-transparent px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-colors'
                                 >
                                     <div className='flex gap-2 items-center'>
                                         <Pin className='h-4 w-4 text-yellow-400' />
@@ -791,7 +791,7 @@ export function MediaGallery({
                         >
                             <DialogContent
                                 showCloseButton={false}
-                                className='max-h-[95vh] max-w-[95vw] overflow-hidden border-slate-700 bg-slate-900 p-0'
+                                className='max-h-[95vh] max-w-[95vw] overflow-hidden border-border bg-background p-0'
                             >
                                 <DialogTitle className='sr-only'>
                                     Просмотр видео: {selectedFile.filename}

@@ -67,18 +67,18 @@ export function FormatSelect({
             disabled={disabled}
         >
             <SelectTrigger
-                className={`${className} border-slate-600 bg-slate-700 text-white`}
+                className={`${className} border-border bg-secondary text-foreground rounded-xl`}
             >
                 <SelectValue placeholder={placeholder}>
                     {value || placeholder}
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className='border-slate-700 bg-slate-800'>
+            <SelectContent className='border-border bg-card'>
                 {config.options.map((option) => (
                     <SelectItem
                         key={option.value}
                         value={option.value}
-                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                        className='text-muted-foreground focus:bg-accent focus:text-accent-foreground'
                     >
                         {option.label}
                     </SelectItem>
@@ -127,18 +127,18 @@ export function QualitySelect({
             disabled={disabled}
         >
             <SelectTrigger
-                className={`${className} border-slate-600 bg-slate-700 text-white`}
+                className={`${className} border-border bg-secondary text-foreground rounded-xl`}
             >
                 <SelectValue placeholder={placeholder}>
                     {value ? value.toUpperCase() : placeholder}
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className='border-slate-700 bg-slate-800'>
+            <SelectContent className='border-border bg-card'>
                 {config.options.map((option) => (
                     <SelectItem
                         key={option.value}
                         value={option.value}
-                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                        className='text-muted-foreground focus:bg-accent focus:text-accent-foreground'
                     >
                         {option.label}
                     </SelectItem>
@@ -179,18 +179,18 @@ export function DurationSelect({
             disabled={disabled}
         >
             <SelectTrigger
-                className={`${className} border-slate-600 bg-slate-700 text-white`}
+                className={`${className} border-border bg-secondary text-foreground rounded-xl`}
             >
                 <SelectValue placeholder='Длительность'>
                     {value || config.defaultValue} сек
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className='border-slate-700 bg-slate-800'>
+            <SelectContent className='border-border bg-card'>
                 {config.options.map((option) => (
                     <SelectItem
                         key={option.value}
                         value={option.value}
-                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                        className='text-muted-foreground focus:bg-accent focus:text-accent-foreground'
                     >
                         {option.label}
                     </SelectItem>
@@ -232,18 +232,18 @@ export function SoundSelect({
             disabled={disabled}
         >
             <SelectTrigger
-                className={`${className} border-slate-600 bg-slate-700 text-white`}
+                className={`${className} border-border bg-secondary text-foreground rounded-xl`}
             >
                 <SelectValue placeholder='Звук'>
                     {value === undefined || value ? 'звук on' : 'звук off'}
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className='border-slate-700 bg-slate-800'>
+            <SelectContent className='border-border bg-card'>
                 {config.options.map((option) => (
                     <SelectItem
                         key={option.value}
                         value={option.value}
-                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                        className='text-muted-foreground focus:bg-accent focus:text-accent-foreground'
                     >
                         {option.label}
                     </SelectItem>
@@ -298,18 +298,18 @@ export function GenerationTypeSelect({
             disabled={disabled}
         >
             <SelectTrigger
-                className={`${className} border-slate-600 bg-slate-700 text-white`}
+                className={`${className} border-border bg-secondary text-foreground rounded-xl`}
             >
                 <SelectValue placeholder={placeholder}>
                     {selectedOption?.label || placeholder}
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent className='border-slate-700 bg-slate-800 focus:bg-slate-700 focus:text-white'>
+            <SelectContent className='border-border bg-card focus:bg-accent focus:text-accent-foreground'>
                 {config.options.map((option) => (
                     <SelectItem
                         key={option.value}
                         value={option.value}
-                        className='text-slate-300 focus:bg-slate-700 focus:text-white'
+                        className='text-muted-foreground focus:bg-accent focus:text-accent-foreground'
                     >
                         {option.label}
                     </SelectItem>

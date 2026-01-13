@@ -478,7 +478,7 @@ function MediaChatPage() {
             <div className='flex h-screen bg-background'>
                 <ChatSidebar />
                 <div className='flex flex-1 flex-col items-center justify-center text-center'>
-                    <p className='text-xl text-red-400'>Ошибка загрузки чата</p>
+                    <p className='text-xl text-destructive'>Ошибка загрузки чата</p>
                     <p className='text-sm text-muted-foreground mt-2'>
                         Не удалось загрузить чат. Проверьте соединение с
                         сервером.
@@ -681,17 +681,17 @@ function ChatHeader({ name, model, showUpdating }: ChatHeaderProps) {
     const modelInfo = models?.find((m) => m.key === model);
 
     return (
-        <div className={cn(PANEL_HEADER_CLASSES, 'bg-secondary/40')}>
+        <div className={cn(PANEL_HEADER_CLASSES, 'bg-background')}>
             <div className='flex items-center gap-3'>
                 <span className='text-2xl'>{getModelIcon(model)}</span>
                 <div className='flex-1'>
                     <div className='flex items-center gap-2'>
-                        <h1 className='font-semibold text-white'>{name}</h1>
+                        <h1 className='font-semibold text-foreground'>{name}</h1>
                         {showUpdating && (
-                            <Loader2 className='h-4 w-4 animate-spin text-slate-400' />
+                            <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
                         )}
                     </div>
-                    <p className='text-xs text-slate-400'>
+                    <p className='text-xs text-muted-foreground'>
                         {modelInfo?.name || model}
                     </p>
                 </div>

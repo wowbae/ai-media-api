@@ -55,7 +55,7 @@ export function MediaFullscreenView({
 
     return (
         <div
-            className='fixed inset-0 z-50 flex items-center justify-center bg-black/90'
+            className='fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm'
             onClick={onClose}
         >
             <div
@@ -66,12 +66,12 @@ export function MediaFullscreenView({
                     <img
                         src={fileUrl}
                         alt={file.filename}
-                        className='max-h-[90vh] max-w-[90vw] object-contain'
+                        className='max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl'
                     />
                 )}
 
                 {file.type === 'VIDEO' && file.path && (
-                    <div className='relative'>
+                    <div className='relative rounded-lg overflow-hidden shadow-2xl'>
                         <video
                             src={fileUrl}
                             controls
@@ -82,9 +82,9 @@ export function MediaFullscreenView({
                 )}
 
                 {file.type === 'AUDIO' && (
-                    <div className='flex flex-col items-center gap-4 rounded-lg bg-slate-800 p-8'>
+                    <div className='flex flex-col items-center gap-4 rounded-xl bg-secondary p-8 shadow-2xl border border-border'>
                         <audio src={fileUrl} controls />
-                        <p className='text-white'>{file.filename}</p>
+                        <p className='text-foreground font-medium'>{file.filename}</p>
                     </div>
                 )}
 
@@ -99,7 +99,7 @@ export function MediaFullscreenView({
                                 e.stopPropagation();
                                 onAttachFile(fileUrl, file.filename);
                             }}
-                            className='h-8 w-8'
+                            className='h-8 w-8 hover:bg-primary hover:text-primary-foreground'
                             title='Прикрепить к промпту'
                         >
                             <Paperclip className='h-4 w-4' />
@@ -114,7 +114,7 @@ export function MediaFullscreenView({
                                 e.stopPropagation();
                                 onRepeatRequest(file.requestId);
                             }}
-                            className='h-8 w-8 text-slate-400 hover:text-cyan-400 focus:text-cyan-400'
+                            className='h-8 w-8 text-muted-foreground hover:text-primary'
                             title='Повторить запрос'
                         >
                             <RefreshCcw className='h-4 w-4' />
@@ -127,7 +127,7 @@ export function MediaFullscreenView({
                             e.stopPropagation();
                             handleDownload();
                         }}
-                        className='h-8 w-8'
+                        className='h-8 w-8 hover:bg-secondary/80'
                         title='Скачать файл'
                     >
                         <Download className='h-4 w-4' />
@@ -143,7 +143,7 @@ export function MediaFullscreenView({
                             }}
                             className={`h-8 w-8 ${
                                 isPinned
-                                    ? 'text-yellow-400 hover:text-yellow-300'
+                                    ? 'text-primary hover:text-primary/80'
                                     : ''
                             }`}
                             title={isPinned ? 'Открепить' : 'Закрепить'}

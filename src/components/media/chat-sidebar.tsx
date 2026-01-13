@@ -131,7 +131,7 @@ export function ChatSidebar() {
     }
 
     return (
-        <div className='flex h-full w-64 flex-col border-r border-border bg-sidebar'>
+        <div className='flex h-full w-64 flex-col border-r border-border bg-background'>
             {/* Header */}
             <div className={PANEL_HEADER_CLASSES}>
                 <h2 className={PANEL_HEADER_TITLE_CLASSES}>AI Media</h2>
@@ -142,8 +142,8 @@ export function ChatSidebar() {
                         className={cn(
                             'h-8 w-8',
                             isTestMode
-                                ? 'text-yellow-400 hover:text-yellow-300'
-                                : 'text-slate-400 hover:text-slate-300'
+                                ? 'text-primary hover:text-primary/80'
+                                : 'text-muted-foreground hover:text-foreground'
                         )}
                         onClick={toggleTestMode}
                         title={
@@ -157,7 +157,7 @@ export function ChatSidebar() {
                     <Button
                         size='icon'
                         variant='ghost'
-                        className='h-8 w-8 text-slate-400 hover:text-cyan-400'
+                        className='h-8 w-8 text-muted-foreground hover:text-primary'
                         onClick={() => setIsNewChatDialogOpen(true)}
                     >
                         <Plus className='h-5 w-5' />
@@ -190,7 +190,7 @@ export function ChatSidebar() {
                             />
                         ))
                     ) : (
-                        <div className='py-8 text-center text-sm text-slate-500'>
+                        <div className='py-8 text-center text-sm text-muted-foreground'>
                             <MessageSquare className='mx-auto mb-2 h-8 w-8 opacity-50' />
                             <p>Нет чатов</p>
                             <p className='text-xs'>Создайте новый чат</p>
