@@ -22,8 +22,9 @@ export const authEndpoints = baseApi.injectEndpoints({
                 body: credentials,
             }),
         }),
-        getMe: build.query<any, void>({
+        getMe: build.query<User, void>({
             query: () => '../auth/me',
+            transformResponse: (response: { user: User }) => response.user,
         }),
     }),
 });

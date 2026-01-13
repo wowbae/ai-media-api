@@ -98,6 +98,8 @@ function MediaChatPage() {
     const chatInputRef = useRef<ChatInputRef>(null);
     const isInitialLoadRef = useRef(true);
     const previousChatIdRef = useRef(chatIdNum);
+    const [showScrollButton, setShowScrollButton] = useState(false);
+    const scrollToBottomRef = useRef<(() => void) | null>(null);
 
     // Сброс состояния при смене чата
     useEffect(() => {
@@ -650,6 +652,10 @@ function MediaChatPage() {
                     onEditPrompt={handleEditPrompt}
                     onAttachFile={handleAttachFile}
                     onRepeatRequest={handleRepeatRequest}
+                    onScrollStateChange={setShowScrollButton}
+                    onScrollToBottomRef={(scrollFn) => {
+                        scrollToBottomRef.current = scrollFn;
+                    }}
                 />
 
                 {/* Ввод */}
@@ -661,6 +667,8 @@ function MediaChatPage() {
                     onRequestCreated={handleRequestCreated}
                     onPendingMessage={handleAddPendingMessage}
                     onSendError={handleSendError}
+                    scrollToBottom={() => scrollToBottomRef.current?.()}
+                    showScrollButton={showScrollButton}
                 />
             </div>
 

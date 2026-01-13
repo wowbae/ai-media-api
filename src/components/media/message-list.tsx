@@ -1,8 +1,6 @@
 // Список сообщений (запросов и результатов)
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
 import { ModelBadge } from './model-selector';
 import { type MediaRequest, type MediaModel } from '@/redux/media-api';
 import { MessageItem } from './message-item';
@@ -15,6 +13,8 @@ interface MessageListProps {
     onEditPrompt?: (prompt: string) => void;
     onAttachFile?: (fileUrl: string, filename: string) => void;
     onRepeatRequest?: (request: MediaRequest, model?: MediaModel) => void;
+    onScrollStateChange?: (showButton: boolean) => void;
+    onScrollToBottomRef?: (scrollFn: () => void) => void;
 }
 
 export function MessageList({
@@ -24,6 +24,8 @@ export function MessageList({
     onEditPrompt,
     onAttachFile,
     onRepeatRequest,
+    onScrollStateChange,
+    onScrollToBottomRef,
 }: MessageListProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -37,6 +39,22 @@ export function MessageList({
     );
 
     const [showScrollButton, setShowScrollButton] = useState(false);
+
+    // Уведомляем родительский компонент об изменении состояния кнопки
+    useEffect(() => {
+        onScrollStateChange?.(showScrollButton);
+    }, [showScrollButton, onScrollStateChange]);
+
+    // Экспортируем функцию прокрутки через callback ref
+    const scrollToBottom = useCallback(() => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, []);
+
+    useEffect(() => {
+        onScrollToBottomRef?.(scrollToBottom);
+    }, [scrollToBottom, onScrollToBottomRef]);
 
     // Отслеживание высоты панели ввода для динамического позиционирования кнопки
     useEffect(() => {
@@ -98,12 +116,6 @@ export function MessageList({
         });
     }, [requests.length, requestsStatusKey]);
 
-    const scrollToBottom = () => {
-        if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
-    };
-
     if (isLoading) {
         return (
             <div className='flex-1 p-4'>
@@ -135,14 +147,10 @@ export function MessageList({
     }
 
     // Вычисляем нижний отступ списка сообщений (высота панели ввода + отступ снизу + зазор)
-    const bottomPadding = inputPanelHeight > 0
-        ? inputPanelHeight + 24 + 16 // 24px (bottom-6) + 16px (зазор)
-        : 300; // Значение по умолчанию до загрузки
-
-    // Вычисляем позицию кнопки (высота панели ввода + отступ снизу + 4 единицы выше)
-    const buttonBottom = inputPanelHeight > 0
-        ? inputPanelHeight + 24 + 16 // 24px (bottom-6) + 16px (4 единицы выше)
-        : 290; // Значение по умолчанию до загрузки
+    const bottomPadding =
+        inputPanelHeight > 0
+            ? inputPanelHeight + 24 + 16 // 24px (bottom-6) + 16px (зазор)
+            : 300; // Значение по умолчанию до загрузки
 
     return (
         <div className='relative flex-1 overflow-hidden min-h-0'>
@@ -159,23 +167,11 @@ export function MessageList({
                             onAttachFile={onAttachFile}
                             onRepeatRequest={onRepeatRequest}
                         />
-                    ))} 
+                    ))}
                     {/* Маркер для автоскролла */}
                     <div ref={messagesEndRef} />
                 </div>
             </ScrollArea>
-
-            {showScrollButton && (
-                <Button
-                    size='icon'
-                    variant='secondary'
-                    className='absolute right-18 z-30 h-10 w-10 rounded-full bg-secondary/80 text-foreground shadow-lg backdrop-blur-sm hover:bg-secondary'
-                    style={{ bottom: `${buttonBottom}px` }}
-                    onClick={scrollToBottom}
-                >
-                    <ChevronDown className='h-6 w-6' />
-                </Button>
-            )}
         </div>
     );
 }

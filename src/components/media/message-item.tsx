@@ -9,6 +9,7 @@ import {
     X,
     Loader2,
     RefreshCcw,
+    Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -113,7 +114,8 @@ export function MessageItem({
                             onClick={() => onEditPrompt(request.prompt)}
                             title='Редактировать промпт'
                         >
-                            <span className='text-lg'>✨</span>
+                            <Copy className='text-muted-foreground' />
+                            {/* <span className='text-lg'>✨</span> */}
                         </Button>
                     )}
                     {/* Кнопка повторить запрос */}

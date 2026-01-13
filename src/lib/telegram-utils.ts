@@ -2,7 +2,8 @@
 
 // Имя бота в Telegram (можно вынести в env или получать через API)
 // Формат: без @, например "my_bot" для бота @my_bot
-export const TELEGRAM_BOT_USERNAME = process.env.VITE_TELEGRAM_BOT_USERNAME || 'your_bot_username';
+export const TELEGRAM_BOT_USERNAME =
+    import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'your_bot_username';
 
 /**
  * Генерирует deep link для привязки Telegram группы
@@ -20,5 +21,15 @@ export function generateTelegramBotLink(userId: number): string {
  */
 export function openTelegramBot(userId: number): void {
     const link = generateTelegramBotLink(userId);
-    window.open(link, '_blank', 'noopener,noreferrer');
+    console.log('Opening Telegram bot link:', link);
+    console.log('Bot username:', TELEGRAM_BOT_USERNAME);
+
+    // Пытаемся открыть в новом окне
+    try {
+        window.open(link, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+        console.error('Error opening Telegram link:', error);
+        // Fallback: открываем в том же окне
+        window.location.href = link;
+    }
 }

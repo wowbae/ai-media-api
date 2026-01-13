@@ -1,4 +1,4 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
+import { HeadContent, Scripts, createRootRoute, useLocation } from '@tanstack/react-router';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { TanStackDevtools } from '@tanstack/react-devtools';
 
@@ -6,6 +6,7 @@ import appCss from '../styles.css?url';
 import { Provider } from 'react-redux';
 import { store } from '@/redux/store';
 import { Header } from '@/components/Header';
+import { AuthInitializer } from '@/components/AuthInitializer';
 import { useTheme } from '@/hooks/use-theme';
 
 export const Route = createRootRoute({
@@ -65,6 +66,10 @@ function NotFoundComponent() {
 function RootDocument({ children }: { children: React.ReactNode }) {
     // Применяем тему при монтировании
     useTheme();
+    const location = useLocation();
+
+    // Скрываем хедер на страницах логина и регистрации
+    const shouldShowHeader = !location.pathname.startsWith('/login') && !location.pathname.startsWith('/register');
 
     return (
         <Provider store={store}>
@@ -73,8 +78,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                     <HeadContent />
                 </head>
                 <body suppressHydrationWarning>
-                    <Header />
-                    <div className="pt-14">
+                    <AuthInitializer />
+                    {shouldShowHeader && <Header />}
+                    <div className={shouldShowHeader ? "pt-14" : ""}>
                         {children}
                     </div>
                     {/* <TanStackDevtools

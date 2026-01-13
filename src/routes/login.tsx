@@ -3,6 +3,7 @@ import { useLoginMutation } from '../redux/api/auth.endpoints';
 import { useDispatch } from 'react-redux';
 import { setCredentials } from '../redux/auth-slice';
 import { useNavigate, Link, createFileRoute } from '@tanstack/react-router';
+import { Loader2, LogIn } from 'lucide-react';
 
 export const Login = () => {
     const [email, setEmail] = useState('');
@@ -23,46 +24,75 @@ export const Login = () => {
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
-            <div className="w-full max-w-md p-8 bg-gray-800 rounded-lg shadow-lg">
-                <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
+        <div className="flex min-h-screen items-center justify-center bg-background">
+            <div className="w-full max-w-md p-8">
+                <div className="mb-8 text-center">
+                    <div className="mb-6 flex justify-center">
+                        <img
+                            src="/logo.png"
+                            alt="Logo"
+                            className="h-20 w-20 rounded-lg"
+                        />
+                    </div>
+                    <h2 className="text-3xl font-bold text-white mb-2">Вход</h2>
+                    <p className="text-slate-400">Войдите в свой аккаунт</p>
+                </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1">Email</label>
+                        <label className="block text-sm font-medium mb-2 text-white">
+                            Email
+                        </label>
                         <input
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500"
+                            className="w-full p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
+                            placeholder="your@email.com"
                             required
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1">Password</label>
+                        <label className="block text-sm font-medium mb-2 text-white">
+                            Пароль
+                        </label>
                         <input
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500"
+                            className="w-full p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
+                            placeholder="••••••••"
                             required
                         />
                     </div>
                     {error && (
-                        <div className="text-red-500 text-sm text-center">
-                            Login failed. Please check credentials.
+                        <div className="rounded-lg bg-red-500/10 border border-red-500/50 p-3 text-red-400 text-sm text-center">
+                            Неверный email или пароль. Проверьте данные и попробуйте снова.
                         </div>
                     )}
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 rounded font-medium disabled:opacity-50"
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {isLoading ? 'Logging in...' : 'Login'}
+                        {isLoading ? (
+                            <>
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                Вход...
+                            </>
+                        ) : (
+                            <>
+                                <LogIn className="h-5 w-5" />
+                                Войти
+                            </>
+                        )}
                     </button>
-                    <div className="text-center text-sm mt-4">
-                        Don't have an account?{' '}
-                        <Link to="/register" className="text-blue-400 hover:underline">
-                            Register
+                    <div className="text-center text-sm mt-6">
+                        <span className="text-slate-400">Нет аккаунта? </span>
+                        <Link
+                            to="/register"
+                            className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"
+                        >
+                            Зарегистрироваться
                         </Link>
                     </div>
                 </form>

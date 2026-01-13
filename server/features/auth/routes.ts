@@ -77,4 +77,13 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     }
 };
 
+router.get('/me', authenticate, asyncHandler(async (req: Request, res: Response) => {
+    const userPayload = (req as any).user;
+    const user = await AuthService.getCurrentUser(userPayload.userId);
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ user });
+}));
+
 export const authRouter = router;

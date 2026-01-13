@@ -8,7 +8,15 @@ import {
     forwardRef,
     useMemo,
 } from 'react';
-import { Send, Paperclip, X, Loader2, Lock, Unlock } from 'lucide-react';
+import {
+    Send,
+    Paperclip,
+    X,
+    Loader2,
+    Lock,
+    Unlock,
+    ChevronDown,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -51,6 +59,10 @@ export interface ChatInputProps {
     onPendingMessage?: (prompt: string) => void;
     onSendError?: (errorMessage: string) => void;
     disabled?: boolean;
+    /** Функция прокрутки списка сообщений вниз */
+    scrollToBottom?: () => void;
+    /** Показывать ли кнопку прокрутки вниз */
+    showScrollButton?: boolean;
 }
 
 export interface ChatInputRef {
@@ -71,6 +83,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             onPendingMessage,
             onSendError,
             disabled,
+            scrollToBottom,
+            showScrollButton,
         },
         ref
     ) {
@@ -732,7 +746,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                     value={voice}
                                     onValueChange={setVoice}
                                     disabled={isDisabled}
-                                    modal={false}
+                                    // modal={false}
                                 >
                                     <SelectTrigger className='w-40 border-border bg-secondary text-foreground focus-visible:ring-primary rounded-xl'>
                                         <SelectValue placeholder='Выберите голос' />
@@ -961,6 +975,18 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     перетаскивать файлы или вставлять из буфера обмена
                     (Ctrl+V/Cmd+V)
                 </p>
+
+                {/* Кнопка прокрутки вниз */}
+                {showScrollButton && scrollToBottom && (
+                    <Button
+                        size='icon'
+                        variant='secondary'
+                        className='absolute -top-14 right-1 z-30 h-10 w-10 rounded-full bg-slate-950/60 backdrop-blur-xl text-foreground shadow-2xl shadow-cyan-900/20 border border-white/10 hover:bg-slate-950/80'
+                        onClick={scrollToBottom}
+                    >
+                        <ChevronDown className='h-6 w-6' />
+                    </Button>
+                )}
             </div>
         );
     }
