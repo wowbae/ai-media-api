@@ -1,25 +1,24 @@
 import { useEffect, useState } from 'react';
 
-type Theme = 'light' | 'dark';
+type Theme = 'dark';
 
 const THEME_STORAGE_KEY = 'theme';
 
 function getClientTheme(): Theme {
-    if (typeof window === 'undefined') return 'light';
-    const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
-    if (stored === 'dark' || stored === 'light') return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light';
+    // Всегда возвращаем dark тему
+    if (typeof window === 'undefined') return 'dark';
+    // Проверяем сохраненную тему, но только dark
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    return stored === 'dark' ? 'dark' : 'dark';
 }
 
 export function useTheme() {
     // Используем одинаковое начальное значение на сервере и клиенте
     // Это предотвращает несоответствие гидратации
     const [theme, setTheme] = useState<Theme>(() => {
-        // На сервере всегда возвращаем 'light'
-        if (typeof window === 'undefined') return 'light';
-        // На клиенте читаем из localStorage или определяем по предпочтениям
+        // Всегда возвращаем 'dark'
+        if (typeof window === 'undefined') return 'dark';
+        // На клиенте всегда dark
         return getClientTheme();
     });
     const [isMounted, setIsMounted] = useState(false);
@@ -40,19 +39,8 @@ export function useTheme() {
     function applyTheme(theme: Theme) {
         if (typeof window === 'undefined') return;
         const root = document.documentElement;
-        if (theme === 'dark') {
-            root.classList.add('dark');
-            return;
-        }
-        root.classList.remove('dark');
-    }
-
-    function toggleTheme() {
-        setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-    }
-
-    function setLightTheme() {
-        setTheme('light');
+        // Всегда применяем dark тему
+        root.classList.add('dark');
     }
 
     function setDarkTheme() {
@@ -61,10 +49,8 @@ export function useTheme() {
 
     return {
         theme,
-        toggleTheme,
-        setLightTheme,
         setDarkTheme,
-        isDarkTheme: theme === 'dark',
+        isDarkTheme: true, // Всегда true, так как только dark тема
         isMounted, // Экспортируем для компонентов, которые нуждаются в проверке монтирования
     };
 }
