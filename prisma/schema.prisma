@@ -6,10 +6,81 @@ datasource db {
   provider = "postgresql"
 }
 
+
+// ==================== User & Auth Models ====================
+
+model User {
+  id               Int                @id @default(autoincrement())
+  email            String             @unique
+  passwordHash     String
+  role             UserRole           @default(USER)
+  tokenBalance     Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  chats            MediaChat[]
+  requests         MediaRequest[]
+  transactions     TokenTransaction[]
+  telegramGroups   TelegramGroup[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+model TokenTransaction {
+  id          Int             @id @default(autoincrement())
+  userId      Int
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount      Int             // Positive for top-up, negative for spend
+  type        TransactionType
+  description String?
+  requestId   Int?            // Optional link to a specific request
+  request     MediaRequest?   @relation(fields: [requestId], references: [id])
+  createdAt   DateTime        @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model TelegramGroup {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId   BigInt   // Telegram Chat ID (can be large negative number)
+  title     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, groupId])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum TransactionType {
+  TOPUP
+  SPEND
+  REFUND
+  BONUS
+}
+
 // ==================== Media Generation Models ====================
 
 model MediaChat {
   id        Int            @id @default(autoincrement())
+  userId    Int?           // Optional for migration compatibility, should be required later
+  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   name      String
   model     MediaModel     @default(NANO_BANANA_PRO_KIEAI)
   settings  Json           @default("{}")
@@ -19,28 +90,33 @@ model MediaChat {
 
   @@index([updatedAt])
   @@index([createdAt])
+  @@index([userId])
 }
 
 model MediaRequest {
-  id           Int           @id @default(autoincrement())
+  id           Int                @id @default(autoincrement())
+  userId       Int?               // Optional for migration
+  user         User?              @relation(fields: [userId], references: [id])
   chatId       Int
-  chat         MediaChat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chat         MediaChat          @relation(fields: [chatId], references: [id], onDelete: Cascade)
   prompt       String
-  model        MediaModel? // Модель, использованная для этого запроса
-  status       RequestStatus @default(PENDING)
-  taskId       String? // ID задачи от провайдера (для async генерации)
-  seed         String? // Seed для воспроизводимости генерации
-  inputFiles   String[]      @default([])
-  settings     Json          @default("{}") // Дополнительные параметры запроса (format, quality, duration, sound, negativePrompt, cfgScale, и т.д.)
+  model        MediaModel?
+  status       RequestStatus      @default(PENDING)
+  taskId       String?
+  seed         String?
+  inputFiles   String[]           @default([])
+  settings     Json               @default("{}")
   files        MediaFile[]
+  transactions TokenTransaction[]
   errorMessage String?
-  createdAt    DateTime      @default(now())
+  createdAt    DateTime           @default(now())
   completedAt  DateTime?
 
   @@index([chatId])
   @@index([createdAt])
   @@index([status])
   @@index([chatId, createdAt])
+  @@index([userId])
 }
 
 model MediaFile {
@@ -49,13 +125,16 @@ model MediaFile {
   request     MediaRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   type        MediaType
   filename    String
-  path        String? // Локальный путь (для VIDEO и отображения IMAGE)
-  url         String? // URL на imgbb (для IMAGE, используется для отправки в нейросеть)
-  previewPath String? // Локальный путь превью (для VIDEO и отображения IMAGE)
-  previewUrl  String? // URL превью на imgbb (для IMAGE, создается асинхронно)
+  // Local paths (nullable, used in Dev or if downloaded)
+  path        String?
+  previewPath String?
+  // External URLs (Primary for Prod)
+  url         String?
+  previewUrl  String?
+
   size        Int?
-  width       Int? // Ширина изображения (только для IMAGE)
-  height      Int? // Высота изображения (только для IMAGE)
+  width       Int?
+  height      Int?
   createdAt   DateTime     @default(now())
 
   @@index([requestId])
@@ -68,11 +147,9 @@ enum MediaModel {
   MIDJOURNEY
   VEO_3_1_FAST
   SORA
-  // LaoZhang провайдер
   NANO_BANANA_PRO_LAOZHANG
   SORA_2
   VEO_3_1
-  // Kie.ai провайдер
   KLING_2_6
   KLING_2_5_TURBO_PRO
   NANO_BANANA_PRO_KIEAI

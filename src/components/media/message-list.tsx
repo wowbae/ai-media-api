@@ -111,7 +111,7 @@ export function MessageList({
     return (
         <div className='relative flex-1 overflow-hidden'>
             <ScrollArea className='h-full bg-background' ref={scrollRef}>
-                <div className='space-y-6 p-4'>
+                <div className='space-y-6 p-4 pb-48'>
                     {requests.map((request) => (
                         <MessageItem
                             key={request.id}

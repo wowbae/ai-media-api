@@ -144,20 +144,38 @@ export async function notifyTelegramGroupBatch(
     chatName: string,
     prompt: string
 ): Promise<boolean> {
-    const rawGroupId = telegramConfig.notificationGroupId;
+    // Determine target groups
+    let targetGroupIds: (string | number)[] = [];
 
-    console.log(
-        `[Telegram] notifyTelegramGroupBatch вызвана для ${files.length} файлов`
-    );
-    console.log(
-        `[Telegram] TELEGRAM_MEDIA_GROUP_ID: ${rawGroupId ? 'установлен' : 'НЕ установлен'}`
-    );
+    try {
+        const firstFile = files[0];
+        const request = await prisma.mediaRequest.findUnique({
+            where: { id: firstFile.requestId },
+            include: {
+                user: {
+                    include: {
+                        telegramGroups: {
+                            where: { isActive: true }
+                        }
+                    }
+                }
+            }
+        });
 
-    if (!rawGroupId) {
-        console.warn(
-            '[Telegram] ⚠️ TELEGRAM_MEDIA_GROUP_ID не установлен, уведомление не отправлено'
-        );
-        return false;
+        if (request?.user?.telegramGroups?.length) {
+            targetGroupIds = request.user.telegramGroups.map(g => g.groupId.toString());
+        } else if (telegramConfig.notificationGroupId) {
+            // Fallback to global config (Admin/Legacy)
+            targetGroupIds = [telegramConfig.notificationGroupId];
+        } else {
+             console.warn('[Telegram] ⚠️ No target group found for user or global config');
+             return false;
+        }
+    } catch (e) {
+        console.error('[Telegram] Error fetching user groups:', e);
+        if (telegramConfig.notificationGroupId) {
+            targetGroupIds = [telegramConfig.notificationGroupId];
+        }
     }
 
     if (files.length === 0) {
@@ -174,17 +192,22 @@ export async function notifyTelegramGroupBatch(
         return false;
     }
 
-    // Нормализуем chat_id
-    const groupId = normalizeChatId(rawGroupId);
-    console.log(
-        `[Telegram] Бот инициализирован, отправка в группу: ${groupId} (тип: ${typeof groupId})`
-    );
+
+    // Iterate over all target groups
+    let successCount = 0;
+
+    for (const rawGroupId of targetGroupIds) {
+        // Нормализуем chat_id
+        const groupId = normalizeChatId(rawGroupId.toString());
+        console.log(
+            `[Telegram] Бот инициализирован, отправка в группу: ${groupId}`
+        );
 
     // Проверяем доступность чата перед отправкой
     const hasAccess = await validateChatAccess(bot, groupId);
     if (!hasAccess) {
-        console.error(`[Telegram] ❌ Нет доступа к чату, отправка отменена`);
-        return false;
+        console.error(`[Telegram] ❌ Нет доступа к чату ${groupId}, skipping`);
+        continue;
     }
 
     try {
@@ -206,24 +229,40 @@ export async function notifyTelegramGroupBatch(
         for (let i = 0; i < filesToSend.length; i++) {
             const file = filesToSend[i];
 
-            if (!file.path) {
-                console.error(`[Telegram] ❌ Файл ${file.id} не имеет пути`);
-                continue;
+            let inputFile: InputFile | string;
+
+            if (file.path) {
+                const absolutePath = path.join(
+                    process.cwd(),
+                    mediaStorageConfig.basePath,
+                    file.path
+                );
+
+                if (!existsSync(absolutePath)) {
+                     // Check if URL is available as fallback
+                     if (file.url) {
+                         inputFile = new InputFile(new URL(file.url), file.filename); // Grammy supports URL via InputFile or string?
+                         // Grammy sendPhoto can take string URL. InputFile from URL is also possible.
+                         // But InputFile(url) is for downloading by bot server? No, Grammy InputFile accepts Stream, Buffer, File path.
+                         // To send by URL, we pass string directly to sendPhoto/sendDocument.
+                         // But here we are building `mediaGroup`.
+                         // mediaGroup elements take `media: string | InputFile`.
+                         // So we can pass `file.url` as string.
+                         inputFile = file.url;
+                     } else {
+                        console.error(`[Telegram] ❌ Файл не найден: ${absolutePath}`);
+                        continue;
+                     }
+                } else {
+                    const fileBuffer = await readFile(absolutePath);
+                    inputFile = new InputFile(fileBuffer, file.filename);
+                }
+            } else if (file.url) {
+                inputFile = file.url;
+            } else {
+                 console.error(`[Telegram] ❌ Файл ${file.id} не имеет пути или URL`);
+                 continue;
             }
-
-            const absolutePath = path.join(
-                process.cwd(),
-                mediaStorageConfig.basePath,
-                file.path
-            );
-
-            if (!existsSync(absolutePath)) {
-                console.error(`[Telegram] ❌ Файл не найден: ${absolutePath}`);
-                continue;
-            }
-
-            const fileBuffer = await readFile(absolutePath);
-            const inputFile = new InputFile(fileBuffer, file.filename);
 
             // Для изображений используем тип 'photo', для остального 'document'
             const mediaType = file.type === 'IMAGE' ? 'photo' : 'document';
@@ -247,20 +286,22 @@ export async function notifyTelegramGroupBatch(
         if (mediaGroup.length === 1) {
             const firstFile = files[0];
 
-            if (!firstFile.path) {
-                console.error(
-                    `[Telegram] ❌ Файл ${firstFile.id} не имеет пути`
-                );
-                return false;
-            }
+            let inputFile: InputFile | string;
 
-            const absolutePath = path.join(
-                process.cwd(),
-                mediaStorageConfig.basePath,
-                firstFile.path
-            );
-            const fileBuffer = await readFile(absolutePath);
-            const inputFile = new InputFile(fileBuffer, firstFile.filename);
+            if (firstFile.path) {
+                 const absolutePath = path.join(
+                    process.cwd(),
+                    mediaStorageConfig.basePath,
+                    firstFile.path
+                );
+                 const fileBuffer = await readFile(absolutePath);
+                 inputFile = new InputFile(fileBuffer, firstFile.filename);
+            } else if (firstFile.url) {
+                 inputFile = firstFile.url;
+            } else {
+                 console.error(`[Telegram] ❌ Файл ${firstFile.id} не имеет пути или URL`);
+                 return false;
+            }
 
             const deleteButton = {
                 text: '🗑️ Удалить',
@@ -371,7 +412,11 @@ export async function notifyTelegramGroupBatch(
             console.error(`[Telegram]   Ошибка:`, error);
         }
 
-        return false;
+        // Continue for other groups if one fails
+        console.error(`[Telegram] Failed to send to one group, continuing...`);
+    }
+
+    return successCount > 0;
     }
 }
 

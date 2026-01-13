@@ -5,6 +5,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools';
 import appCss from '../styles.css?url';
 import { Provider } from 'react-redux';
 import { store } from '@/redux/store';
+import { Header } from '@/components/Header';
 
 export const Route = createRootRoute({
     head: () => ({
@@ -68,7 +69,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 <head>
                     <HeadContent />
                 </head>
-                <body suppressHydrationWarning>
+                <body suppressHydrationWarning className="pt-14">
+                    <Header />
                     {children}
                     {/* <TanStackDevtools
                         config={{

@@ -553,7 +553,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         }
 
         return (
-            <div id='chat-input' className='border-t border-border bg-background p-4'>
+            <div
+                id='chat-input'
+                className='absolute bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-4xl bg-slate-950/60 backdrop-blur-xl rounded-[2rem] border border-white/10 shadow-2xl shadow-cyan-900/20 p-4 z-20 transition-all duration-300'
+            >
                 {/* Прикрепленные файлы */}
                 {attachedFiles.length > 0 ? (
                     <div className='mb-3 flex flex-wrap gap-2 items-center'>

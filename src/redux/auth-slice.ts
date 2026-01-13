@@ -1,22 +1,48 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
+export interface User {
+    id: number;
+    email: string;
+    role: 'USER' | 'ADMIN';
+    telegramId?: string;
+    balance: number;
+}
+
 interface AuthState {
-    isAuthorized: boolean;
+    user: User | null;
+    token: string | null;
+    isAuthenticated: boolean;
 }
 
 const initialState: AuthState = {
-    isAuthorized: false,
+    user: null,
+    token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
+    isAuthenticated: typeof window !== 'undefined' ? !!localStorage.getItem('token') : false,
 };
 
 export const authSlice = createSlice({
     name: 'auth',
     initialState,
     reducers: {
-        setAuthorized(state, action: PayloadAction<boolean>) {
-            state.isAuthorized = action.payload;
+        setCredentials: (
+            state,
+            { payload: { user, token } }: PayloadAction<{ user: User; token: string }>
+        ) => {
+            state.user = user;
+            state.token = token;
+            state.isAuthenticated = true;
+            localStorage.setItem('token', token);
+        },
+        logout: (state) => {
+            state.user = null;
+            state.token = null;
+            state.isAuthenticated = false;
+            localStorage.removeItem('token');
         },
     },
 });
 
-export const { setAuthorized } = authSlice.actions;
+export const { setCredentials, logout } = authSlice.actions;
 export default authSlice.reducer;
+export const selectCurrentUser = (state: any) => state.auth.user;
+export const selectIsAuthenticated = (state: any) => state.auth.isAuthenticated;

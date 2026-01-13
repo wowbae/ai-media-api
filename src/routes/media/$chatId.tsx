@@ -626,12 +626,12 @@ function MediaChatPage() {
     const showUpdatingIndicator = isChatFetching && !isChatLoading;
 
     return (
-        <div className='flex h-screen bg-background'>
+        <div className='flex h-[calc(100vh-3.5rem)] bg-background'>
             {/* Сайдбар */}
             <ChatSidebar />
 
             {/* Основной чат */}
-            <div className='flex flex-1 flex-col'>
+            <div className='relative flex flex-1 flex-col'>
                 {/* Заголовок чата */}
                 <ChatHeader
                     name={activeChat.name}

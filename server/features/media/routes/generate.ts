@@ -10,13 +10,20 @@ import { notifyTelegramGroup } from '../telegram.notifier';
 import { RequestStatus } from '@prisma/client';
 import type { GenerateMediaRequest } from '../interfaces';
 import { invalidateChatCache } from './cache';
+import { authenticate } from '../../auth/routes';
+import { TokenService } from '../../tokens/token.service';
+import { MEDIA_MODELS } from '../config';
 
 export function createGenerateRouter(): Router {
     const router = Router();
 
     // Отправить запрос на генерацию
-    router.post('/generate', async (req: Request, res: Response) => {
+    router.post('/generate', authenticate, async (req: Request, res: Response) => {
         try {
+            const user = (req as any).user;
+            if (!user) {
+                return res.status(401).json({ success: false, error: 'Unauthorized' });
+            }
             const {
                 chatId,
                 prompt,
@@ -86,6 +93,18 @@ export function createGenerateRouter(): Router {
 
             // Определяем модель (из запроса или из настроек чата)
             const selectedModel: MediaModel = model || chat.model;
+
+            // Check Balance
+            const modelConfig = MEDIA_MODELS[selectedModel];
+            const price = modelConfig?.pricing?.output || 0;
+            const cost = Math.ceil(price * 100); // Tokens
+
+            if (user && cost > 0) {
+                 const balance = await TokenService.getBalance(user.userId);
+                 if (balance < cost) {
+                     return res.status(402).json({ success: false, error: 'Недостаточно токенов' });
+                 }
+            }
 
             // Обрабатываем inputFiles: конвертируем base64 в URL для обратной совместимости
             // По умолчанию файлы уже загружены на imgbb и приходят как URL
@@ -232,6 +251,15 @@ export function createGenerateRouter(): Router {
                     settings: requestSettings as Prisma.InputJsonValue,
                 },
             });
+
+            // Deduct tokens
+            if (user && cost > 0) {
+                 try {
+                     await TokenService.deductTokens(user.userId, cost, `Generation: ${selectedModel}`, mediaRequest.id);
+                 } catch (e) {
+                     console.error('[API] Failed to deduct tokens, but request was created:', e);
+                 }
+            }
 
             // Инвалидируем кеш чата (новый запрос создан)
             invalidateChatCache(chatId);

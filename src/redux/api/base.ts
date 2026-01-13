@@ -156,6 +156,13 @@ export const baseApi = createApi({
     reducerPath: 'mediaApi',
     baseQuery: fetchBaseQuery({
         baseUrl: API_BASE_URL,
+        prepareHeaders: (headers, { getState }) => {
+            const token = (getState() as any).auth.token;
+            if (token) {
+                headers.set('authorization', `Bearer ${token}`);
+            }
+            return headers;
+        },
     }),
     tagTypes: ['Chat', 'Request', 'File', 'Model'],
     // Настройки для оптимистичного обновления

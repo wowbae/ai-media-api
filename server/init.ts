@@ -6,7 +6,9 @@ import path from "path";
 import { registerRoutes } from "./routes";
 import { Bot } from "grammy";
 import { handlers } from "./features/telegram/bot/handlers/export";
+import { authRouter } from "./features/auth/routes";
 import { mediaRouter } from "./features/media/routes/index";
+import { telegramRouter } from "./features/telegram/routes";
 import { recoverUnfinishedTasks } from "./features/media/generation.service";
 import { syncMediaFilesWithFileSystem } from "./features/media/database.service";
 
@@ -33,6 +35,8 @@ app.use(
 
 // Media API роуты
 app.use("/api/media", mediaRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/telegram", telegramRouter);
 
 // регистрация маршрутов, если будут сюда их добавлять
 registerRoutes(app, []);

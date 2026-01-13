@@ -146,39 +146,66 @@ export async function generateMedia(
       );
 
       try {
-        const { uploadMultipleToImgbb, isImgbbConfigured } = await import(
+        const { uploadMultipleToImgbb, uploadToImgbb, isImgbbConfigured } = await import(
           "./imgbb.service"
         );
-        const { readFile } = await import("fs/promises");
+        const { readFile, unlink } = await import("fs/promises");
+        const { existsSync } = await import("fs");
         const { join } = await import("path");
         const { mediaStorageConfig } = await import("./config");
 
         if (isImgbbConfigured()) {
-          // Читаем файлы и загружаем на imgbb
+          // 1. Upload Main Files
           const fileBuffers = await Promise.all(
             imageFilesWithoutUrl.map(async (file) => {
-              const absolutePath = join(
-                process.cwd(),
-                mediaStorageConfig.basePath,
-                file.path
-              );
+              if (!file.path) return Buffer.from([]);
+              const absolutePath = join(process.cwd(), mediaStorageConfig.basePath, file.path);
               return readFile(absolutePath);
             })
           );
 
           const urls = await uploadMultipleToImgbb(fileBuffers);
 
-          // Обновляем savedFiles с загруженными URL
+          // 2. Upload Previews & Update Files
           let urlIndex = 0;
-          savedFiles = savedFiles.map((file) => {
+          savedFiles = await Promise.all(savedFiles.map(async (file) => {
             if (file.type === "IMAGE" && !file.url && file.path) {
-              return {
-                ...file,
-                url: urls[urlIndex++] || null,
-              };
+              const url = urls[urlIndex++] || null;
+              let previewUrl = file.previewUrl || null;
+
+              // Upload preview if exists and not yet uploaded
+               if (file.previewPath && !previewUrl) {
+                  try {
+                      const absolutePreviewPath = join(process.cwd(), mediaStorageConfig.basePath, file.previewPath);
+                      if (existsSync(absolutePreviewPath)) {
+                           const previewBuffer = await readFile(absolutePreviewPath);
+                           previewUrl = await uploadToImgbb(previewBuffer);
+                      }
+                  } catch (e) {
+                      console.error(`[MediaService] Failed to upload preview for ${file.filename}:`, e);
+                  }
+               }
+
+               // Zero-Storage Cleanup (if successful upload and Prod)
+               if (url && process.env.NODE_ENV === 'production') {
+                   try {
+                       const absolutePath = join(process.cwd(), mediaStorageConfig.basePath, file.path);
+                       await unlink(absolutePath);
+                       if (file.previewPath) {
+                           const absolutePreviewPath = join(process.cwd(), mediaStorageConfig.basePath, file.previewPath);
+                           if (existsSync(absolutePreviewPath)) await unlink(absolutePreviewPath);
+                       }
+                       // Return file with null paths
+                       return { ...file, url, previewUrl, path: null, previewPath: null };
+                   } catch (e) {
+                       console.error(`[MediaService] Failed to cleanup local file ${file.filename}:`, e);
+                   }
+               }
+
+              return { ...file, url, previewUrl };
             }
             return file;
-          });
+          }));
 
           console.log(
             `[MediaService] ✅ Загружено на imgbb: ${urls.length} изображений`
@@ -189,7 +216,6 @@ export async function generateMedia(
           "[MediaService] ❌ Ошибка загрузки изображений на imgbb (продолжаем с локальными файлами):",
           error
         );
-        // Не прерываем процесс, просто url останется null
       }
     }
 
@@ -346,17 +372,19 @@ async function pollTaskResult(
           );
 
           try {
-            const { uploadMultipleToImgbb, isImgbbConfigured } = await import(
+            const { uploadMultipleToImgbb, uploadToImgbb, isImgbbConfigured } = await import(
               "./imgbb.service"
             );
-            const { readFile } = await import("fs/promises");
+            const { readFile, unlink } = await import("fs/promises");
+            const { existsSync } = await import("fs");
             const { join } = await import("path");
             const { mediaStorageConfig } = await import("./config");
 
             if (isImgbbConfigured()) {
-              // Читаем файлы и загружаем на imgbb
+              // 1. Upload Main Files
               const fileBuffers = await Promise.all(
                 imageFilesWithoutUrl.map(async (file) => {
+                   if (!file.path) return Buffer.from([]);
                   const absolutePath = join(
                     process.cwd(),
                     mediaStorageConfig.basePath,
@@ -368,17 +396,46 @@ async function pollTaskResult(
 
               const urls = await uploadMultipleToImgbb(fileBuffers);
 
-              // Обновляем savedFiles с загруженными URL
+             // 2. Upload Previews & Update Files
               let urlIndex = 0;
-              savedFiles = savedFiles.map((file) => {
+              savedFiles = await Promise.all(savedFiles.map(async (file) => {
                 if (file.type === "IMAGE" && !file.url && file.path) {
-                  return {
-                    ...file,
-                    url: urls[urlIndex++] || null,
-                  };
+                  const url = urls[urlIndex++] || null;
+                  let previewUrl = file.previewUrl || null;
+
+                    // Upload preview if exists and not yet uploaded
+                   if (file.previewPath && !previewUrl) {
+                      try {
+                          const absolutePreviewPath = join(process.cwd(), mediaStorageConfig.basePath, file.previewPath);
+                          if (existsSync(absolutePreviewPath)) {
+                               const previewBuffer = await readFile(absolutePreviewPath);
+                               previewUrl = await uploadToImgbb(previewBuffer);
+                          }
+                      } catch (e) {
+                          console.error(`[MediaService] Failed to upload preview for ${file.filename}:`, e);
+                      }
+                   }
+
+                   // Zero-Storage Cleanup (if successful upload and Prod)
+                   if (url && process.env.NODE_ENV === 'production') {
+                       try {
+                           const absolutePath = join(process.cwd(), mediaStorageConfig.basePath, file.path);
+                           await unlink(absolutePath);
+                           if (file.previewPath) {
+                               const absolutePreviewPath = join(process.cwd(), mediaStorageConfig.basePath, file.previewPath);
+                               if (existsSync(absolutePreviewPath)) await unlink(absolutePreviewPath);
+                           }
+                           // Return file with null paths
+                           return { ...file, url, previewUrl, path: null, previewPath: null };
+                       } catch (e) {
+                           console.error(`[MediaService] Failed to cleanup local file ${file.filename}:`, e);
+                       }
+                   }
+
+                  return { ...file, url, previewUrl };
                 }
                 return file;
-              });
+              }));
 
               console.log(
                 `[MediaService] ✅ Загружено на imgbb (async): ${urls.length} изображений`
@@ -389,7 +446,6 @@ async function pollTaskResult(
               "[MediaService] ❌ Ошибка загрузки изображений на imgbb (продолжаем с локальными файлами):",
               error
             );
-            // Не прерываем процесс, просто url останется null
           }
         }
 
