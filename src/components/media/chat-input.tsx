@@ -310,6 +310,18 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         await addFileFromUrl(url, filename);
                     }
                 }
+
+                // Фокусируемся на поле ввода и ставим курсор в конец
+                setTimeout(() => {
+                    const textarea = textareaRef.current;
+                    if (textarea) {
+                        textarea.focus();
+                        textarea.setSelectionRange(
+                            request.prompt.length,
+                            request.prompt.length
+                        );
+                    }
+                }, 100);
             },
         }));
 
