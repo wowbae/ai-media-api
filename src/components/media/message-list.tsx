@@ -27,6 +27,7 @@ export function MessageList({
 }: MessageListProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [inputPanelHeight, setInputPanelHeight] = useState(0);
 
     // Мемоизируем строку статусов для предотвращения бесконечных ре-рендеров
     // Используем стабильную строку на основе ID и статуса (без errorMessage для уменьшения частоты обновлений)
@@ -36,6 +37,31 @@ export function MessageList({
     );
 
     const [showScrollButton, setShowScrollButton] = useState(false);
+
+    // Отслеживание высоты панели ввода для динамического позиционирования кнопки
+    useEffect(() => {
+        const inputPanel = document.getElementById('chat-input');
+        if (!inputPanel) return;
+
+        const updateInputPanelHeight = () => {
+            const height = inputPanel.offsetHeight;
+            setInputPanelHeight(height);
+        };
+
+        // Обновляем высоту при загрузке
+        updateInputPanelHeight();
+
+        // Используем ResizeObserver для отслеживания изменений размера
+        const resizeObserver = new ResizeObserver(() => {
+            updateInputPanelHeight();
+        });
+
+        resizeObserver.observe(inputPanel);
+
+        return () => {
+            resizeObserver.disconnect();
+        };
+    }, []);
 
     // Обработчик скролла для отображения кнопки "Вниз"
     const handleScroll = useCallback(() => {
@@ -108,10 +134,23 @@ export function MessageList({
         );
     }
 
+    // Вычисляем нижний отступ списка сообщений (высота панели ввода + отступ снизу + зазор)
+    const bottomPadding = inputPanelHeight > 0
+        ? inputPanelHeight + 24 + 16 // 24px (bottom-6) + 16px (зазор)
+        : 300; // Значение по умолчанию до загрузки
+
+    // Вычисляем позицию кнопки (высота панели ввода + отступ снизу + 4 единицы выше)
+    const buttonBottom = inputPanelHeight > 0
+        ? inputPanelHeight + 24 + 16 // 24px (bottom-6) + 16px (4 единицы выше)
+        : 290; // Значение по умолчанию до загрузки
+
     return (
-        <div className='relative flex-1 overflow-hidden'>
+        <div className='relative flex-1 overflow-hidden min-h-0'>
             <ScrollArea className='h-full bg-background' ref={scrollRef}>
-                <div className='space-y-6 p-4 pb-48'>
+                <div
+                    className='space-y-6 p-4'
+                    style={{ paddingBottom: `${bottomPadding}px` }}
+                >
                     {requests.map((request) => (
                         <MessageItem
                             key={request.id}
@@ -130,7 +169,8 @@ export function MessageList({
                 <Button
                     size='icon'
                     variant='secondary'
-                    className='absolute bottom-4 right-8 z-10 h-10 w-10 rounded-full bg-secondary/80 text-foreground shadow-lg backdrop-blur-sm hover:bg-secondary'
+                    className='absolute right-8 z-30 h-10 w-10 rounded-full bg-secondary/80 text-foreground shadow-lg backdrop-blur-sm hover:bg-secondary'
+                    style={{ bottom: `${buttonBottom}px` }}
                     onClick={scrollToBottom}
                 >
                     <ChevronDown className='h-6 w-6' />

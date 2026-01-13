@@ -16,7 +16,10 @@ export const Header = () => {
 
     return (
         <header className="fixed top-0 z-50 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur supports-[backdrop-filter]:bg-slate-950/60">
-            <div className="container flex h-14 max-w-screen-2xl items-center justify-end">
+            <div className="flex h-14 w-full items-center justify-between px-4">
+                <div className="flex items-center gap-2">
+                    <img src="/logo.png" alt="Logo" className="h-8 w-auto rounded-lg" />
+                </div>
                 <nav className="flex items-center gap-2">
                         {isAuthenticated ? (
                             <>
