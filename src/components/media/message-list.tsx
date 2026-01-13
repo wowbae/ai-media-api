@@ -159,7 +159,7 @@ export function MessageList({
                             onAttachFile={onAttachFile}
                             onRepeatRequest={onRepeatRequest}
                         />
-                    ))}
+                    ))} 
                     {/* Маркер для автоскролла */}
                     <div ref={messagesEndRef} />
                 </div>
