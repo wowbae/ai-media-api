@@ -169,7 +169,7 @@ export function MessageList({
                 <Button
                     size='icon'
                     variant='secondary'
-                    className='absolute right-8 z-30 h-10 w-10 rounded-full bg-secondary/80 text-foreground shadow-lg backdrop-blur-sm hover:bg-secondary'
+                    className='absolute right-18 z-30 h-10 w-10 rounded-full bg-secondary/80 text-foreground shadow-lg backdrop-blur-sm hover:bg-secondary'
                     style={{ bottom: `${buttonBottom}px` }}
                     onClick={scrollToBottom}
                 >
