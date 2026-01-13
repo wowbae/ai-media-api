@@ -10,7 +10,10 @@ import {
     FlaskConical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PANEL_HEADER_CLASSES, PANEL_HEADER_TITLE_CLASSES } from '@/lib/panel-styles';
+import {
+    PANEL_HEADER_CLASSES,
+    PANEL_HEADER_TITLE_CLASSES,
+} from '@/lib/panel-styles';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -70,7 +73,9 @@ export function ChatSidebar() {
         if (!newChatName.trim()) return;
 
         try {
-            const newChat = await createChat({ name: newChatName.trim() }).unwrap();
+            const newChat = await createChat({
+                name: newChatName.trim(),
+            }).unwrap();
             setNewChatName('');
             setIsNewChatDialogOpen(false);
 
@@ -99,10 +104,15 @@ export function ChatSidebar() {
             console.error('Ошибка удаления чата:', error);
 
             // Пытаемся извлечь детальную ошибку из ответа сервера
-            const serverError = error && typeof error === 'object' && 'data' in error &&
-                               error.data && typeof error.data === 'object' && 'error' in error.data
-                               ? String(error.data.error)
-                               : 'Не удалось удалить чат. Попробуйте обновить страницу.';
+            const serverError =
+                error &&
+                typeof error === 'object' &&
+                'data' in error &&
+                error.data &&
+                typeof error.data === 'object' &&
+                'error' in error.data
+                    ? String(error.data.error)
+                    : 'Не удалось удалить чат. Попробуйте обновить страницу.';
 
             alert(serverError);
         }
@@ -304,7 +314,7 @@ function ChatItem({ chat, isActive, onDelete, onEdit }: ChatItemProps) {
             {chat._count && chat._count.files > 0 && (
                 <span
                     className={cn(
-                        'shrink-0 text-xs',
+                        'shrink-0 text-xs transition-transform duration-200 translate-x-6 group-hover:translate-x-0',
                         isActive ? 'text-primary' : 'text-muted-foreground'
                     )}
                 >
@@ -317,7 +327,11 @@ function ChatItem({ chat, isActive, onDelete, onEdit }: ChatItemProps) {
                     <Button
                         size='icon'
                         variant='ghost'
-                        className='h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100'
+                        className={cn(
+                            'h-6 w-6 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100',
+                            isActive &&
+                                'group-hover:bg-orange-100 dark:group-hover:bg-orange-900/20 hover:bg-orange-200 dark:hover:bg-orange-900/30'
+                        )}
                     >
                         <MoreVertical className='h-4 w-4' />
                     </Button>

@@ -28,6 +28,7 @@ import {
   markThumbnailPending,
   unmarkThumbnailPending,
 } from "@/lib/video-thumbnail";
+import { cacheVideo, getCachedVideo } from "@/lib/video-cache";
 
 interface MediaPreviewProps {
   file: MediaFile;
@@ -45,9 +46,10 @@ export function MediaPreview({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
 
-  // Для полноэкранного просмотра и скачивания ВСЕГДА используем оригинальный локальный файл
-  // file.url (imgbb) может быть сжатым (display_url), а file.path - оригиналом
-  // Приоритет: path (локальный оригинал) > url (imgbb как fallback)
+  // Для полноэкранного просмотра и скачивания используем оригинальный файл
+  // Для IMAGE: file.url (imgbb) может быть сжатым, file.path - оригиналом
+  // Для VIDEO: file.path (локальный сервер) или file.url (URL провайдера)
+  // Приоритет: path (локальный) > url (imgbb для IMAGE, URL провайдера для VIDEO)
   const originalFileUrl = file.path ? getMediaFileUrl(file.path) : (file.url || null);
 
   // previewUrl для изображений (для видео логика внутри VideoPreview)
@@ -340,6 +342,8 @@ function VideoPreview({
   const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
   const [localThumbnail, setLocalThumbnail] = useState<string | null>(null);
   const thumbnailGeneratedRef = useRef(false);
+  const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
+  const [isLoadingVideo, setIsLoadingVideo] = useState(false);
 
   const [uploadThumbnail] = useUploadThumbnailMutation();
 
@@ -397,6 +401,61 @@ function VideoPreview({
     generateThumbnail();
   }, [fileId, previewUrl, originalUrl, isGeneratingThumbnail, uploadThumbnail]);
 
+  // Загрузка и кеширование видео при попытке воспроизведения
+  useEffect(() => {
+    if (!shouldLoadOriginal || !originalUrl) return;
+
+    let blobUrl: string | null = null;
+
+    async function loadVideo() {
+      setIsLoadingVideo(true);
+
+      try {
+        // 1. Проверяем кеш браузера
+        const cached = await getCachedVideo(fileId);
+
+        if (cached) {
+          // Видео найдено в кеше
+          const blob = await cached.blob();
+          blobUrl = URL.createObjectURL(blob);
+          setVideoBlobUrl(blobUrl);
+          setIsLoadingVideo(false);
+          return;
+        }
+
+        // 2. Видео нет в кеше - загружаем с сервера или URL провайдера
+        const response = await fetch(originalUrl);
+
+        if (!response.ok) {
+          throw new Error(`Не удалось загрузить видео: ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        blobUrl = URL.createObjectURL(blob);
+        setVideoBlobUrl(blobUrl);
+
+        // 3. Кешируем видео для будущего использования
+        await cacheVideo(originalUrl, fileId);
+
+        setIsLoadingVideo(false);
+      } catch (error) {
+        console.error('[VideoPreview] Ошибка загрузки видео:', error);
+        setIsLoadingVideo(false);
+        // В случае ошибки пробуем использовать originalUrl напрямую
+        setVideoBlobUrl(originalUrl);
+      }
+    }
+
+    loadVideo();
+
+    // Очистка blob URL при размонтировании
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [shouldLoadOriginal, originalUrl, fileId]);
+
   function handlePlay() {
     // Загружаем оригинал только при попытке воспроизведения
     setShouldLoadOriginal(true);
@@ -415,10 +474,21 @@ function VideoPreview({
 
   // Если пользователь хочет воспроизвести - показываем оригинал
   if (shouldLoadOriginal) {
+    // Используем blob URL из кеша, если есть, иначе originalUrl
+    const videoSrc = videoBlobUrl || originalUrl;
+
     return (
       <div className="group/video relative aspect-square">
+        {isLoadingVideo && (
+          <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
+            <div className="flex flex-col items-center gap-2">
+              <Video className="h-8 w-8 animate-pulse text-muted-foreground/50" />
+              <span className="text-xs text-muted-foreground">Загрузка видео...</span>
+            </div>
+          </div>
+        )}
         <video
-          src={originalUrl}
+          src={videoSrc}
           poster={displayPreviewUrl || undefined}
           controls
           className="h-full w-full object-cover video-controls-on-hover"

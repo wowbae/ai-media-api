@@ -41,14 +41,14 @@ export async function saveFilesToDatabase(
 
   for (const file of uniqueFiles) {
     // Для IMAGE: сохраняем и url (imgbb) и path (локально) - оба равноценны и важны
-    // Для VIDEO: сохраняем только path (локально), url остается null
+    // Для VIDEO: сохраняем path (локально) и url (URL провайдера) для использования после удаления с сервера
     const mediaFile = await prisma.mediaFile.create({
       data: {
         requestId,
         type: file.type,
         filename: file.filename,
         path: file.path, // Локальный путь (для VIDEO и отображения IMAGE)
-        url: file.url || null, // URL на imgbb (для IMAGE, используется для отправки в нейросеть)
+        url: file.url || null, // URL на imgbb (для IMAGE) или URL провайдера (для VIDEO)
         previewPath: file.previewPath || null, // Локальный путь превью (для VIDEO и отображения IMAGE)
         previewUrl: null, // Превью URL будет загружен асинхронно в фоне
         size: file.size || null,

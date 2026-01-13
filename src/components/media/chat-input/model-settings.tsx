@@ -83,7 +83,6 @@ export function FormatSelect({
                 collisionPadding={20}
                 avoidCollisions={true}
                 className='border-border bg-card data-[side=top]:animate-none!'
-                onOpenAutoFocus={(e) => e.preventDefault()}
             >
                 {config.options.map((option) => (
                     <SelectItem
@@ -152,7 +151,6 @@ export function QualitySelect({
                 collisionPadding={20}
                 avoidCollisions={true}
                 className='border-border bg-card data-[side=top]:animate-none!'
-                onOpenAutoFocus={(e) => e.preventDefault()}
             >
                 {config.options.map((option) => (
                     <SelectItem
@@ -212,7 +210,6 @@ export function DurationSelect({
                 collisionPadding={20}
                 avoidCollisions={true}
                 className='border-border bg-card data-[side=top]:animate-none!'
-                onOpenAutoFocus={(e) => e.preventDefault()}
             >
                 {config.options.map((option) => (
                     <SelectItem
@@ -273,7 +270,6 @@ export function SoundSelect({
                 collisionPadding={20}
                 avoidCollisions={true}
                 className='border-border bg-card data-[side=top]:animate-none!'
-                onOpenAutoFocus={(e) => e.preventDefault()}
             >
                 {config.options.map((option) => (
                     <SelectItem

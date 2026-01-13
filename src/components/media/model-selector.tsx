@@ -167,7 +167,6 @@ export function ModelSelector({
                 collisionPadding={20}
                 avoidCollisions={true}
                 className='border-border bg-card data-[side=top]:animate-none!'
-                onOpenAutoFocus={(e) => e.preventDefault()}
             >
                 {/* Если модели еще загружаются */}
                 {isLoading ? (

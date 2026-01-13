@@ -281,7 +281,7 @@ export async function saveBase64File(
 
 // Сохранение файла из URL (скачивание)
 // Для изображений: сохраняет локально + загружает на imgbb синхронно
-// Для видео: только локально
+// Для видео: сохраняет локально + сохраняет URL провайдера для последующего использования
 export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
     const response = await fetch(url);
     if (!response.ok) {
@@ -291,6 +291,7 @@ export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
     const contentType = response.headers.get('content-type') || 'image/png';
     const buffer = Buffer.from(await response.arrayBuffer());
     const isImage = contentType.startsWith('image/');
+    const isVideo = contentType.startsWith('video/');
 
     // Сохраняем локально
     const savedFile = await saveBufferToFile(buffer, contentType);
@@ -313,6 +314,15 @@ export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
             console.error('[file.service] ❌ Ошибка загрузки на imgbb (продолжаем с локальным сохранением):', error);
             // Не прерываем процесс, просто url останется null
         }
+    } else if (isVideo) {
+        // Для видео: сохраняем оригинальный URL провайдера для последующего использования
+        // когда файл будет удален с сервера после отправки в Telegram
+        savedFile.url = url;
+        console.log('[file.service] ✅ Видео сохранено локально, URL провайдера сохранен:', {
+            filename: savedFile.filename,
+            path: savedFile.path,
+            providerUrl: url,
+        });
     }
 
     return savedFile;

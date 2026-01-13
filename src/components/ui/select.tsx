@@ -5,9 +5,36 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 function Select({
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+  const handleOpenChange = React.useCallback((open: boolean) => {
+    if (open) {
+      // Сохраняем текущую позицию скролла перед открытием
+      const scrollY = window.scrollY || document.documentElement.scrollTop;
+      // Фиксируем scroll position
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      // Сохраняем scroll position в data-атрибуте для восстановления
+      document.body.setAttribute('data-scroll-y', scrollY.toString());
+    } else {
+      // Восстанавливаем scroll position
+      const scrollY = parseInt(document.body.getAttribute('data-scroll-y') || '0', 10);
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.removeAttribute('data-scroll-y');
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollY);
+      });
+    }
+    onOpenChange?.(open);
+  }, [onOpenChange]);
+
+  return <SelectPrimitive.Root data-slot="select" onOpenChange={handleOpenChange} {...props} />
 }
 
 function SelectGroup({
@@ -69,9 +96,8 @@ function SelectContent({
         align={align}
         style={props.style}
         onOpenAutoFocus={(e) => {
-          // Предотвращаем автоматический скролл при открытии
+          // Предотвращаем автоматический фокус, который может вызывать клики
           e.preventDefault();
-          props.onOpenAutoFocus?.(e);
         }}
         {...props}
       >

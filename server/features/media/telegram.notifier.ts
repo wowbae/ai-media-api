@@ -138,6 +138,47 @@ async function validateChatAccess(
     }
 }
 
+// Удаление видео с сервера после успешной отправки в Telegram
+async function deleteVideoAfterTelegramSend(file: MediaFile): Promise<void> {
+    if (file.type !== 'VIDEO' || !file.path) {
+        return; // Удаляем только видео с локальным путем
+    }
+
+    try {
+        // Удаляем локальный файл и превью
+        const absolutePath = path.join(
+            process.cwd(),
+            mediaStorageConfig.basePath,
+            file.path
+        );
+        const absolutePreviewPath = file.previewPath
+            ? path.join(process.cwd(), mediaStorageConfig.basePath, file.previewPath)
+            : undefined;
+
+        await deleteLocalFile(absolutePath, absolutePreviewPath);
+
+        // Обновляем БД: устанавливаем path и previewPath в null, сохраняем url (URL провайдера)
+        await prisma.mediaFile.update({
+            where: { id: file.id },
+            data: {
+                path: null,
+                previewPath: null,
+                // url остается (URL провайдера для последующего использования)
+            },
+        });
+
+        console.log(
+            `[Telegram] ✅ Видео удалено с сервера после отправки: fileId=${file.id}, filename=${file.filename}`
+        );
+    } catch (error) {
+        console.error(
+            `[Telegram] ❌ Ошибка удаления видео с сервера (fileId=${file.id}):`,
+            error
+        );
+        // Не прерываем процесс, просто логируем ошибку
+    }
+}
+
 // Отправка нескольких медиа-файлов группой в Telegram
 export async function notifyTelegramGroupBatch(
     files: MediaFile[],
@@ -343,6 +384,12 @@ export async function notifyTelegramGroupBatch(
             console.log(
                 `[Telegram] ✅ Уведомление отправлено в Telegram: ${firstFile.filename}, группа: ${groupId}`
             );
+
+            // Удаляем видео с сервера после успешной отправки
+            if (firstFile.type === 'VIDEO') {
+                await deleteVideoAfterTelegramSend(firstFile);
+            }
+
             return true;
         }
 
@@ -378,6 +425,13 @@ export async function notifyTelegramGroupBatch(
         console.log(
             `[Telegram] ✅ Media group отправлен в Telegram: ${filesToSend.length} файлов, группа: ${groupId}`
         );
+
+        // Удаляем видео с сервера после успешной отправки
+        const videoFiles = filesToSend.filter((file) => file.type === 'VIDEO');
+        for (const videoFile of videoFiles) {
+            await deleteVideoAfterTelegramSend(videoFile);
+        }
+
         return true;
     } catch (error: unknown) {
         const telegramError = error as {
