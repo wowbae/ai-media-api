@@ -56,6 +56,7 @@ export interface ChatInputProps {
 export interface ChatInputRef {
     setPrompt: (prompt: string) => void;
     addFileFromUrl: (url: string, filename: string) => Promise<void>;
+    setRequestData: (request: import('@/redux/media-api').MediaRequest) => Promise<void>;
 }
 
 export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
@@ -261,6 +262,55 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 }, 0);
             },
             addFileFromUrl,
+            setRequestData: async (request: import('@/redux/media-api').MediaRequest) => {
+                setPrompt(request.prompt);
+
+                const settings = request.settings || {};
+
+                // Универсальные параметры
+                if (settings.format) setFormat(settings.format as any);
+                if (settings.quality) setQuality(settings.quality as any);
+
+                // Видео параметры (Veo, Kling)
+                if (settings.duration) setDuration(settings.duration as any);
+                if (settings.veoGenerationType)
+                    setVeoGenerationType(settings.veoGenerationType as any);
+                if (settings.sound !== undefined)
+                    setSound(settings.sound as boolean);
+
+                // Imagen4 / Kling 2.5 параметры
+                if (settings.negativePrompt)
+                    setNegativePrompt(settings.negativePrompt as string);
+                if (settings.seed || request.seed)
+                    setSeed((settings.seed || request.seed) as any);
+                if (settings.cfgScale) setCfgScale(settings.cfgScale as number);
+
+                // ElevenLabs параметры
+                if (settings.voice) setVoice(settings.voice as string);
+                if (settings.stability !== undefined)
+                    setStability(settings.stability as number);
+                if (settings.similarityBoost !== undefined)
+                    setSimilarityBoost(settings.similarityBoost as number);
+                if (settings.speed !== undefined)
+                    setSpeed(settings.speed as number);
+                if (settings.languageCode)
+                    setLanguageCode(settings.languageCode as string);
+
+                // Обработка входных файлов
+                clearFiles();
+
+                if (request.inputFiles && request.inputFiles.length > 0) {
+                    const { getMediaFileUrl } = await import('@/lib/constants');
+                    for (const filePath of request.inputFiles) {
+                        // Если это URL (начинается с http), используем как есть, иначе через getMediaFileUrl
+                        const url = filePath.startsWith('http')
+                            ? filePath
+                            : getMediaFileUrl(filePath);
+                        const filename = filePath.split('/').pop() || 'file';
+                        await addFileFromUrl(url, filename);
+                    }
+                }
+            },
         }));
 
         // Загружаем настройки из localStorage при монтировании компонента
@@ -491,7 +541,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         }
 
         return (
-            <div className='border-t border-slate-700 bg-slate-800/50 p-4'>
+            <div id='chat-input' className='border-t border-slate-700 bg-slate-800/50 p-4'>
                 {/* Прикрепленные файлы */}
                 {attachedFiles.length > 0 ? (
                     <div className='mb-3 flex flex-wrap gap-2 items-center'>
