@@ -803,7 +803,7 @@ export function MediaGallery({
             {selectedFile && (
                 <>
                     {/* Для видео используем Dialog как в message-item */}
-                    {selectedFile.type === 'VIDEO' && selectedFile.path && (
+                    {selectedFile.type === 'VIDEO' && (
                         <Dialog
                             open={!!selectedFile}
                             onOpenChange={(open) =>
@@ -819,7 +819,7 @@ export function MediaGallery({
                                 </DialogTitle>
                                 <div className='relative'>
                                     <video
-                                        src={getMediaFileUrl(selectedFile.path)}
+                                        src={getOriginalFileUrl(selectedFile) || ''}
                                         controls
                                         autoPlay
                                         className='max-h-[90vh] w-full'

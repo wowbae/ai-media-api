@@ -65,19 +65,6 @@ export function MediaPreview({
 
   const imagePreviewUrl = imagePreviewUrls[0] || null;
 
-  // Логируем для отладки (только в development)
-  if (process.env.NODE_ENV === 'development' && file.type === 'IMAGE') {
-    console.log('[MediaPreview] URL для изображения:', {
-      fileId: file.id,
-      filename: file.filename,
-      previewUrl: file.previewUrl,
-      previewPath: file.previewPath,
-      url: file.url,
-      path: file.path,
-      imagePreviewUrls,
-      selectedUrl: imagePreviewUrl,
-    });
-  }
 
   async function handleDelete() {
     try {
@@ -360,11 +347,13 @@ function VideoPreview({
     // - генерация уже запущена
     // - уже пытались генерировать
     // - файл в процессе генерации глобально
+    // - нет originalUrl для генерации
     if (
       previewUrl ||
       isGeneratingThumbnail ||
       thumbnailGeneratedRef.current ||
-      isThumbnailPending(fileId)
+      isThumbnailPending(fileId) ||
+      !originalUrl
     ) {
       return;
     }
@@ -545,7 +534,13 @@ function VideoPreview({
           isPreviewLoaded ? "opacity-100" : "opacity-0",
         )}
         onLoad={() => setIsPreviewLoaded(true)}
-        onError={() => {
+        onError={(e) => {
+          console.warn('[VideoPreview] Ошибка загрузки превью:', {
+            fileId,
+            filename,
+            displayPreviewUrl,
+            error: e,
+          });
           setHasPreviewError(true);
         }}
       />

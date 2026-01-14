@@ -415,14 +415,9 @@ export function MessageItem({
                         </DialogTitle>
                         <div className='relative'>
                             <video
-                                src={
-                                    fullscreenVideo.path
-                                        ? getMediaFileUrl(fullscreenVideo.path)
-                                        : ''
-                                }
+                                src={getOriginalFileUrl(fullscreenVideo) || ''}
                                 controls
                                 autoPlay
-                                // muted
                                 className='max-h-[90vh] w-full'
                             />
                             <div className='absolute right-2 top-2 flex gap-2'>
