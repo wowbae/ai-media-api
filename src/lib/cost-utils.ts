@@ -1,43 +1,21 @@
-import { type MediaRequest, type MediaModel } from '@/redux/media-api';
-
-/**
- * Тарифы для разных моделей в долларах (стоимость за одну генерацию)
- * Эти значения можно легко корректировать здесь.
- */
-export const MODEL_RATES: Record<MediaModel, number> = {
-    'NANO_BANANA_OPENROUTER': 0.05,
-    'NANO_BANANA_PRO_KIEAI': 0.09,
-    'NANO_BANANA_PRO_LAOZHANG': 0.05,
-    'IMAGEN4_KIEAI': 0.02,
-    'IMAGEN4_ULTRA_KIEAI': 0.06,
-    'SEEDREAM_4_5_KIEAI': 0.0325,
-    'SEEDREAM_4_5_EDIT_KIEAI': 0.0325,
-    'KLING_2_5_TURBO_PRO_KIEAI': 0.42,
-    'KLING_2_6_KIEAI': 0.55,
-    'VEO_3_1_FAST_KIEAI': 0.3, // kie.ai
-    'VEO_3_1_KIEAI': 1.25,
-    'ELEVENLABS_MULTILINGUAL_V2_KIEAI': 0.05,
-    'MIDJOURNEY': 0.5,
-    'SORA_2': 0.3,
-};
-
+import { type MediaRequest } from '@/redux/media-api';
 
 /**
  * Вычисляет стоимость конкретного запроса
  */
 export function calculateRequestCost(request: MediaRequest): number {
-    if (!request.model || request.status === 'FAILED') {
+    if (request.status === 'FAILED') {
         return 0;
     }
 
-    const rate = MODEL_RATES[request.model] || 0;
+    // Основной источник истины — стоимость, сохранённая на сервере в costUsd
+    if (typeof request.costUsd === 'number' && !Number.isNaN(request.costUsd)) {
+        return request.costUsd;
+    }
 
-    // Здесь можно добавить более сложную логику, например, зависимость от duration
-    // if (request.settings?.duration && typeof request.settings.duration === 'number') {
-    //     return rate * (request.settings.duration / 10);
-    // }
-
-    return rate;
+    // На случай старых записей без стоимости в БД возвращаем 0,
+    // чтобы не показывать некорректные данные.
+    return 0;
 }
 
 /**

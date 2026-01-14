@@ -23,6 +23,17 @@ export interface MediaModelConfig {
 
 // ИСХОДНЫЙ ОСНОВНОЙ ГЛАВНЫЙ СПИСОК ВСЕХ МОДЕЛЕЙ
 export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
+    NANO_BANANA_OPENROUTER: {
+        id: 'google/gemini-3-pro-image-preview',
+        name: 'Nano Banana (OpenRouter)',
+        types: ['IMAGE'] as const,
+        maxPromptLength: 8192,
+        supportsImageInput: true,
+        provider: 'openrouter',
+        pricing: {
+            output: 0.05,
+        },
+    },
     KLING_2_6_KIEAI: {
         id: 'kling-2-6',
         name: 'Kling 2.6',
@@ -43,6 +54,17 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         provider: 'kieai',
         pricing: {
             output: 0.1, // стоимость за видео (уточнить)
+        },
+    },
+    MIDJOURNEY: {
+        id: 'midjourney/imagine',
+        name: 'Midjourney',
+        types: ['IMAGE'] as const,
+        maxPromptLength: 4000,
+        supportsImageInput: false,
+        provider: 'kieai',
+        pricing: {
+            output: 0.5,
         },
     },
     // Kie.ai провайдер - модель для генерации изображений
@@ -101,6 +123,18 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.1, // TODO: уточнить цену для Seedream 4.5 Edit
         },
     },
+    // LaoZhang провайдер
+    NANO_BANANA_PRO_LAOZHANG: {
+        id: 'gemini-3-pro-image-preview',
+        name: 'Nano Banana Pro (LaoZhang)',
+        types: ['IMAGE'] as const,
+        maxPromptLength: 8192,
+        supportsImageInput: true,
+        provider: 'laozhang',
+        pricing: {
+            output: 0.05,
+        },
+    },
     // Kie.ai провайдер - Veo 3.1 модели для генерации видео
     VEO_3_1_KIEAI: {
         id: 'veo3',
@@ -122,6 +156,40 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         provider: 'kieai',
         pricing: {
             output: 0.1, // TODO: уточнить цену для Veo 3.1 Fast
+        },
+    },
+    // LaoZhang провайдер - видео модели
+    SORA: {
+        id: 'sora-2-540p-10s',
+        name: 'Sora',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 4096,
+        supportsImageInput: true,
+        provider: 'laozhang',
+        pricing: {
+            output: 0.3,
+        },
+    },
+    SORA_2: {
+        id: 'sora-2-540p-10s',
+        name: 'Sora 2',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 4096,
+        supportsImageInput: true,
+        provider: 'laozhang',
+        pricing: {
+            output: 0.3,
+        },
+    },
+    VEO_3_1: {
+        id: 'veo-3.1-720p-async',
+        name: 'Veo 3.1',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 4096,
+        supportsImageInput: true,
+        provider: 'laozhang',
+        pricing: {
+            output: 0.5,
         },
     },
     // Kie.ai провайдер - ElevenLabs Multilingual v2 для генерации аудио

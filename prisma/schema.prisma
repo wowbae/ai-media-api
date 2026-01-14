@@ -104,6 +104,8 @@ model MediaRequest {
   chat         MediaChat          @relation(fields: [chatId], references: [id], onDelete: Cascade)
   prompt       String
   model        String?
+  costUsd      Decimal?           @db.Decimal(10, 4)
+  costTokens   Int?
   status       String             @default("PENDING")
   taskId       String?
   seed         String?

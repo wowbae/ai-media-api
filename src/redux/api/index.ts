@@ -20,6 +20,7 @@ export type {
     GenerateMediaResponse,
     PaginatedResponse,
     ApiResponse,
+    PricingMap,
 } from './base';
 
 // Хуки для медиа (чаты, файлы, запросы)

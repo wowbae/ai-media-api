@@ -12,6 +12,7 @@ import { invalidateChatCache } from './cache';
 import { authenticate } from '../../auth/routes';
 import { TokenService } from '../../tokens/token.service';
 import { MEDIA_MODELS } from '../config';
+import { getModelPricing } from '../pricing';
 
 export function createGenerateRouter(): Router {
     const router = Router();
@@ -93,16 +94,18 @@ export function createGenerateRouter(): Router {
             // Определяем модель (из запроса или из настроек чата)
             const selectedModel: MediaModel = model || chat.model;
 
-            // Check Balance
-            const modelConfig = MEDIA_MODELS[selectedModel];
-            const price = modelConfig?.pricing?.output || 0;
-            const cost = Math.ceil(price * 100); // Tokens
+            // Стоимость запроса
+            const pricing = getModelPricing(selectedModel as any);
+            const costUsd = pricing?.finalPrice ?? null;
+            const costTokens = pricing?.tokens ?? null;
 
-            if (user && cost > 0) {
-                 const balance = await TokenService.getBalance(user.userId);
-                 if (balance < cost) {
-                     return res.status(402).json({ success: false, error: 'Недостаточно токенов' });
-                 }
+            if (user && (costTokens ?? 0) > 0) {
+                const balance = await TokenService.getBalance(user.userId);
+                if (balance < (costTokens ?? 0)) {
+                    return res
+                        .status(402)
+                        .json({ success: false, error: 'Недостаточно токенов' });
+                }
             }
 
             // Обрабатываем inputFiles: конвертируем base64 в URL для обратной совместимости
@@ -248,16 +251,27 @@ export function createGenerateRouter(): Router {
                             ? String(seed)
                             : null,
                     settings: requestSettings as Prisma.InputJsonValue,
+                    costUsd:
+                        costUsd !== null ? new Prisma.Decimal(costUsd) : null,
+                    costTokens: costTokens ?? null,
                 },
             });
 
             // Deduct tokens
-            if (user && cost > 0) {
-                 try {
-                     await TokenService.deductTokens(user.userId, cost, `Generation: ${selectedModel}`, mediaRequest.id);
-                 } catch (e) {
-                     console.error('[API] Failed to deduct tokens, but request was created:', e);
-                 }
+            if (user && (costTokens ?? 0) > 0) {
+                try {
+                    await TokenService.deductTokens(
+                        user.userId,
+                        costTokens ?? 0,
+                        `Generation: ${selectedModel}`,
+                        mediaRequest.id
+                    );
+                } catch (e) {
+                    console.error(
+                        '[API] Failed to deduct tokens, but request was created:',
+                        e
+                    );
+                }
             }
 
             // Инвалидируем кеш чата (новый запрос создан)

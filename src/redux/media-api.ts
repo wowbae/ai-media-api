@@ -21,6 +21,7 @@ export type {
     GenerateMediaResponse,
     PaginatedResponse,
     ApiResponse,
+    PricingMap,
 } from './api/index';
 
 // Реэкспорт всех хуков

@@ -134,6 +134,8 @@ export function createChatsRouter(): Router {
                             prompt: true,
                             status: true,
                             model: true,
+                            costUsd: true,
+                            costTokens: true,
                             errorMessage: true,
                             createdAt: true,
                             completedAt: true,

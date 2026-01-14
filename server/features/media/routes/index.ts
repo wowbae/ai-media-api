@@ -7,6 +7,7 @@ import { createGenerateRouter } from './generate';
 import { createFilesRouter } from './files';
 import { createRequestsRouter } from './requests';
 import { createModelsRouter } from './models';
+import { createPricingRouter } from './pricing';
 
 export const mediaRouter = Router();
 
@@ -20,3 +21,4 @@ mediaRouter.use(createGenerateRouter());
 mediaRouter.use(createFilesRouter());
 mediaRouter.use(createRequestsRouter());
 mediaRouter.use(createModelsRouter());
+mediaRouter.use(createPricingRouter());

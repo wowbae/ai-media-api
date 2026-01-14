@@ -11,6 +11,7 @@ import {
     type GenerateMediaRequest,
     type GenerateMediaResponse,
     type PaginatedResponse,
+    type PricingMap,
 } from './base';
 import {
     getApiState,
@@ -25,6 +26,13 @@ import {
 export const mediaEndpoints = baseApi.injectEndpoints({
     endpoints: (build) => ({
         // ==================== Чаты ====================
+        // Цены моделей
+        getPricing: build.query<PricingMap, void>({
+            query: () => '/pricing',
+            transformResponse: (response: ApiResponse<PricingMap>) =>
+                response.data,
+            providesTags: [{ type: 'Model', id: 'PRICING' }],
+        }),
 
         // Получить все чаты
         getChats: build.query<MediaChat[], void>({
@@ -488,6 +496,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
 export const {
     useGetChatsQuery,
     useGetChatQuery,
+    useGetPricingQuery,
     useCreateChatMutation,
     useUpdateChatMutation,
     useDeleteChatMutation,

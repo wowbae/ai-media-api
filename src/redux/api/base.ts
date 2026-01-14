@@ -50,6 +50,8 @@ export interface MediaRequest {
     chatId: number;
     prompt: string;
     model: MediaModel | null; // Модель, использованная для этого запроса
+    costUsd?: number | null;
+    costTokens?: number | null;
     status: RequestStatus;
     inputFiles: string[];
     errorMessage: string | null;
@@ -87,6 +89,14 @@ export interface ModelInfo {
     supportsImageInput: boolean;
     provider: MediaProviderType;
 }
+
+export type PricingMap = Record<
+    MediaModel,
+    {
+        usd: number;
+        tokens: number;
+    }
+>;
 
 // ==================== Интерфейсы запросов ====================
 
