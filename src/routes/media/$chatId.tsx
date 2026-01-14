@@ -206,7 +206,7 @@ function MediaChatPage() {
     const shouldSkipPolling = !pollingRequestId || isTestMode;
     const { data: pollingRequest } = useGetRequestQuery(pollingRequestId!, {
         skip: shouldSkipPolling, // Не опрашиваем в тестовом режиме
-        pollingInterval: isTestMode ? 0 : 3000, // Опрос каждые 3 секунды (увеличено с 1.5 для снижения нагрузки на память)
+        pollingInterval: isTestMode ? 0 : 7000, // Опрос каждые 3 секунды (увеличено с 1.5 для снижения нагрузки на память)
         // Принудительно обновляем данные при каждом запросе
         refetchOnMountOrArgChange: true,
     });
@@ -282,7 +282,7 @@ function MediaChatPage() {
     const previousStatusRef = useRef<string | null>(null);
     const previousFilesCountRef = useRef<number | null>(null);
     const pollingStartTimeRef = useRef<number | null>(null);
-    const maxPollingTime = 5 * 60 * 1000; // Максимальное время polling - 5 минут
+    const maxPollingTime = 7 * 60 * 1000; // Максимальное время polling - 7 минут
 
     useEffect(() => {
         if (pollingRequestId && !pollingStartTimeRef.current) {
@@ -390,7 +390,7 @@ function MediaChatPage() {
                 filesCountChanged ||
                 (currentStatus === 'PROCESSING' &&
                     previousStatus === 'PROCESSING' &&
-                    Date.now() % 3000 < 1500); // Примерно каждые 3 секунды (синхронизировано с pollingInterval)
+                    Date.now() % 7000 < 1500); // Примерно каждые 3 секунды (синхронизировано с pollingInterval)
 
             if (shouldUpdate) {
                 console.log('[Chat] Обновляем чат');

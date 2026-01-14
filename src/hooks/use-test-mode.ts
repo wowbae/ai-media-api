@@ -40,7 +40,7 @@ export function useTestMode(): UseTestModeReturn {
                 }
                 return prev;
             });
-        }, 3000); // Увеличено с 1000ms до 3000ms для экономии ресурсов
+        }, 7000); // Увеличено с 1000ms до 7000ms для экономии ресурсов
 
         return () => clearInterval(interval);
     }, []);
