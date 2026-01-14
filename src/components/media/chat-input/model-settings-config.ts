@@ -22,13 +22,13 @@ export interface SoundOption {
 }
 
 export interface GenerationTypeOption {
-    value: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO';
+    value: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO';
     label: string;
 }
 
 export interface GenerationTypeConfig {
     options: GenerationTypeOption[];
-    defaultValue?: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO';
+    defaultValue?: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO';
 }
 
 export interface FormatConfig {
@@ -133,6 +133,7 @@ const GENERATION_TYPE_OPTIONS: GenerationTypeOption[] = [
     { value: 'TEXT_2_VIDEO', label: 'Текст → Видео' },
     { value: 'FIRST_AND_LAST_FRAMES_2_VIDEO', label: 'Кадры → Видео' },
     { value: 'REFERENCE_2_VIDEO', label: 'Референс → Видео' },
+    { value: 'EXTEND_VIDEO', label: 'Продление видео' },
 ];
 
 // Конфигурация настроек для всех моделей (значения по умолчанию прописываем здесь)

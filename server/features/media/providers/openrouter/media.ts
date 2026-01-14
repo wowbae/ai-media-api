@@ -255,9 +255,10 @@ export function createOpenRouterProvider(
             });
 
             // Валидация промпта
-            if (params.prompt.length > modelConfig.maxPromptLength) {
+            const promptLimit = modelConfig.promptLimit ?? 5000;
+            if (params.prompt.length > promptLimit) {
                 throw new Error(
-                    `Промпт превышает максимальную длину ${modelConfig.maxPromptLength} символов`
+                    `Промпт превышает максимальную длину ${promptLimit} символов`
                 );
             }
 

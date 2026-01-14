@@ -24,7 +24,7 @@ import {
     useGetModelsQuery,
 } from '@/redux/media-api';
 import { getMediaFileUrl } from '@/lib/constants';
-import { downloadFile } from '@/lib/utils';
+import { downloadFile, getOriginalFileUrl } from '@/lib/utils';
 import {
     createLoadingEffectForAttachFile,
     formatTime,
@@ -430,14 +430,14 @@ export function MessageItem({
                                     size='icon'
                                     variant='secondary'
                                     onClick={() => {
-                                        if (!fullscreenVideo.path) return;
-                                        downloadFile(
-                                            getMediaFileUrl(
-                                                fullscreenVideo.path
-                                            ),
-                                            fullscreenVideo.filename
-                                        );
+                                        const downloadUrl = getOriginalFileUrl(fullscreenVideo);
+                                        if (!downloadUrl) {
+                                            console.warn('[MessageItem] Невозможно скачать файл: нет оригинального URL', fullscreenVideo);
+                                            return;
+                                        }
+                                        downloadFile(downloadUrl, fullscreenVideo.filename);
                                     }}
+                                    title='Скачать файл'
                                 >
                                     <Download className='h-4 w-4' />
                                 </Button>

@@ -291,6 +291,7 @@ interface GenerationTypeSelectProps {
         | 'TEXT_2_VIDEO'
         | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
         | 'REFERENCE_2_VIDEO'
+        | 'EXTEND_VIDEO'
         | undefined;
     config: GenerationTypeConfig;
     onValueChange: (
@@ -298,6 +299,7 @@ interface GenerationTypeSelectProps {
             | 'TEXT_2_VIDEO'
             | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
             | 'REFERENCE_2_VIDEO'
+            | 'EXTEND_VIDEO'
     ) => void;
     disabled?: boolean;
     className?: string;
@@ -316,6 +318,7 @@ export function GenerationTypeSelect({
                 | 'TEXT_2_VIDEO'
                 | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
                 | 'REFERENCE_2_VIDEO'
+                | 'EXTEND_VIDEO'
         );
     };
 
@@ -374,12 +377,14 @@ interface ModelSettingsPanelProps {
         | 'TEXT_2_VIDEO'
         | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
         | 'REFERENCE_2_VIDEO'
+        | 'EXTEND_VIDEO'
         | undefined;
     onVeoGenerationTypeChange?: (
         value:
             | 'TEXT_2_VIDEO'
             | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
             | 'REFERENCE_2_VIDEO'
+            | 'EXTEND_VIDEO'
     ) => void;
     disabled?: boolean;
 }

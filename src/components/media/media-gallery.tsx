@@ -31,7 +31,7 @@ import {
     PANEL_HEADER_TITLE_CLASSES,
 } from '@/lib/panel-styles';
 import { getMediaFileUrl } from '@/lib/constants';
-import { cn, downloadFile } from '@/lib/utils';
+import { cn, downloadFile, getOriginalFileUrl } from '@/lib/utils';
 import { calculateTotalChatCost, formatCost } from '@/lib/cost-utils';
 import { createLoadingEffectForAttachFile } from '@/lib/media-utils';
 
@@ -845,13 +845,12 @@ export function MediaGallery({
                                             size='icon'
                                             variant='secondary'
                                             onClick={() => {
-                                                if (!selectedFile.path) return;
-                                                downloadFile(
-                                                    getMediaFileUrl(
-                                                        selectedFile.path
-                                                    ),
-                                                    selectedFile.filename
-                                                );
+                                                const downloadUrl = getOriginalFileUrl(selectedFile);
+                                                if (!downloadUrl) {
+                                                    console.warn('[MediaGallery] Невозможно скачать файл: нет оригинального URL', selectedFile);
+                                                    return;
+                                                }
+                                                downloadFile(downloadUrl, selectedFile.filename);
                                             }}
                                             title='Скачать файл'
                                         >

@@ -35,7 +35,8 @@ type Veo3AspectRatio = '16:9' | '9:16' | 'Auto';
 type Veo3GenerationType =
     | 'TEXT_2_VIDEO'
     | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
-    | 'REFERENCE_2_VIDEO';
+    | 'REFERENCE_2_VIDEO'
+    | 'EXTEND_VIDEO';
 
 interface Veo3GenerateRequest {
     prompt: string;
@@ -46,6 +47,14 @@ interface Veo3GenerateRequest {
     seeds?: number; // 10000-99999
     watermark?: string;
     enableTranslation?: boolean;
+    callBackUrl?: string;
+}
+
+interface Veo3ExtendRequest {
+    taskId: string; // taskId оригинального видео
+    prompt: string;
+    seeds?: number; // 10000-99999
+    watermark?: string;
     callBackUrl?: string;
 }
 
@@ -153,9 +162,11 @@ export function createKieAiVeo3Provider(config: KieAiConfig): MediaProvider {
         console.log('[Kie.ai Veo 3.1] Создание задачи:', {
             model: params.model,
             prompt: params.prompt.substring(0, 100),
+            generationType: params.generationType,
             hasInputFiles: !!(
                 params.inputFiles && params.inputFiles.length > 0
             ),
+            originalTaskId: params.originalTaskId,
             ar: params.ar,
             aspectRatio: params.aspectRatio,
         });
@@ -167,6 +178,92 @@ export function createKieAiVeo3Provider(config: KieAiConfig): MediaProvider {
             );
         }
 
+        // Режим EXTEND_VIDEO использует отдельный endpoint
+        if (params.generationType === 'EXTEND_VIDEO') {
+            if (!params.originalTaskId) {
+                throw new Error(
+                    'Для режима EXTEND_VIDEO требуется originalTaskId оригинального видео'
+                );
+            }
+
+            const extendRequestBody: Veo3ExtendRequest = {
+                taskId: params.originalTaskId,
+                prompt: params.prompt,
+            };
+
+            // Добавляем дополнительные параметры если есть
+            if (params.seed !== undefined) {
+                const seedNum =
+                    typeof params.seed === 'number'
+                        ? params.seed
+                        : parseInt(params.seed, 10);
+                if (seedNum >= 10000 && seedNum <= 99999) {
+                    extendRequestBody.seeds = seedNum;
+                }
+            }
+
+            // В будущем можно добавить поддержку watermark через GenerateParams
+            // if (params.watermark) {
+            //     extendRequestBody.watermark = params.watermark;
+            // }
+
+            const response = await fetch(`${baseURL}/api/v1/veo/extend`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${apiKey}`,
+                },
+                body: JSON.stringify(extendRequestBody),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                let parsed: unknown;
+                try {
+                    parsed = JSON.parse(errorText);
+                } catch {
+                    parsed = errorText;
+                }
+                console.error('[Kie.ai Veo 3.1 Extend] Ошибка создания задачи:', {
+                    status: response.status,
+                    error: parsed,
+                });
+
+                if (response.status === 401) {
+                    throw new Error('Ошибка авторизации Kie.ai API');
+                }
+                if (response.status === 402 || response.status === 403) {
+                    throw new Error('Недостаточно средств на балансе Kie.ai');
+                }
+                if (response.status === 404) {
+                    throw new Error('Оригинальное видео не найдено (неверный taskId)');
+                }
+                if (response.status === 400) {
+                    throw new Error('Неверные параметры запроса (проверьте промпт на соответствие политике контента)');
+                }
+
+                throw new Error(
+                    `Kie.ai Veo 3.1 Extend API error: ${response.status} - ${errorText}`
+                );
+            }
+
+            const responseData =
+                (await response.json()) as KieAiUnifiedCreateResponse;
+
+            if (responseData.code !== 200) {
+                throw new Error(
+                    `Kie.ai Veo 3.1 Extend API вернул ошибку: ${responseData.code} - ${responseData.msg}`
+                );
+            }
+
+            console.log(
+                '[Kie.ai Veo 3.1 Extend] Задача создана:',
+                responseData.data.taskId
+            );
+            return responseData;
+        }
+
+        // Обычная генерация (не EXTEND_VIDEO)
         const veo3Model = mapVeo3Model(params.model as string);
        // Для Veo 3.1 используем параметр ar (16:9 | 9:16), если он есть, иначе aspectRatio
         // Veo 3.1 поддерживает только 16:9 и 9:16, поэтому фильтруем другие форматы

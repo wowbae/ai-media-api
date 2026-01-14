@@ -38,7 +38,8 @@ export async function generateMedia(
   videoQuality?: "480p" | "720p" | "1080p",
   duration?: number,
   ar?: "16:9" | "9:16",
-  generationType?: "TEXT_2_VIDEO" | "FIRST_AND_LAST_FRAMES_2_VIDEO" | "REFERENCE_2_VIDEO",
+  generationType?: "TEXT_2_VIDEO" | "FIRST_AND_LAST_FRAMES_2_VIDEO" | "REFERENCE_2_VIDEO" | "EXTEND_VIDEO",
+  originalTaskId?: string,
   sound?: boolean,
   outputFormat?: "png" | "jpg",
   negativePrompt?: string,
@@ -72,9 +73,10 @@ export async function generateMedia(
 
   try {
     // Валидация промпта
-    if (modelConfig && prompt.length > modelConfig.maxPromptLength) {
+    const promptLimit = modelConfig?.promptLimit ?? 5000;
+    if (prompt.length > promptLimit) {
       throw new Error(
-        `Промпт превышает максимальную длину ${modelConfig.maxPromptLength} символов`,
+        `Промпт превышает максимальную длину ${promptLimit} символов`,
       );
     }
 
@@ -89,6 +91,7 @@ export async function generateMedia(
       duration,
       ar,
       generationType,
+      originalTaskId,
       sound,
       outputFormat,
       negativePrompt,
@@ -179,7 +182,8 @@ export async function generateMedia(
                       const absolutePreviewPath = join(process.cwd(), mediaStorageConfig.basePath, file.previewPath);
                       if (existsSync(absolutePreviewPath)) {
                            const previewBuffer = await readFile(absolutePreviewPath);
-                           previewUrl = await uploadToImgbb(previewBuffer);
+                           // Используем display_url для превью (сжатая версия для быстрой загрузки)
+                           previewUrl = await uploadToImgbb(previewBuffer, 0, true);
                       }
                   } catch (e) {
                       console.error(`[MediaService] Failed to upload preview for ${file.filename}:`, e);
@@ -409,7 +413,8 @@ async function pollTaskResult(
                           const absolutePreviewPath = join(process.cwd(), mediaStorageConfig.basePath, file.previewPath);
                           if (existsSync(absolutePreviewPath)) {
                                const previewBuffer = await readFile(absolutePreviewPath);
-                               previewUrl = await uploadToImgbb(previewBuffer);
+                               // Используем display_url для превью (сжатая версия для быстрой загрузки)
+                           previewUrl = await uploadToImgbb(previewBuffer, 0, true);
                           }
                       } catch (e) {
                           console.error(`[MediaService] Failed to upload preview for ${file.filename}:`, e);

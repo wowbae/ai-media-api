@@ -152,6 +152,7 @@ export function createProviderManager(): ProviderManager {
                 types: Array.from(new Set(config.types)),
                 supportsImageInput: config.supportsImageInput,
                 provider: config.provider,
+                promptLimit: config.promptLimit ?? 5000,
             }));
         },
     };

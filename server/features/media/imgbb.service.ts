@@ -14,8 +14,8 @@ const PARALLEL_DELAY = 200; // Задержка между параллельн�
 interface ImgbbResponse {
     data: {
         id: string;
-        url: string;
-        display_url: string;
+        url: string; // Оригинальный URL без сжатия
+        display_url: string; // Сжатая версия для отображения
         delete_url: string;
     };
     success: boolean;
@@ -74,11 +74,13 @@ async function fetchWithTimeout(
 /**
  * Загружает одно изображение на imgbb с retry логикой
  * @param imageData - base64 строка (с или без data URL префикса) или Buffer
+ * @param useDisplayUrl - если true, возвращает display_url (сжатая версия для превью), иначе url (оригинал)
  * @returns публичный URL изображения
  */
 export async function uploadToImgbb(
     imageData: string | Buffer,
-    retryCount = 0
+    retryCount = 0,
+    useDisplayUrl = false
 ): Promise<string> {
     if (!IMGBB_API_KEY) {
         throw new Error('IMGBB_API_KEY не настроен в .env');
@@ -138,19 +140,26 @@ export async function uploadToImgbb(
             throw new Error('imgbb upload failed');
         }
 
+        // Выбираем URL в зависимости от назначения
+        // useDisplayUrl=true для превью (сжатая версия для быстрой загрузки)
+        // useDisplayUrl=false для оригинального файла (без сжатия)
+        const selectedUrl = useDisplayUrl ? result.data.display_url : result.data.url;
+        
         if (retryCount > 0) {
             console.log(`[imgbb] ✅ Изображение загружено после ${retryCount} попыток:`, {
                 id: result.data.id,
-                url: result.data.display_url,
+                url: selectedUrl,
+                type: useDisplayUrl ? 'display (превью)' : 'original (оригинал)',
             });
         } else {
             console.log('[imgbb] ✅ Изображение загружено:', {
                 id: result.data.id,
-                url: result.data.display_url,
+                url: selectedUrl,
+                type: useDisplayUrl ? 'display (превью)' : 'original (оригинал)',
             });
         }
 
-        return result.data.display_url;
+        return selectedUrl;
     } catch (error) {
         // Если это retryable ошибка и не превышен лимит попыток
         if (isRetryableError(error) && retryCount < MAX_RETRIES) {
@@ -161,7 +170,7 @@ export async function uploadToImgbb(
             );
 
             await new Promise((resolve) => setTimeout(resolve, delay));
-            return uploadToImgbb(imageData, retryCount + 1);
+            return uploadToImgbb(imageData, retryCount + 1, useDisplayUrl);
         }
 
         // Если ошибка не retryable или превышен лимит попыток

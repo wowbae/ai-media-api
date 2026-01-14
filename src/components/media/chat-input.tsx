@@ -42,6 +42,7 @@ import {
     useGenerateMediaTestMutation,
     type MediaModel,
 } from '@/redux/media-api';
+import { useGetModelsQuery } from '@/redux/api/models.endpoints';
 import { useTestMode } from '@/hooks/use-test-mode';
 import { useModelType } from '@/hooks/use-model-type';
 import { useChatInputFiles } from './chat-input/use-chat-input-files';
@@ -112,6 +113,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             | 'TEXT_2_VIDEO'
             | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
             | 'REFERENCE_2_VIDEO'
+            | 'EXTEND_VIDEO'
             | undefined
         >(undefined);
         const [sound, setSound] = useState<boolean | undefined>(undefined);
@@ -204,7 +206,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 getFileAsBase64,
             });
 
-        const MAX_PROMPT_LENGTH = 5000;
+        // Получаем модели для определения promptLimit
+        const { data: models } = useGetModelsQuery();
+        const currentModelConfig = useMemo(
+            () => models?.find((m) => m.key === currentModel),
+            [models, currentModel]
+        );
+        const MAX_PROMPT_LENGTH = currentModelConfig?.promptLimit ?? 5000;
 
         // Функция для обновления высоты textarea
         const adjustTextareaHeight = useCallback(() => {

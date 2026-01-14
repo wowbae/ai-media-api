@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn, formatFileSize, downloadFile } from "@/lib/utils";
+import { cn, formatFileSize, downloadFile, getOriginalFileUrl } from "@/lib/utils";
 import { getMediaFileUrl } from "@/lib/constants";
 import {
   type MediaFile,
@@ -47,10 +47,8 @@ export function MediaPreview({
   const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
 
   // Для полноэкранного просмотра и скачивания используем оригинальный файл
-  // Для IMAGE: file.url (imgbb) может быть сжатым, file.path - оригиналом
-  // Для VIDEO: file.path (локальный сервер) или file.url (URL провайдера)
-  // Приоритет: path (локальный) > url (imgbb для IMAGE, URL провайдера для VIDEO)
-  const originalFileUrl = file.path ? getMediaFileUrl(file.path) : (file.url || null);
+  // Всегда используем path (локальный оригинал) в приоритете, не используем previewUrl/url (сжатые версии)
+  const originalFileUrl = getOriginalFileUrl(file);
 
   // previewUrl для изображений (для видео логика внутри VideoPreview)
   // Формируем список всех возможных URL для fallback при ошибке загрузки
@@ -90,10 +88,11 @@ export function MediaPreview({
   }
 
   function handleDownload() {
-    if (originalFileUrl) {
-      downloadFile(originalFileUrl, file.filename);
+    const downloadUrl = getOriginalFileUrl(file);
+    if (downloadUrl) {
+      downloadFile(downloadUrl, file.filename);
     } else {
-      console.warn('[MediaPreview] Невозможно скачать файл: нет URL или path', file);
+      console.warn('[MediaPreview] Невозможно скачать файл: нет оригинального URL', file);
     }
   }
 
@@ -181,7 +180,7 @@ export function MediaPreview({
         )}
 
         {/* Информация о файле */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+        <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-2">
           <div className="flex items-center justify-between">
             <TypeIcon type={file.type} />
             <span className="text-xs text-muted-foreground">
@@ -223,7 +222,7 @@ export function MediaPreview({
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+              <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-4">
                 <div className="flex items-center justify-between text-white">
                   <span className="font-medium text-foreground">{file.filename}</span>
                   <span className="text-sm text-muted-foreground">

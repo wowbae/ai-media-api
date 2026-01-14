@@ -4,7 +4,7 @@ import { Download, X, Paperclip, RefreshCcw, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { type MediaFile } from '@/redux/media-api';
 import { getMediaFileUrl } from '@/lib/constants';
-import { formatFileSize, downloadFile } from '@/lib/utils';
+import { formatFileSize, downloadFile, getOriginalFileUrl } from '@/lib/utils';
 
 interface MediaFullscreenViewProps {
     file: MediaFile;
@@ -23,19 +23,12 @@ export function MediaFullscreenView({
     isPinned = false,
     onTogglePin,
 }: MediaFullscreenViewProps) {
-    // Для видео используем path, если его нет - возвращаем null
-    // Для изображений можно использовать url (imgbb) если path нет
-    if (file.type === 'VIDEO' && !file.path) return null;
-    if (file.type === 'IMAGE' && !file.path && !file.url) return null;
-
-    // Для видео всегда используем path (оригинальный файл)
-    // Для изображений используем path если есть, иначе url (imgbb)
-    const fileUrl =
-        file.type === 'VIDEO'
-            ? getMediaFileUrl(file.path!)
-            : file.path
-              ? getMediaFileUrl(file.path)
-              : file.url || '';
+    // Получаем оригинальный URL файла для отображения и скачивания
+    // Всегда используем path (локальный оригинал) в приоритете
+    const fileUrl = getOriginalFileUrl(file);
+    
+    // Если нет оригинального файла - не показываем компонент
+    if (!fileUrl) return null;
 
     // Обработка клавиши Escape для закрытия
     useEffect(() => {
@@ -50,7 +43,12 @@ export function MediaFullscreenView({
     }, [onClose]);
 
     function handleDownload() {
-        downloadFile(fileUrl, file.filename);
+        const downloadUrl = getOriginalFileUrl(file);
+        if (!downloadUrl) {
+            console.warn('[MediaFullscreenView] Невозможно скачать файл: нет оригинального URL', file);
+            return;
+        }
+        downloadFile(downloadUrl, file.filename);
     }
 
     return (

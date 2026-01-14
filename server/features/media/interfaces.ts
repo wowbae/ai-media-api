@@ -32,7 +32,8 @@ export interface GenerateMediaRequest {
   videoQuality?: "480p" | "720p" | "1080p"; // Качество видео для видео-моделей
   duration?: number; // Длина видео в секундах (1-20) для видео-моделей
   ar?: "16:9" | "9:16"; // Формат видео для Veo
-  generationType?: "TEXT_2_VIDEO" | "FIRST_AND_LAST_FRAMES_2_VIDEO" | "REFERENCE_2_VIDEO"; // Режим генерации для Veo 3.1
+  generationType?: "TEXT_2_VIDEO" | "FIRST_AND_LAST_FRAMES_2_VIDEO" | "REFERENCE_2_VIDEO" | "EXTEND_VIDEO"; // Режим генерации для Veo 3.1
+  originalTaskId?: string; // taskId оригинального видео для режима EXTEND_VIDEO
   sound?: boolean; // Звук для Kling 2.6
   outputFormat?: "png" | "jpg"; // Формат выход ного файла для Nano Banana Pro (Kie.ai)
   negativePrompt?: string; // Негативный промпт для Imagen4 и Kling 2.5 Turbo Pro

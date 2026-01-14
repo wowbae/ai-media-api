@@ -121,8 +121,8 @@ async function uploadPreviewToImgbb(
 
     const previewBuffer = await readFile(absolutePreviewPath);
 
-    // Загружаем на imgbb
-    const previewUrl = await uploadToImgbb(previewBuffer);
+    // Загружаем на imgbb (используем display_url для превью - сжатая версия для быстрой загрузки)
+    const previewUrl = await uploadToImgbb(previewBuffer, 0, true);
 
     // Обновляем запись в БД
     await prisma.mediaFile.update({

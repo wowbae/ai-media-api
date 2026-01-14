@@ -55,6 +55,7 @@ export function createGenerateRouter(): Router {
                     speed,
                     languageCode,
                     generationType,
+                    originalTaskId,
                 } = req.body as GenerateMediaRequest;
 
                 console.log('[API] POST /generate - получен запрос:', {
@@ -321,6 +322,7 @@ export function createGenerateRouter(): Router {
                     duration,
                     ar,
                     generationType,
+                    originalTaskId,
                     sound,
                     outputFormat,
                     negativePrompt,

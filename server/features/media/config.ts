@@ -13,6 +13,7 @@ export interface MediaModelConfig {
   name: string;
   types: readonly ("IMAGE" | "VIDEO" | "AUDIO")[];
   maxPromptLength: number;
+  promptLimit?: number; // Лимит символов в промпте (по умолчанию 5000)
   supportsImageInput: boolean;
   provider: MediaProviderType;
   pricing?: {
@@ -28,6 +29,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         name: 'Nano Banana (OpenRouter)',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
+        promptLimit: 5000,
         supportsImageInput: true,
         provider: 'openrouter',
         pricing: {
@@ -39,6 +41,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         name: 'Kling 2.6',
         types: ['VIDEO'] as const,
         maxPromptLength: 4096,
+        promptLimit: 1000,
         supportsImageInput: true,
         provider: 'kieai',
         pricing: {
@@ -73,6 +76,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         name: 'Nano Banana Pro',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
+        promptLimit: 5000,
         supportsImageInput: true, // Поддерживает image-to-image
         provider: 'kieai',
         pricing: {
@@ -84,6 +88,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         name: 'Google Imagen4',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
+        promptLimit: 5000,
         supportsImageInput: false,
         provider: 'kieai',
         pricing: {
@@ -95,6 +100,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         name: 'Google Imagen4 Ultra',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
+        promptLimit: 5000,
         supportsImageInput: false,
         provider: 'kieai',
         pricing: {
@@ -106,6 +112,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         name: 'Seedream 4.5',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
+        promptLimit: 3000,
         supportsImageInput: false,
         provider: 'kieai',
         pricing: {
@@ -117,6 +124,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         name: 'Seedream 4.5 Edit',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
+        promptLimit: 3000,
         supportsImageInput: true, // Поддерживает image-to-image с до 14 файлов
         provider: 'kieai',
         pricing: {
@@ -129,6 +137,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         name: 'Nano Banana Pro (LaoZhang)',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
+        promptLimit: 5000,
         supportsImageInput: true,
         provider: 'laozhang',
         pricing: {
