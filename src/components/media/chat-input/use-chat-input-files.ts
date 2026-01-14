@@ -206,10 +206,44 @@ export function useChatInputFiles(chatId?: number) {
 
     // Добавление файла из URL (ПРОГРАММНОЕ - НЕ СОХРАНЯЕМ В БД ТАК КАК ЭТО УЖЕ ЕСТЬ В СИСТЕМЕ)
     const addFileFromUrl = useCallback(
-        async (url: string, filename: string) => {
+        async (url: string, filename: string, imgbbUrl?: string) => {
             try {
-                // Загружаем файл по URL и обрабатываем через processFiles
-                // (который автоматически загрузит изображения на imgbb)
+                // Если передан imgbbUrl для изображения, используем его напрямую без загрузки на imgbb
+                // Проверяем, что это изображение (imgbb не поддерживает видео)
+                const isImage = filename.match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
+                               url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
+                               url.includes('i.ibb.co') || // imgbb URL
+                               url.includes('i.imgbb.com'); // imgbb URL
+
+                if (imgbbUrl && isImage) {
+                    console.log('[ChatInput] ✅ Используем imgbbUrl из БД, пропускаем повторную загрузку на imgbb:', imgbbUrl);
+
+                    // Для превью используем оригинальный URL (локальный путь или imgbb URL)
+                    // Не создаем blob URL, чтобы не загружать файл
+                    const preview = url;
+
+                    // Создаем минимальный File объект для совместимости (не загружаем файл)
+                    // Используем пустой blob с правильным MIME типом
+                    const mimeType = filename.match(/\.png$/i) ? 'image/png' :
+                                   filename.match(/\.(jpg|jpeg)$/i) ? 'image/jpeg' :
+                                   filename.match(/\.gif$/i) ? 'image/gif' :
+                                   filename.match(/\.webp$/i) ? 'image/webp' : 'image/jpeg';
+                    const emptyBlob = new Blob([], { type: mimeType });
+                    const file = new File([emptyBlob], filename, { type: mimeType });
+
+                    const attachedFile: AttachedFile = {
+                        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        file,
+                        preview,
+                        imgbbUrl, // Используем URL из БД напрямую, не загружаем на imgbb
+                    };
+
+                    setAttachedFiles((prev) => [...prev, attachedFile]);
+                    return;
+                }
+
+                // Для остальных случаев загружаем файл по URL и обрабатываем через processFiles
+                // (который автоматически загрузит изображения на imgbb, если imgbbUrl не передан)
                 const file = await urlToFile(url, filename);
                 const processedFiles = await processFiles([file], false); // false = DON'T upload to DB again
                 setAttachedFiles((prev) => [...prev, ...processedFiles]);

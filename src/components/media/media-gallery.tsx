@@ -37,7 +37,7 @@ import { createLoadingEffectForAttachFile } from '@/lib/media-utils';
 
 interface MediaGalleryProps {
     chatId?: number; // Optional - если не указан, загружаем все файлы
-    onAttachFile?: (fileUrl: string, filename: string) => void;
+    onAttachFile?: (fileUrl: string, filename: string, imgbbUrl?: string) => void;
     onRepeatRequest?: (requestId: number) => void;
 }
 
@@ -431,9 +431,11 @@ export function MediaGallery({
                                                                 return;
                                                             }
                                                             loadingEffectForAttachFile();
+                                                            // Передаем file.url как imgbbUrl для изображений, чтобы не загружать на imgbb повторно
                                                             onAttachFile(
                                                                 fileUrl,
-                                                                file.filename
+                                                                file.filename,
+                                                                file.type === 'IMAGE' ? (file.url || undefined) : undefined
                                                             );
                                                         }}
                                                         title='Прикрепить к промпту'
@@ -569,9 +571,11 @@ export function MediaGallery({
                                                                 return;
                                                             }
                                                             loadingEffectForAttachFile();
+                                                            // Передаем file.url как imgbbUrl для изображений, чтобы не загружать на imgbb повторно
                                                             onAttachFile(
                                                                 fileUrl,
-                                                                file.filename
+                                                                file.filename,
+                                                                file.type === 'IMAGE' ? (file.url || undefined) : undefined
                                                             );
                                                         }}
                                                         title='Прикрепить к промпту'
@@ -705,9 +709,11 @@ export function MediaGallery({
                                                                 return;
                                                             }
                                                             loadingEffectForAttachFile();
+                                                            // Передаем file.url как imgbbUrl для изображений, чтобы не загружать на imgbb повторно
                                                             onAttachFile(
                                                                 fileUrl,
-                                                                file.filename
+                                                                file.filename,
+                                                                file.type === 'IMAGE' ? (file.url || undefined) : undefined
                                                             );
                                                         }}
                                                         title='Прикрепить к промпту'

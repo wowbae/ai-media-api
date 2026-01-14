@@ -9,7 +9,7 @@ import { formatFileSize, downloadFile } from '@/lib/utils';
 interface MediaFullscreenViewProps {
     file: MediaFile;
     onClose: () => void;
-    onAttachFile?: (fileUrl: string, filename: string) => void;
+    onAttachFile?: (fileUrl: string, filename: string, imgbbUrl?: string) => void;
     onRepeatRequest?: (requestId: number) => void;
     isPinned?: boolean;
     onTogglePin?: () => void;
@@ -97,7 +97,8 @@ export function MediaFullscreenView({
                             variant='secondary'
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onAttachFile(fileUrl, file.filename);
+                                // Передаем file.url как imgbbUrl для изображений, чтобы не загружать на imgbb повторно
+                                onAttachFile(fileUrl, file.filename, file.url || undefined);
                             }}
                             className='h-8 w-8 hover:bg-primary hover:text-primary-foreground'
                             title='Прикрепить к промпту'

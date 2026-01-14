@@ -35,7 +35,7 @@ import {
 interface MessageItemProps {
     request: MediaRequest;
     onEditPrompt?: (prompt: string) => void;
-    onAttachFile?: (fileUrl: string, filename: string) => void;
+    onAttachFile?: (fileUrl: string, filename: string, imgbbUrl?: string) => void;
     onRepeatRequest?: (request: MediaRequest, model?: MediaModel) => void;
 }
 
@@ -333,9 +333,11 @@ export function MessageItem({
                                                                         return;
                                                                     }
                                                                     loadingEffectForAttachFile();
+                                                                    // Передаем file.url как imgbbUrl для изображений, чтобы не загружать на imgbb повторно
                                                                     onAttachFile(
                                                                         fileUrl,
-                                                                        file.filename
+                                                                        file.filename,
+                                                                        file.url || undefined
                                                                     );
                                                                 }}
                                                                 title='Прикрепить к промпту'

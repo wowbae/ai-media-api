@@ -67,7 +67,11 @@ export interface ChatInputProps {
 
 export interface ChatInputRef {
     setPrompt: (prompt: string) => void;
-    addFileFromUrl: (url: string, filename: string) => Promise<void>;
+    addFileFromUrl: (
+        url: string,
+        filename: string,
+        imgbbUrl?: string
+    ) => Promise<void>;
     setRequestData: (
         request: import('@/redux/media-api').MediaRequest
     ) => Promise<void>;

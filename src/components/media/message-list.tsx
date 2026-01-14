@@ -11,7 +11,11 @@ interface MessageListProps {
     chatModel: MediaModel;
     isLoading?: boolean;
     onEditPrompt?: (prompt: string) => void;
-    onAttachFile?: (fileUrl: string, filename: string) => void;
+    onAttachFile?: (
+        fileUrl: string,
+        filename: string,
+        imgbbUrl?: string
+    ) => void;
     onRepeatRequest?: (request: MediaRequest, model?: MediaModel) => void;
     onScrollStateChange?: (showButton: boolean) => void;
     onScrollToBottomRef?: (scrollFn: () => void) => void;

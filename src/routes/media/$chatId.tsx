@@ -587,8 +587,12 @@ function MediaChatPage() {
     }
 
     // Обработчик прикрепления файла
-    async function handleAttachFile(fileUrl: string, filename: string) {
-        await chatInputRef.current?.addFileFromUrl(fileUrl, filename);
+    async function handleAttachFile(
+        fileUrl: string,
+        filename: string,
+        imgbbUrl?: string
+    ) {
+        await chatInputRef.current?.addFileFromUrl(fileUrl, filename, imgbbUrl);
     }
 
     // Обработчик повторения запроса (теперь просто заполняет форму)

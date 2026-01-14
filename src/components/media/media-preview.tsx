@@ -34,7 +34,7 @@ interface MediaPreviewProps {
   file: MediaFile;
   showDelete?: boolean;
   className?: string;
-  onAttach?: (fileUrl: string, filename: string) => void;
+  onAttach?: (fileUrl: string, filename: string, imgbbUrl?: string) => void;
 }
 
 export function MediaPreview({
