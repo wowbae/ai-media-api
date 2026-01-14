@@ -1,9 +1,12 @@
-import { type MediaRequest } from '@/redux/media-api';
+import { type MediaRequest, type PricingMap } from '@/redux/media-api';
 
 /**
  * Вычисляет стоимость конкретного запроса
  */
-export function calculateRequestCost(request: MediaRequest): number {
+export function calculateRequestCost(
+    request: MediaRequest,
+    pricingMap?: PricingMap
+): number {
     if (request.status === 'FAILED') {
         return 0;
     }
@@ -13,17 +16,29 @@ export function calculateRequestCost(request: MediaRequest): number {
         return request.costUsd;
     }
 
-    // На случай старых записей без стоимости в БД возвращаем 0,
-    // чтобы не показывать некорректные данные.
+    // Fallback для старых записей без costUsd:
+    // используем актуальную цену из карты pricing, если она есть.
+    if (pricingMap && request.model) {
+        const pricing = pricingMap[request.model];
+        if (pricing && typeof pricing.usd === 'number') {
+            return pricing.usd;
+        }
+    }
+
+    // На случай полностью отсутствующих данных возвращаем 0,
+    // чтобы не показывать некорректные значения.
     return 0;
 }
 
 /**
  * Вычисляет суммарную стоимость всех запросов в списке
  */
-export function calculateTotalChatCost(requests: MediaRequest[]): number {
+export function calculateTotalChatCost(
+    requests: MediaRequest[],
+    pricingMap?: PricingMap
+): number {
     return requests.reduce((total, request) => {
-        return total + calculateRequestCost(request);
+        return total + calculateRequestCost(request, pricingMap);
     }, 0);
 }
 

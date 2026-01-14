@@ -27,6 +27,7 @@ export type {
 export {
     useGetChatsQuery,
     useGetChatQuery,
+    useGetPricingQuery,
     useCreateChatMutation,
     useUpdateChatMutation,
     useDeleteChatMutation,

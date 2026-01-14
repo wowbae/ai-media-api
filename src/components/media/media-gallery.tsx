@@ -24,6 +24,7 @@ import {
     useDeleteFileMutation,
     useGetFilesQuery,
     useGetChatQuery,
+    useGetPricingQuery,
 } from '@/redux/media-api';
 import {
     PANEL_HEADER_CLASSES,
@@ -126,11 +127,14 @@ export function MediaGallery({
         { skip: chatId === undefined }
     );
 
+    // Загружаем карту цен для fallback по модели (для старых запросов без costUsd)
+    const { data: pricingMap } = useGetPricingQuery();
+
     // Расчет суммарной стоимости
     const totalCost = useMemo(() => {
         if (!chatData?.requests) return 0;
-        return calculateTotalChatCost(chatData.requests);
-    }, [chatData?.requests]);
+        return calculateTotalChatCost(chatData.requests, pricingMap);
+    }, [chatData?.requests, pricingMap]);
 
     // Накопление файлов из всех загруженных страниц
     useEffect(() => {
