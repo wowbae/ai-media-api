@@ -29,7 +29,7 @@ export function useChatInputFiles(chatId?: number) {
 
     // Обработка файлов (общая функция для переиспользования)
     const processFiles = useCallback(
-        async (files: File[], shouldUpload: boolean = false): Promise<AttachedFile[]> => {
+        async (files: File[], shouldUpload: boolean = false, skipSizeCheck: boolean = false): Promise<AttachedFile[]> => {
             const newFiles: AttachedFile[] = [];
             const imageFiles: File[] = [];
             const videoFiles: File[] = [];
@@ -48,8 +48,8 @@ export function useChatInputFiles(chatId?: number) {
                     continue;
                 }
 
-                // Проверяем размер (макс 10MB)
-                if (file.size > 10 * 1024 * 1024) {
+                // Проверяем размер (макс 10MB) - только для новых файлов, не для уже существующих в системе
+                if (!skipSizeCheck && file.size > 10 * 1024 * 1024) {
                     alert(
                         `Размер файла "${file.name}" не должен превышать 10MB`
                     );
@@ -244,8 +244,9 @@ export function useChatInputFiles(chatId?: number) {
 
                 // Для остальных случаев загружаем файл по URL и обрабатываем через processFiles
                 // (который автоматически загрузит изображения на imgbb, если imgbbUrl не передан)
+                // skipSizeCheck = true, так как это уже существующий файл в системе, мы прикрепляем только ссылку
                 const file = await urlToFile(url, filename);
-                const processedFiles = await processFiles([file], false); // false = DON'T upload to DB again
+                const processedFiles = await processFiles([file], false, true); // false = DON'T upload to DB again, true = skip size check
                 setAttachedFiles((prev) => [...prev, ...processedFiles]);
             } catch (error) {
                 console.error(
