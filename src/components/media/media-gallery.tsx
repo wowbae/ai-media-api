@@ -151,21 +151,41 @@ export function MediaGallery({
                 // Используем ref для получения актуального значения pinnedImageIds
                 const currentPinnedIds = pinnedImageIdsRef.current;
 
-                // Сохраняем закрепленные файлы из предыдущего списка
+                // Сохраняем закрепленные файлы из предыдущего списка, которых нет в новых данных
+                // ВАЖНО: не сохраняем файлы, которые уже есть в новых данных, чтобы не дублировать
+                // и не перезаписывать актуальные данные о превью устаревшими
                 const preservedPinnedFiles = prev.filter(
                     (f) => currentPinnedIds.has(f.id) && !newFilesIds.has(f.id)
                 );
 
+                // ВАЖНО: файлы из filesData.data имеют приоритет над сохраненными,
+                // так как они содержат актуальные данные о превью из пагинации
                 return [...preservedPinnedFiles, ...filesData.data];
             });
         } else {
             // Для последующих страниц добавляем новые файлы
+            // ВАЖНО: если файл уже есть в списке (например, из chatData), заменяем его актуальными данными из пагинации
             setAccumulatedFiles((prev) => {
+                const newFilesIds = new Set(filesData.data.map((f) => f.id));
                 const existingIds = new Set(prev.map((f) => f.id));
                 const newFiles = filesData.data.filter(
                     (f) => !existingIds.has(f.id)
                 );
-                return [...prev, ...newFiles];
+                
+                // Обновляем существующие файлы актуальными данными из пагинации
+                // Это важно для закрепленных файлов, которые были предзагружены из chatData
+                // Создаем Map для быстрого поиска обновленных файлов
+                const updatedFilesMap = new Map(
+                    filesData.data.map((f) => [f.id, f])
+                );
+                
+                // Обновляем существующие файлы или оставляем их как есть
+                const updatedFiles = prev.map((existingFile) => {
+                    // Если файл есть в новых данных - используем их (актуальные данные о превью)
+                    return updatedFilesMap.get(existingFile.id) || existingFile;
+                });
+                
+                return [...updatedFiles, ...newFiles];
             });
         }
     }, [filesData, page]);
