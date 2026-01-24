@@ -15,3 +15,16 @@ export function createAuthHeaders(
     }
     return headers;
 }
+
+/**
+ * Обрабатывает таймаут/истечение сессии: очищает токен и перенаправляет на страницу логина
+ */
+export function handleSessionTimeout(): void {
+    // Очищаем токен из localStorage
+    localStorage.removeItem('token');
+    
+    // Перенаправляем на страницу логина
+    if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+    }
+}

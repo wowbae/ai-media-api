@@ -1,11 +1,13 @@
 import React from 'react';
-import { useSelector } from 'react-redux';
-import { selectCurrentUser, type User } from '@/redux/auth-slice';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentUser, type User, logout } from '@/redux/auth-slice';
 import { Coins } from 'lucide-react';
 import { useGetMeQuery } from '@/redux/api/auth.endpoints';
+import { handleSessionTimeout } from '@/redux/api/utils';
 
 export const TokenBalance = () => {
     const user: User | null = useSelector(selectCurrentUser);
+    const dispatch = useDispatch();
     // Poll for balance updates occasionally or rely on manual invalidation?
     // useGetMeQuery can run in background.
     const { data: me, error } = useGetMeQuery(undefined, {
@@ -16,11 +18,12 @@ export const TokenBalance = () => {
     // Обработка ошибок авторизации
     React.useEffect(() => {
         if (error && 'status' in error && error.status === 401) {
-            // Очищаем невалидный токен
-            localStorage.removeItem('token');
-            alert('Ошибка авторизации: сессия истекла. Пожалуйста, войдите заново.');
+            // Очищаем состояние Redux
+            dispatch(logout());
+            // Перенаправляем на страницу логина
+            handleSessionTimeout();
         }
-    }, [error]);
+    }, [error, dispatch]);
 
     // Use latest balance from API user object if available, else from slice
     const balance: number = me?.balance ?? user?.balance ?? 0;

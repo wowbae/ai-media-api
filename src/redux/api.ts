@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery, retry } from '@reduxjs/toolkit/query/react';
 import { IRes } from 'server/interfaces';
-import { createAuthHeaders } from './api/utils';
+import { createAuthHeaders, handleSessionTimeout } from './api/utils';
 
 export interface postReqData {
     path: string;
@@ -16,10 +16,10 @@ const baseQueryWithErrorHandling = async (args: any, api: any, extraOptions: any
 
     // Обработка ошибок 401 (Unauthorized)
     if (result.error && 'status' in result.error && result.error.status === 401) {
-        // Показываем alert только если это не запрос /auth/me (чтобы не спамить при отсутствии токена)
+        // Перенаправляем на логин только если это не запрос /auth/me (чтобы не спамить при отсутствии токена)
         const url = typeof args === 'string' ? args : args?.url || '';
         if (!url.includes('/auth/me')) {
-            alert('Ошибка авторизации: сессия истекла. Пожалуйста, войдите заново.');
+            handleSessionTimeout();
         }
     }
 

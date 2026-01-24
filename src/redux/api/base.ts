@@ -1,6 +1,6 @@
 // Базовые типы и конфигурация для Redux API
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { createAuthHeaders } from './utils';
+import { createAuthHeaders, handleSessionTimeout } from './utils';
 
 // URL API сервера
 export const API_BASE_URL = 'http://localhost:4000/api/media';
@@ -174,10 +174,10 @@ const baseQueryWithErrorHandling = async (args: any, api: any, extraOptions: any
 
     // Обработка ошибок 401 (Unauthorized)
     if (result.error && 'status' in result.error && result.error.status === 401) {
-        // Показываем alert только если это не запрос /auth/me (чтобы не спамить при отсутствии токена)
+        // Перенаправляем на логин только если это не запрос /auth/me (чтобы не спамить при отсутствии токена)
         const url = typeof args === 'string' ? args : args?.url || '';
         if (!url.includes('/auth/me')) {
-            alert('Ошибка авторизации: сессия истекла. Пожалуйста, войдите заново.');
+            handleSessionTimeout();
         }
     }
 

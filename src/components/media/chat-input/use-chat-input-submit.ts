@@ -9,6 +9,7 @@ import { useUploadToImgbbMutation } from '@/redux/media-api';
 import type { AttachedFile } from './use-chat-input-files';
 import { savePrompt } from '@/lib/saved-prompts';
 import type { ModelConfig } from '@/lib/model-config';
+import { handleSessionTimeout } from '@/redux/api/utils';
 
 interface UseChatInputSubmitParams {
     chatId: number;
@@ -389,6 +390,33 @@ export function useChatInputSubmit({
                 setIsSubmitting(false);
             } catch (error) {
                 console.error('[ChatInput] ❌ Ошибка генерации:', error);
+                
+                // Проверяем, является ли ошибка ошибкой авторизации
+                const isAuthError =
+                    (error &&
+                        typeof error === 'object' &&
+                        'status' in error &&
+                        error.status === 401) ||
+                    (error &&
+                        typeof error === 'object' &&
+                        'data' in error &&
+                        error.data &&
+                        typeof error.data === 'object' &&
+                        'error' in error.data &&
+                        typeof error.data.error === 'string' &&
+                        (error.data.error.includes('No token provided') ||
+                            error.data.error.includes('token') ||
+                            error.data.error.includes('авторизац')));
+                
+                if (isAuthError) {
+                    // При ошибке авторизации сразу перенаправляем на логин
+                    handleSessionTimeout();
+                    // Сбрасываем флаги
+                    submitInProgressRef.current = false;
+                    setIsSubmitting(false);
+                    return;
+                }
+                
                 const errorMessage =
                     error &&
                     typeof error === 'object' &&
