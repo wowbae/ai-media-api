@@ -337,17 +337,44 @@ export function createKieAiSeedreamProvider(
       try {
         const resultData = JSON.parse(taskData.resultJson);
         if (resultData.resultUrls && Array.isArray(resultData.resultUrls)) {
-          resultUrls = resultData.resultUrls;
+          resultUrls = resultData.resultUrls.filter(
+            (url: unknown) => typeof url === "string" && url.length > 0
+          );
         } else if (resultData.resultUrl) {
           // На случай, если в ответе одиночный URL
-          resultUrls = [resultData.resultUrl];
+          if (typeof resultData.resultUrl === "string" && resultData.resultUrl.length > 0) {
+            resultUrls = [resultData.resultUrl];
+          }
+        }
+
+        // Дополнительная проверка: если resultUrls пустой, но есть другие поля
+        if (resultUrls.length === 0 && resultData) {
+          console.warn(
+            "[Kie.ai Seedream 4.5] Статус success, но resultUrls пустой:",
+            {
+              taskId: taskData.taskId,
+              resultJsonKeys: Object.keys(resultData),
+              resultJson: taskData.resultJson.substring(0, 200),
+            },
+          );
         }
       } catch (error) {
         console.error(
           "[Kie.ai Seedream 4.5] Ошибка парсинга resultJson:",
-          error,
+          {
+            error: error instanceof Error ? error.message : error,
+            resultJson: taskData.resultJson?.substring(0, 200),
+          },
         );
       }
+    } else if (state === "success" && !taskData.resultJson) {
+      console.warn(
+        "[Kie.ai Seedream 4.5] Статус success, но resultJson отсутствует:",
+        {
+          taskId: taskData.taskId,
+          taskDataKeys: Object.keys(taskData),
+        },
+      );
     }
 
     // Формируем сообщение об ошибке
@@ -388,7 +415,25 @@ export function createKieAiSeedreamProvider(
     async checkTaskStatus(taskId: string): Promise<TaskStatusResult> {
       const result = await getTaskResultFromAPI(taskId);
 
-      const mappedStatus = KIEAI_STATUS_MAP[result.status] || "pending";
+      let mappedStatus = KIEAI_STATUS_MAP[result.status] || "pending";
+
+      // Если статус success, но resultUrls пустой - задача еще не готова
+      if (result.status === "success") {
+        if (!result.resultUrls || result.resultUrls.length === 0) {
+          console.warn(
+            "[Kie.ai Seedream 4.5] Статус success, но resultUrls пустой - продолжаем ожидание:",
+            {
+              taskId,
+              status: result.status,
+            },
+          );
+          // Возвращаем processing вместо done, чтобы продолжить polling
+          mappedStatus = "processing";
+        } else {
+          // Статус success и есть resultUrls - задача готова
+          mappedStatus = "done";
+        }
+      }
 
       // Логируем статус
       if (result.status === "fail") {
@@ -404,6 +449,7 @@ export function createKieAiSeedreamProvider(
           status: result.status,
           mappedStatus,
           resultUrlsCount: result.resultUrls?.length || 0,
+          hasUrls: !!(result.resultUrls && result.resultUrls.length > 0),
         });
       }
 
@@ -442,21 +488,50 @@ export function createKieAiSeedreamProvider(
         console.log(
           `[Kie.ai Seedream 4.5] Скачивание файла ${i + 1}/${result.resultUrls.length}: ${url}`,
         );
-        const savedFile = await saveFileFromUrl(url);
-        files.push(savedFile);
-        console.log(
-          `[Kie.ai Seedream 4.5] Файл ${i + 1} сохранён: ${savedFile.filename}`,
-        );
+
+        try {
+          const savedFile = await saveFileFromUrl(url);
+          files.push(savedFile);
+          console.log(
+            `[Kie.ai Seedream 4.5] ✅ Файл ${i + 1} сохранён: ${savedFile.filename}`,
+            {
+              path: savedFile.path,
+              url: savedFile.url,
+              size: savedFile.size,
+            },
+          );
+        } catch (downloadError) {
+          const errorMessage =
+            downloadError instanceof Error
+              ? downloadError.message
+              : "Unknown error";
+          console.error(
+            `[Kie.ai Seedream 4.5] ❌ Ошибка скачивания файла ${i + 1}/${result.resultUrls.length}:`,
+            {
+              url,
+              error: errorMessage,
+            },
+          );
+          // Продолжаем скачивание остальных файлов, но выбрасываем ошибку в конце если нет файлов
+        }
       }
 
       if (files.length === 0) {
+        // Если не удалось скачать ни одного файла, но resultUrls были - это ошибка
         throw new Error(
-          `Не удалось получить результат задачи Kie.ai Seedream 4.5: taskId=${taskId}`,
+          `Не удалось скачать ни одного файла из ${result.resultUrls.length} результатов: taskId=${taskId}`,
+        );
+      }
+
+      // Если скачали не все файлы, предупреждаем, но возвращаем то, что есть
+      if (files.length < result.resultUrls.length) {
+        console.warn(
+          `[Kie.ai Seedream 4.5] ⚠️ Скачано только ${files.length} из ${result.resultUrls.length} файлов: taskId=${taskId}`,
         );
       }
 
       console.log(
-        `[Kie.ai Seedream 4.5] Файлы сохранены: ${files.length} файлов`,
+        `[Kie.ai Seedream 4.5] ✅ Файлы сохранены: ${files.length} из ${result.resultUrls.length} файлов`,
       );
 
       return files;
