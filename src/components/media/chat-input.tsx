@@ -29,11 +29,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import {
-    loadMediaSettings,
-    saveMediaSettings,
-    type MediaSettings,
-} from '@/lib/media-settings';
 import { loadLockButtonState, saveLockButtonState } from '@/lib/saved-prompts';
 import { createLoadingEffectForAttachFile } from '@/lib/media-utils';
 import { ModelSelector } from './model-selector';
@@ -48,7 +43,7 @@ import { useModelType } from '@/hooks/use-model-type';
 import { useChatInputFiles } from './chat-input/use-chat-input-files';
 import { useChatInputSubmit } from './chat-input/use-chat-input-submit';
 import { ModelSettingsPanel } from './chat-input/model-settings';
-import { getModelSettingsConfig } from './chat-input/model-settings-config';
+import { useModelSettings } from './chat-input/use-model-settings';
 
 // Props для компонента ввода чата
 export interface ChatInputProps {
@@ -94,41 +89,26 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         ref
     ) {
         const [prompt, setPrompt] = useState('');
-        const [format, setFormat] = useState<
-            | '1:1'
-            | '4:3'
-            | '3:4'
-            | '9:16'
-            | '16:9'
-            | '2:3'
-            | '3:2'
-            | '21:9'
-            | undefined
-        >(undefined);
-        const [quality, setQuality] = useState<'1k' | '2k' | '4k' | undefined>(
-            undefined
-        );
-        const [duration, setDuration] = useState<5 | 10 | undefined>(undefined);
-        const [veoGenerationType, setVeoGenerationType] = useState<
-            | 'TEXT_2_VIDEO'
-            | 'FIRST_AND_LAST_FRAMES_2_VIDEO'
-            | 'REFERENCE_2_VIDEO'
-            | 'EXTEND_VIDEO'
-            | undefined
-        >(undefined);
-        const [sound, setSound] = useState<boolean | undefined>(undefined);
-        const [negativePrompt, setNegativePrompt] = useState<string>('');
-        const [seed, setSeed] = useState<string | number | undefined>(
-            undefined
-        );
-        const [cfgScale, setCfgScale] = useState<number | undefined>(undefined);
-        // Параметры для ElevenLabs Multilingual v2
-        const [voice, setVoice] = useState<string>('Rachel');
-        const [stability, setStability] = useState<number>(0.5);
-        const [similarityBoost, setSimilarityBoost] = useState<number>(0.75);
-        const [speed, setSpeed] = useState<number>(1);
-        const [languageCode, setLanguageCode] = useState<string>('');
         const [isLockEnabled, setIsLockEnabled] = useState(false);
+        
+        // Используем хук для управления настройками модели
+        const {
+            settings,
+            setFormat,
+            setQuality,
+            setDuration,
+            setSound,
+            setVeoGenerationType,
+            setNegativePrompt,
+            setSeed,
+            setCfgScale,
+            setVoice,
+            setStability,
+            setSimilarityBoost,
+            setSpeed,
+            setLanguageCode,
+            resetModelSpecificSettings,
+        } = useModelSettings(currentModel);
 
         // Список доступных голосов для ElevenLabs
         const elevenLabsVoices = [
@@ -169,6 +149,23 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
         // Используем хук для получения всех флагов модели
         const modelType = useModelType(currentModel);
+        
+        // Деструктурируем настройки для удобства
+        const {
+            format,
+            quality,
+            duration,
+            sound,
+            veoGenerationType,
+            negativePrompt,
+            seed,
+            cfgScale,
+            voice,
+            stability,
+            similarityBoost,
+            speed,
+            languageCode,
+        } = settings;
 
         // Хуки для работы с файлами и отправкой
         const {
@@ -355,97 +352,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             },
         }));
 
-        // Загружаем настройки из localStorage при монтировании компонента
+        // Загружаем состояние кнопки замочка при монтировании
         useEffect(() => {
-            const settings = loadMediaSettings();
-            const config = getModelSettingsConfig(currentModel);
-
-            // Загружаем format (универсальный для всех моделей)
-            if (settings.format) {
-                setFormat(settings.format);
-            } else if (modelType.isVeo && settings.videoFormat) {
-                // Для Veo используем videoFormat из старых настроек
-                setFormat(settings.videoFormat);
-            } else if (
-                (modelType.isKling || modelType.isKling25) &&
-                settings.klingAspectRatio
-            ) {
-                // Для Kling используем klingAspectRatio из старых настроек
-                setFormat(settings.klingAspectRatio);
-            } else if (config.format?.defaultValue) {
-                setFormat(config.format.defaultValue);
-            }
-
-            // Загружаем quality
-            if (settings.quality) {
-                setQuality(settings.quality);
-            } else if (config.quality?.defaultValue) {
-                setQuality(config.quality.defaultValue);
-            }
-
-            // Загружаем veoGenerationType
-            if (modelType.isVeo && settings.veoGenerationType) {
-                setVeoGenerationType(settings.veoGenerationType);
-            } else if (config.generationType?.defaultValue) {
-                setVeoGenerationType(config.generationType.defaultValue);
-            }
-
-            // Загружаем duration (только для Kling)
-            if (settings.klingDuration) {
-                setDuration(settings.klingDuration);
-            } else if (config.duration?.defaultValue) {
-                setDuration(config.duration.defaultValue);
-            }
-
-            // Загружаем sound (только для Kling)
-            if (settings.klingSound !== undefined) {
-                setSound(settings.klingSound);
-            } else if (config.sound?.defaultValue !== undefined) {
-                setSound(config.sound.defaultValue);
-            }
-
-            // Загружаем состояние кнопки замочка
             const lockState = loadLockButtonState();
             setIsLockEnabled(lockState);
-        }, [currentModel]);
-
-        // Сохраняем настройки при изменении (используем ref для предотвращения сохранения при первой загрузке)
-        const isInitialMount = useRef(true);
-        useEffect(() => {
-            // Пропускаем сохранение при первой загрузке
-            if (isInitialMount.current) {
-                isInitialMount.current = false;
-                return;
-            }
-
-            // Сохраняем настройки в зависимости от модели
-            if (modelType.isVeo) {
-                // Для Veo сохраняем в videoFormat
-                saveMediaSettings({
-                    videoFormat:
-                        format && format !== '1:1'
-                            ? (format as '16:9' | '9:16')
-                            : undefined,
-                    veoGenerationType,
-                } as MediaSettings);
-            } else if (modelType.isKling || modelType.isKling25) {
-                // Для Kling сохраняем в klingAspectRatio, klingDuration, klingSound (только для Kling 2.6)
-                saveMediaSettings({
-                    klingAspectRatio:
-                        format && format !== '1:1'
-                            ? (format as '16:9' | '9:16')
-                            : undefined,
-                    klingDuration: duration,
-                    klingSound: modelType.isKling ? sound : undefined,
-                });
-            } else {
-                // Для остальных моделей сохраняем в format и quality
-                saveMediaSettings({
-                    format: format as MediaSettings['format'],
-                    quality,
-                });
-            }
-        }, [format, quality, duration, sound, veoGenerationType, modelType]);
+        }, []);
 
         // Очистка URL.createObjectURL при размонтировании компонента для предотвращения утечек памяти
         useEffect(() => {
@@ -521,16 +432,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     isLockEnabled,
                     onClearForm: () => {
                         setPrompt('');
-                        if (modelType.isVeo || modelType.isImagen4) {
-                            setSeed(undefined);
-                        }
-                        if (modelType.isImagen4) {
-                            setNegativePrompt('');
-                        }
-                        if (modelType.isKling25) {
-                            setNegativePrompt('');
-                            setCfgScale(undefined);
-                        }
+                        resetModelSpecificSettings();
                         clearFiles();
                     },
                 });

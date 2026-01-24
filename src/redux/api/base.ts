@@ -1,5 +1,6 @@
 // Базовые типы и конфигурация для Redux API
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createAuthHeaders } from './utils';
 
 // URL API сервера
 export const API_BASE_URL = 'http://localhost:4000/api/media';
@@ -168,13 +169,7 @@ export const baseApi = createApi({
     reducerPath: 'mediaApi',
     baseQuery: fetchBaseQuery({
         baseUrl: API_BASE_URL,
-        prepareHeaders: (headers, { getState }) => {
-            const token = (getState() as any).auth.token;
-            if (token) {
-                headers.set('authorization', `Bearer ${token}`);
-            }
-            return headers;
-        },
+        prepareHeaders: createAuthHeaders,
     }),
     tagTypes: ['Chat', 'Request', 'File', 'Model'],
     // Настройки для оптимистичного обновления

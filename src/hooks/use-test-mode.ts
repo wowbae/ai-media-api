@@ -18,6 +18,8 @@ export function useTestMode(): UseTestModeReturn {
     }, []);
 
     // Слушаем изменения в localStorage (для синхронизации между вкладками)
+    // Storage event срабатывает только при изменении из другой вкладки
+    // Для синхронизации в той же вкладке используем кастомное событие
     useEffect(() => {
         function handleStorageChange(e: StorageEvent) {
             if (e.key === 'ai-media-test-mode') {
@@ -25,29 +27,26 @@ export function useTestMode(): UseTestModeReturn {
             }
         }
 
+        // Кастомное событие для синхронизации в той же вкладке
+        function handleCustomStorageChange() {
+            setIsTestMode(loadTestMode());
+        }
+
         window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
-    }, []);
-
-    // Периодическая проверка для синхронизации в той же вкладке
-    // Увеличен интервал с 1 до 3 секунд для снижения нагрузки на память
-    useEffect(() => {
-        const interval = setInterval(() => {
-            const currentTestMode = loadTestMode();
-            setIsTestMode((prev) => {
-                if (prev !== currentTestMode) {
-                    return currentTestMode;
-                }
-                return prev;
-            });
-        }, 7000); // Увеличено с 1000ms до 7000ms для экономии ресурсов
-
-        return () => clearInterval(interval);
+        // Слушаем кастомное событие для синхронизации в той же вкладке
+        window.addEventListener('test-mode-changed', handleCustomStorageChange);
+        
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('test-mode-changed', handleCustomStorageChange);
+        };
     }, []);
 
     function setTestMode(enabled: boolean) {
         saveTestMode(enabled);
         setIsTestMode(enabled);
+        // Отправляем кастомное событие для синхронизации в той же вкладке
+        window.dispatchEvent(new Event('test-mode-changed'));
     }
 
     function toggleTestMode() {

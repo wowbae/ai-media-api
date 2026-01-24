@@ -475,3 +475,162 @@ export async function uploadMultipleToImgbb(
 export function isImgbbConfigured(): boolean {
     return getImgbbApiKeys().length > 0;
 }
+
+/**
+ * Загружает изображения на imgbb и обрабатывает превью
+ * @param files - массив файлов для обработки
+ * @param requestId - ID запроса для логирования
+ * @param prompt - промпт для логирования
+ * @returns обработанные файлы с URL на imgbb
+ */
+export async function uploadImageFilesToImgbb(
+    files: Array<{
+        filename: string;
+        path: string | null;
+        url: string | null;
+        previewPath: string | null;
+        previewUrl: string | null;
+        size: number | null;
+        type: string;
+        width?: number;
+        height?: number;
+    }>,
+    requestId: number,
+    prompt: string
+): Promise<Array<{
+    filename: string;
+    path: string | null;
+    url: string | null;
+    previewPath: string | null;
+    previewUrl: string | null;
+    size: number | null;
+    type: string;
+    width?: number;
+    height?: number;
+}>> {
+    // Фильтруем только изображения без URL
+    const imageFilesWithoutUrl = files.filter(
+        (file) => file.type === "IMAGE" && !file.url && file.path
+    );
+
+    if (imageFilesWithoutUrl.length === 0) {
+        return files;
+    }
+
+    console.log(
+        `[MediaService] 🔄 Загрузка ${imageFilesWithoutUrl.length} изображений на imgbb...`
+    );
+
+    try {
+        const { readFile, unlink } = await import("fs/promises");
+        const { existsSync } = await import("fs");
+        const { join } = await import("path");
+        const { mediaStorageConfig } = await import("./config");
+
+        if (!isImgbbConfigured()) {
+            return files;
+        }
+
+        // 1. Upload Main Files
+        const fileBuffers = await Promise.all(
+            imageFilesWithoutUrl.map(async (file) => {
+                if (!file.path) return Buffer.from([]);
+                const absolutePath = join(
+                    process.cwd(),
+                    mediaStorageConfig.basePath,
+                    file.path
+                );
+                return readFile(absolutePath);
+            })
+        );
+
+        const urls = await uploadMultipleToImgbb(fileBuffers);
+
+        // 2. Upload Previews & Update Files
+        let urlIndex = 0;
+        const processedFiles = await Promise.all(
+            files.map(async (file) => {
+                if (file.type === "IMAGE" && !file.url && file.path) {
+                    const url = urls[urlIndex++] || null;
+                    let previewUrl = file.previewUrl || null;
+
+                    // Upload preview if exists and not yet uploaded
+                    if (file.previewPath && !previewUrl) {
+                        try {
+                            const absolutePreviewPath = join(
+                                process.cwd(),
+                                mediaStorageConfig.basePath,
+                                file.previewPath
+                            );
+                            if (existsSync(absolutePreviewPath)) {
+                                const previewBuffer = await readFile(
+                                    absolutePreviewPath
+                                );
+                                // Используем display_url для превью (сжатая версия для быстрой загрузки)
+                                previewUrl = await uploadToImgbb(
+                                    previewBuffer,
+                                    0,
+                                    true
+                                );
+                            }
+                        } catch (e) {
+                            console.error(
+                                `[MediaService] Failed to upload preview for ${file.filename}:`,
+                                e
+                            );
+                        }
+                    }
+
+                    // Zero-Storage Cleanup (if successful upload and Prod)
+                    if (url && process.env.NODE_ENV === "production") {
+                        try {
+                            const absolutePath = join(
+                                process.cwd(),
+                                mediaStorageConfig.basePath,
+                                file.path
+                            );
+                            await unlink(absolutePath);
+                            if (file.previewPath) {
+                                const absolutePreviewPath = join(
+                                    process.cwd(),
+                                    mediaStorageConfig.basePath,
+                                    file.previewPath
+                                );
+                                if (existsSync(absolutePreviewPath))
+                                    await unlink(absolutePreviewPath);
+                            }
+                            // Return file with null paths
+                            return {
+                                ...file,
+                                url,
+                                previewUrl,
+                                path: null,
+                                previewPath: null,
+                            };
+                        } catch (e) {
+                            console.error(
+                                `[MediaService] Failed to cleanup local file ${file.filename}:`,
+                                e
+                            );
+                        }
+                    }
+
+                    return { ...file, url, previewUrl };
+                }
+                return file;
+            })
+        );
+
+        console.log(
+            `[MediaService] ✅ Загружено на imgbb: ${urls.length} изображений`
+        );
+
+        return processedFiles;
+    } catch (error) {
+        console.error(
+            "[MediaService] ❌ Ошибка загрузки изображений на imgbb (продолжаем с локальными файлами):",
+            error
+        );
+        return files; // Возвращаем оригинальные файлы при ошибке
+    }
+}
