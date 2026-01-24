@@ -592,7 +592,15 @@ function MediaChatPage() {
         filename: string,
         imgbbUrl?: string
     ) {
-        await chatInputRef.current?.addFileFromUrl(fileUrl, filename, imgbbUrl);
+        try {
+            await chatInputRef.current?.addFileFromUrl(fileUrl, filename, imgbbUrl);
+        } catch (error) {
+            console.error('[Chat] Ошибка при прикреплении файла:', error);
+            const errorMessage = error instanceof Error 
+                ? error.message 
+                : 'Неизвестная ошибка при прикреплении файла';
+            alert(`Ошибка при прикреплении файла: ${errorMessage}`);
+        }
     }
 
     // Обработчик повторения запроса (теперь просто заполняет форму)

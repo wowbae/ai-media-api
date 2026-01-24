@@ -448,6 +448,7 @@ export function MediaGallery({
                                                                 : file.url;
                                                             if (!fileUrl) {
                                                                 console.warn('[MediaGallery] Нет file.path и file.url');
+                                                                alert('Ошибка: у файла отсутствует путь или URL. Невозможно прикрепить файл.');
                                                                 return;
                                                             }
                                                             loadingEffectForAttachFile();
@@ -588,6 +589,7 @@ export function MediaGallery({
                                                                 : file.url;
                                                             if (!fileUrl) {
                                                                 console.warn('[MediaGallery] Нет file.path и file.url');
+                                                                alert('Ошибка: у файла отсутствует путь или URL. Невозможно прикрепить файл.');
                                                                 return;
                                                             }
                                                             loadingEffectForAttachFile();
@@ -726,6 +728,7 @@ export function MediaGallery({
                                                                 : file.url;
                                                             if (!fileUrl) {
                                                                 console.warn('[MediaGallery] Нет file.path и file.url');
+                                                                alert('Ошибка: у файла отсутствует путь или URL. Невозможно прикрепить файл.');
                                                                 return;
                                                             }
                                                             loadingEffectForAttachFile();

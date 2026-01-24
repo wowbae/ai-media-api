@@ -329,12 +329,20 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 if (request.inputFiles && request.inputFiles.length > 0) {
                     const { getMediaFileUrl } = await import('@/lib/constants');
                     for (const filePath of request.inputFiles) {
-                        // Если это URL (начинается с http), используем как есть, иначе через getMediaFileUrl
-                        const url = filePath.startsWith('http')
-                            ? filePath
-                            : getMediaFileUrl(filePath);
-                        const filename = filePath.split('/').pop() || 'file';
-                        await addFileFromUrl(url, filename);
+                        try {
+                            // Если это URL (начинается с http), используем как есть, иначе через getMediaFileUrl
+                            const url = filePath.startsWith('http')
+                                ? filePath
+                                : getMediaFileUrl(filePath);
+                            const filename = filePath.split('/').pop() || 'file';
+                            await addFileFromUrl(url, filename);
+                        } catch (error) {
+                            console.error('[ChatInput] Ошибка при прикреплении файла из запроса:', error);
+                            const errorMessage = error instanceof Error 
+                                ? error.message 
+                                : 'Неизвестная ошибка при прикреплении файла';
+                            alert(`Ошибка при прикреплении файла "${filePath}": ${errorMessage}`);
+                        }
                     }
                 }
 

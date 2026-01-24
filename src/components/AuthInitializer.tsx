@@ -9,9 +9,18 @@ export function AuthInitializer() {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
     // Загружаем пользователя только если есть токен
-    const { data: user, isSuccess } = useGetMeQuery(undefined, {
+    const { data: user, isSuccess, error } = useGetMeQuery(undefined, {
         skip: !token, // Пропускаем запрос если нет токена
     });
+
+    // Обработка ошибок авторизации
+    useEffect(() => {
+        if (error && 'status' in error && error.status === 401) {
+            // Очищаем невалидный токен
+            localStorage.removeItem('token');
+            alert('Ошибка авторизации: сессия истекла. Пожалуйста, войдите заново.');
+        }
+    }, [error]);
 
     useEffect(() => {
         if (isSuccess && user && token) {

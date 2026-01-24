@@ -330,6 +330,7 @@ export function MessageItem({
                                                                         console.warn(
                                                                             '[MessageItem] Нет file.path и file.url'
                                                                         );
+                                                                        alert('Ошибка: у файла отсутствует путь или URL. Невозможно прикрепить файл.');
                                                                         return;
                                                                     }
                                                                     loadingEffectForAttachFile();

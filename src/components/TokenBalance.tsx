@@ -8,10 +8,19 @@ export const TokenBalance = () => {
     const user: User | null = useSelector(selectCurrentUser);
     // Poll for balance updates occasionally or rely on manual invalidation?
     // useGetMeQuery can run in background.
-    const { data: me } = useGetMeQuery(undefined, {
+    const { data: me, error } = useGetMeQuery(undefined, {
         pollingInterval: 30000,
         skip: !user,
     });
+
+    // Обработка ошибок авторизации
+    React.useEffect(() => {
+        if (error && 'status' in error && error.status === 401) {
+            // Очищаем невалидный токен
+            localStorage.removeItem('token');
+            alert('Ошибка авторизации: сессия истекла. Пожалуйста, войдите заново.');
+        }
+    }, [error]);
 
     // Use latest balance from API user object if available, else from slice
     const balance: number = me?.balance ?? user?.balance ?? 0;

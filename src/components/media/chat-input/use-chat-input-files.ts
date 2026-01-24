@@ -121,6 +121,10 @@ export function useChatInputFiles(chatId?: number) {
                         '[ChatInput] ❌ Ошибка загрузки изображений на imgbb:',
                         error
                     );
+                    const errorMessage = error instanceof Error 
+                        ? error.message 
+                        : 'Неизвестная ошибка при загрузке изображений';
+                    alert(`Ошибка при загрузке изображений: ${errorMessage}`);
                     // Не прерываем процесс, просто не будет imgbbUrl
                     // Файлы можно будет использовать с base64 (fallback)
                 }
@@ -166,6 +170,10 @@ export function useChatInputFiles(chatId?: number) {
                     }
                 } catch (error) {
                     console.error('[ChatInput] ❌ Ошибка сохранения файлов в БД:', error);
+                    const errorMessage = error instanceof Error 
+                        ? error.message 
+                        : 'Неизвестная ошибка при сохранении файлов';
+                    alert(`Ошибка при сохранении файлов: ${errorMessage}`);
                 }
             }
 
@@ -193,8 +201,16 @@ export function useChatInputFiles(chatId?: number) {
             const files = event.target.files;
             if (!files) return;
 
-            const newFiles = await processFiles(Array.from(files), true); // true = upload to DB
-            setAttachedFiles((prev) => [...prev, ...newFiles]);
+            try {
+                const newFiles = await processFiles(Array.from(files), true); // true = upload to DB
+                setAttachedFiles((prev) => [...prev, ...newFiles]);
+            } catch (error) {
+                console.error('[ChatInput] Ошибка при обработке файлов:', error);
+                const errorMessage = error instanceof Error 
+                    ? error.message 
+                    : 'Неизвестная ошибка при прикреплении файлов';
+                alert(`Ошибка при прикреплении файлов: ${errorMessage}`);
+            }
 
             // Сбрасываем input
             if (event.target) {
@@ -253,7 +269,10 @@ export function useChatInputFiles(chatId?: number) {
                     '[ChatInput] Ошибка прикрепления файла:',
                     error
                 );
-                alert('Не удалось прикрепить файл');
+                const errorMessage = error instanceof Error 
+                    ? error.message 
+                    : 'Неизвестная ошибка при прикреплении файла';
+                alert(`Ошибка при прикреплении файла: ${errorMessage}`);
             }
         },
         [urlToFile, processFiles]
@@ -312,9 +331,17 @@ export function useChatInputFiles(chatId?: number) {
             const files = Array.from(event.dataTransfer.files);
             if (files.length === 0) return;
 
-            const newFiles = await processFiles(files, true); // true = upload to DB
-            if (newFiles.length > 0) {
-                setAttachedFiles((prev) => [...prev, ...newFiles]);
+            try {
+                const newFiles = await processFiles(files, true); // true = upload to DB
+                if (newFiles.length > 0) {
+                    setAttachedFiles((prev) => [...prev, ...newFiles]);
+                }
+            } catch (error) {
+                console.error('[ChatInput] Ошибка при обработке файлов (drag-and-drop):', error);
+                const errorMessage = error instanceof Error 
+                    ? error.message 
+                    : 'Неизвестная ошибка при прикреплении файлов';
+                alert(`Ошибка при прикреплении файлов: ${errorMessage}`);
             }
         },
         [processFiles]
@@ -346,9 +373,17 @@ export function useChatInputFiles(chatId?: number) {
             // Предотвращаем вставку текста, если есть файлы
             event.preventDefault();
 
-            const newFiles = await processFiles(files, true); // true = upload to DB
-            if (newFiles.length > 0) {
-                setAttachedFiles((prev) => [...prev, ...newFiles]);
+            try {
+                const newFiles = await processFiles(files, true); // true = upload to DB
+                if (newFiles.length > 0) {
+                    setAttachedFiles((prev) => [...prev, ...newFiles]);
+                }
+            } catch (error) {
+                console.error('[ChatInput] Ошибка при обработке файлов (paste):', error);
+                const errorMessage = error instanceof Error 
+                    ? error.message 
+                    : 'Неизвестная ошибка при прикреплении файлов';
+                alert(`Ошибка при прикреплении файлов: ${errorMessage}`);
             }
         },
         [processFiles]

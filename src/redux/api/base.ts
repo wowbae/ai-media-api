@@ -165,12 +165,28 @@ export interface ApiResponse<T> {
 
 // ==================== Базовый API ====================
 
-export const baseApi = createApi({
-    reducerPath: 'mediaApi',
-    baseQuery: fetchBaseQuery({
+// Обертка для baseQuery с обработкой ошибок
+const baseQueryWithErrorHandling = async (args: any, api: any, extraOptions: any) => {
+    const result = await fetchBaseQuery({
         baseUrl: API_BASE_URL,
         prepareHeaders: createAuthHeaders,
-    }),
+    })(args, api, extraOptions);
+
+    // Обработка ошибок 401 (Unauthorized)
+    if (result.error && 'status' in result.error && result.error.status === 401) {
+        // Показываем alert только если это не запрос /auth/me (чтобы не спамить при отсутствии токена)
+        const url = typeof args === 'string' ? args : args?.url || '';
+        if (!url.includes('/auth/me')) {
+            alert('Ошибка авторизации: сессия истекла. Пожалуйста, войдите заново.');
+        }
+    }
+
+    return result;
+};
+
+export const baseApi = createApi({
+    reducerPath: 'mediaApi',
+    baseQuery: baseQueryWithErrorHandling,
     tagTypes: ['Chat', 'Request', 'File', 'Model'],
     // Настройки для оптимистичного обновления
     keepUnusedDataFor: 60, // Хранить неиспользуемые данные 60 секунд
