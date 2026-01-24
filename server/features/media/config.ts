@@ -26,7 +26,7 @@ export interface MediaModelConfig {
 export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
     NANO_BANANA_OPENROUTER: {
         id: 'google/gemini-3-pro-image-preview',
-        name: 'Nano Banana (OpenRouter)',
+        name: 'Nano Banana Pro',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
         promptLimit: 5000,
@@ -134,7 +134,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
     // LaoZhang провайдер
     NANO_BANANA_PRO_LAOZHANG: {
         id: 'gemini-3-pro-image-preview',
-        name: 'Nano Banana Pro (LaoZhang)',
+        name: 'Nano Banana Pro',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
         promptLimit: 5000,

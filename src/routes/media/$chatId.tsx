@@ -222,12 +222,39 @@ function MediaChatPage() {
     // Polling для отслеживания статуса генерации (только если не тестовый режим)
     // Используем actualPollingRequestId после задержки
     const shouldSkipPolling = !actualPollingRequestId || isTestMode;
-    const { data: pollingRequest } = useGetRequestQuery(actualPollingRequestId!, {
-        skip: shouldSkipPolling, // Не опрашиваем в тестовом режиме
-        pollingInterval: isTestMode ? 0 : 7000, // Опрос каждые 7 секунд
-        // Принудительно обновляем данные при каждом запросе
-        refetchOnMountOrArgChange: true,
-    });
+    
+    // Логирование для отладки
+    useEffect(() => {
+        if (actualPollingRequestId) {
+            console.log(
+                `[Chat] 🔄 useGetRequestQuery будет вызван для requestId=${actualPollingRequestId}, skip=${shouldSkipPolling}`
+            );
+        } else {
+            console.log(
+                `[Chat] ⏸️ useGetRequestQuery пропущен: actualPollingRequestId=${actualPollingRequestId}, skip=${shouldSkipPolling}`
+            );
+        }
+    }, [actualPollingRequestId, shouldSkipPolling]);
+    
+    // ВАЖНО: Отслеживаем изменения actualPollingRequestId для отладки
+    useEffect(() => {
+        console.log(
+            `[Chat] 🔍 actualPollingRequestId изменился: ${actualPollingRequestId}, pollingRequestId=${pollingRequestId}`
+        );
+    }, [actualPollingRequestId, pollingRequestId]);
+    
+    // ВАЖНО: useGetRequestQuery должен быть вызван только когда actualPollingRequestId установлен
+    // Используем условный вызов, чтобы избежать запроса с невалидным ID
+    const { data: pollingRequest } = useGetRequestQuery(
+        actualPollingRequestId || 0, // Используем 0 как fallback, но skip предотвратит запрос
+        {
+            skip: shouldSkipPolling, // Не опрашиваем в тестовом режиме или если actualPollingRequestId не установлен
+            pollingInterval: isTestMode ? 0 : 7000, // Опрос каждые 7 секунд
+            // ВАЖНО: refetchOnMountOrArgChange должен быть false, когда skip: true
+            // чтобы избежать запросов при изменении аргумента
+            refetchOnMountOrArgChange: !shouldSkipPolling && !!actualPollingRequestId,
+        }
+    );
 
     // Обработчик добавления pending-сообщения (вызывается из ChatInput перед отправкой)
     function handleAddPendingMessage(prompt: string) {
@@ -287,6 +314,9 @@ function MediaChatPage() {
             pollingDelayTimerRef.current = null;
         }
 
+        // ВАЖНО: Сбрасываем actualPollingRequestId, чтобы polling не запускался сразу
+        setActualPollingRequestId(null);
+
         // Обновляем внешнее состояние сразу (для совместимости с интерфейсом)
         setPollingRequestId(requestId);
 
@@ -295,12 +325,24 @@ function MediaChatPage() {
 
         // Устанавливаем задержку перед началом polling
         console.log(
-            `[Chat] ⏳ Ожидание ${delay / 1000} секунд перед началом polling: requestId=${requestId}, model=${currentModel}`
+            `[Chat] ⏳ Ожидание ${delay / 1000} секунд перед началом polling: requestId=${requestId}, model=${currentModel}, delay=${delay}ms`
         );
+        console.log(
+            `[Chat] 📊 Состояние перед установкой таймера: actualPollingRequestId=${actualPollingRequestId}, pollingRequestId=${pollingRequestId}, models загружены=${!!models}`
+        );
+        
+        // ВАЖНО: Убеждаемся, что actualPollingRequestId не установлен до истечения таймера
         pollingDelayTimerRef.current = setTimeout(() => {
+            console.log(
+                `[Chat] ✅ Задержка ${delay / 1000} сек завершена, запускаем polling: requestId=${requestId}`
+            );
             setActualPollingRequestId(requestId);
             pollingDelayTimerRef.current = null;
         }, delay);
+        
+        console.log(
+            `[Chat] 🔧 Таймер установлен на ${delay / 1000} секунд, actualPollingRequestId останется null до завершения таймера`
+        );
     }
 
     // Останавливаем polling при включении тестового режима
@@ -331,22 +373,25 @@ function MediaChatPage() {
     const maxPollingTime = 7 * 60 * 1000; // Максимальное время polling - 7 минут
 
     useEffect(() => {
-        if (pollingRequestId && !pollingStartTimeRef.current) {
-            // Запоминаем время начала polling
+        if (actualPollingRequestId && !pollingStartTimeRef.current) {
+            // Запоминаем время начала polling (когда actualPollingRequestId установлен после задержки)
             pollingStartTimeRef.current = Date.now();
+        } else if (!actualPollingRequestId && pollingStartTimeRef.current) {
+            // Сбрасываем время начала при остановке polling
+            pollingStartTimeRef.current = null;
         }
-    }, [pollingRequestId]);
+    }, [actualPollingRequestId]);
 
     useEffect(() => {
         if (pollingRequest) {
-            // ВАЖНО: Проверяем, что pollingRequest соответствует текущему pollingRequestId
-            // При смене pollingRequestId, pollingRequest какое-то время содержит данные старого запроса
-            if (pollingRequest.id !== pollingRequestId) {
+            // ВАЖНО: Проверяем, что pollingRequest соответствует текущему actualPollingRequestId
+            // При смене actualPollingRequestId, pollingRequest какое-то время содержит данные старого запроса
+            if (pollingRequest.id !== actualPollingRequestId) {
                 console.log(
-                    '[Chat] ⚠️ pollingRequest.id не совпадает с pollingRequestId, игнорируем:',
+                    '[Chat] ⚠️ pollingRequest.id не совпадает с actualPollingRequestId, игнорируем:',
                     {
                         pollingRequestId: pollingRequest.id,
-                        expectedId: pollingRequestId,
+                        expectedId: actualPollingRequestId,
                     }
                 );
                 return;
@@ -397,7 +442,7 @@ function MediaChatPage() {
             // Обновляем pending-сообщение, чтобы убрать лоадер и показать ошибку сразу
             setPendingMessage((prev) => {
                 if (!prev) return prev;
-                if (!pollingRequestId || prev.requestId !== pollingRequestId) {
+                if (!actualPollingRequestId || prev.requestId !== actualPollingRequestId) {
                     return prev;
                 }
 
@@ -479,7 +524,7 @@ function MediaChatPage() {
                 previousFilesCountRef.current = currentFilesCount;
             }
         }
-    }, [pollingRequest, pollingRequestId, refetch, maxPollingTime]);
+    }, [pollingRequest, actualPollingRequestId, refetch, maxPollingTime]);
 
     // Убираем pending-сообщение если реальный запрос появился
     // ВАЖНО: Этот useEffect должен быть ДО early returns для соблюдения правил хуков
@@ -581,9 +626,9 @@ function MediaChatPage() {
         // Проверяем только ID - бэкенд гарантирует корректность статусов
         if (
             pollingRequest &&
-            pollingRequestId &&
+            actualPollingRequestId &&
             request.id === pollingRequest.id &&
-            request.id === pollingRequestId
+            request.id === actualPollingRequestId
         ) {
             return pollingRequest;
         }

@@ -6,7 +6,7 @@ import {
   type TaskStatusResult,
 } from "./providers";
 import type { SavedFileInfo } from "./file.service";
-import { saveFilesToDatabase } from "./database.service";
+import { saveFilesToDatabase, sendFilesToTelegram, updateFileUrlsInDatabase } from "./database.service";
 import { uploadImageFilesToImgbb } from "./imgbb.service";
 import { formatErrorMessage } from "./error-utils";
 
@@ -186,15 +186,39 @@ export async function pollTaskResult(
           );
         }
 
-        // Загружаем изображения на imgbb
-        const processedFiles = await uploadImageFilesToImgbb(
-          savedFiles,
-          requestId,
-          prompt
-        );
+        // Сохраняем файлы в БД (с локальными путями)
+        const savedMediaFiles = await saveFilesToDatabase(requestId, savedFiles, prompt);
 
-        // Сохраняем файлы в БД
-        await saveFilesToDatabase(requestId, processedFiles, prompt);
+        // Отправляем в Telegram (используя локальные пути)
+        await sendFilesToTelegram(requestId, savedMediaFiles, prompt);
+
+        // Пытаемся загрузить изображения на imgbb (если ошибка - не критично)
+        try {
+          const processedFiles = await uploadImageFilesToImgbb(
+            savedFiles,
+            requestId,
+            prompt
+          );
+          
+          // Обновляем URL в БД после успешной загрузки на imgbb
+          const filesToUpdate = processedFiles
+            .filter((file) => file.url && file.type === "IMAGE")
+            .map((file) => ({
+              filename: file.filename,
+              url: file.url,
+              previewUrl: file.previewUrl || null,
+            }));
+          
+          if (filesToUpdate.length > 0) {
+            await updateFileUrlsInDatabase(requestId, filesToUpdate);
+          }
+        } catch (imgbbError) {
+          console.error(
+            `[MediaService] ⚠️ Ошибка загрузки на imgbb (продолжаем без imgbb URL): requestId=${requestId}:`,
+            imgbbError instanceof Error ? imgbbError.message : imgbbError
+          );
+          // Не прерываем выполнение, просто логируем ошибку
+        }
 
         await new Promise((resolve) => setTimeout(resolve, 200));
 
@@ -211,7 +235,7 @@ export async function pollTaskResult(
         activePollingTasks.delete(requestId);
 
         console.log(
-          `[MediaService] ✅ Async генерация завершена: requestId=${requestId}, файлов: ${processedFiles.length}`,
+          `[MediaService] ✅ Async генерация завершена: requestId=${requestId}, файлов: ${savedFiles.length}`,
         );
         return;
       }
@@ -223,7 +247,7 @@ export async function pollTaskResult(
 
         const formattedErrorMessage = formatErrorMessage(
           baseErrorMessage,
-          requestModel,
+          requestModel as MediaModel | null,
           provider.name,
         );
 
@@ -307,7 +331,7 @@ export async function pollTaskResult(
       const taskInfo = activePollingTasks.get(requestId);
       const formattedErrorMessage = formatErrorMessage(
         baseErrorMessage,
-        requestModelForError || taskInfo?.model || null,
+        (requestModelForError || taskInfo?.model || null) as MediaModel | null,
         taskInfo?.providerName,
       );
 
@@ -361,12 +385,40 @@ export async function pollTaskResult(
             );
             try {
               const savedFiles = await provider.getTaskResult(taskInfo.taskId);
-              const processedFiles = await uploadImageFilesToImgbb(
-                savedFiles,
-                requestId,
-                request.prompt
-              );
-              await saveFilesToDatabase(requestId, processedFiles, request.prompt);
+              
+              // Сохраняем файлы в БД (с локальными путями)
+              const savedMediaFiles = await saveFilesToDatabase(requestId, savedFiles, request.prompt);
+
+              // Отправляем в Telegram (используя локальные пути)
+              await sendFilesToTelegram(requestId, savedMediaFiles, request.prompt);
+
+              // Пытаемся загрузить изображения на imgbb (если ошибка - не критично)
+              try {
+                const processedFiles = await uploadImageFilesToImgbb(
+                  savedFiles,
+                  requestId,
+                  request.prompt
+                );
+                
+                // Обновляем URL в БД после успешной загрузки на imgbb
+                const filesToUpdate = processedFiles
+                  .filter((file) => file.url && file.type === "IMAGE")
+                  .map((file) => ({
+                    filename: file.filename,
+                    url: file.url,
+                    previewUrl: file.previewUrl || null,
+                  }));
+                
+                if (filesToUpdate.length > 0) {
+                  await updateFileUrlsInDatabase(requestId, filesToUpdate);
+                }
+              } catch (imgbbError) {
+                console.error(
+                  `[MediaService] ⚠️ Ошибка загрузки на imgbb (продолжаем без imgbb URL): requestId=${requestId}:`,
+                  imgbbError instanceof Error ? imgbbError.message : imgbbError
+                );
+                // Не прерываем выполнение, просто логируем ошибку
+              }
 
               await prisma.mediaRequest.update({
                 where: { id: requestId },
@@ -414,7 +466,7 @@ export async function pollTaskResult(
   const taskInfo = activePollingTasks.get(requestId);
   const formattedErrorMessage = formatErrorMessage(
     "Превышено время ожидания генерации",
-    requestModel || taskInfo?.model || null,
+    (requestModel || taskInfo?.model || null) as MediaModel | null,
     taskInfo?.providerName,
   );
 

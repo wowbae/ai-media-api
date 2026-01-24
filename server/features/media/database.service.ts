@@ -7,12 +7,12 @@ import { existsSync } from "fs";
 import path from "path";
 import { mediaStorageConfig } from "./config";
 
-// Сохранение файлов в БД и отправка уведомлений
+// Сохранение файлов в БД
 export async function saveFilesToDatabase(
   requestId: number,
   savedFiles: SavedFileInfo[],
   prompt: string,
-): Promise<void> {
+): Promise<MediaFile[]> {
   const request = await prisma.mediaRequest.findUnique({
     where: { id: requestId },
     include: { chat: true },
@@ -78,19 +78,79 @@ export async function saveFilesToDatabase(
     }
   }
 
-  // Отправляем все файлы группой в Telegram (если есть файлы и чат)
-  if (request.chat && savedMediaFiles.length > 0) {
+  return savedMediaFiles;
+}
+
+// Отправка файлов в Telegram
+export async function sendFilesToTelegram(
+  requestId: number,
+  files: MediaFile[],
+  prompt: string,
+): Promise<void> {
+  if (files.length === 0) {
+    return;
+  }
+
+  const request = await prisma.mediaRequest.findUnique({
+    where: { id: requestId },
+    include: { chat: true },
+  });
+
+  if (!request) {
+    console.warn(`[MediaDatabase] Request не найден для отправки в Telegram: ${requestId}`);
+    return;
+  }
+
+  if (!request.chat) {
+    console.warn(`[MediaDatabase] Чат не найден для requestId=${requestId}`);
+    return;
+  }
+
+  try {
+    const telegramResult = await notifyTelegramGroupBatch(
+      files,
+      request.chat.name,
+      prompt,
+    );
+    console.log(
+      `[MediaDatabase] Telegram: ${telegramResult ? "отправлено группой" : "не отправлено"} (${files.length} файлов)`,
+    );
+  } catch (telegramError) {
+    console.error("[MediaDatabase] Ошибка Telegram:", telegramError);
+    // Не прерываем выполнение, просто логируем ошибку
+  }
+}
+
+// Обновление URL файлов в БД после загрузки на imgbb
+export async function updateFileUrlsInDatabase(
+  requestId: number,
+  files: Array<{
+    filename: string;
+    url: string | null;
+    previewUrl?: string | null;
+  }>,
+): Promise<void> {
+  for (const file of files) {
+    if (!file.url) {
+      continue;
+    }
+
     try {
-      const telegramResult = await notifyTelegramGroupBatch(
-        savedMediaFiles,
-        request.chat.name,
-        prompt,
+      await prisma.mediaFile.updateMany({
+        where: {
+          requestId,
+          filename: file.filename,
+        },
+        data: {
+          url: file.url,
+          ...(file.previewUrl !== undefined && { previewUrl: file.previewUrl }),
+        },
+      });
+    } catch (error) {
+      console.error(
+        `[MediaDatabase] ❌ Ошибка обновления URL для файла ${file.filename} (requestId=${requestId}):`,
+        error
       );
-      console.log(
-        `[MediaDatabase] Telegram: ${telegramResult ? "отправлено группой" : "не отправлено"} (${savedMediaFiles.length} файлов)`,
-      );
-    } catch (telegramError) {
-      console.error("[MediaDatabase] Ошибка Telegram:", telegramError);
     }
   }
 }

@@ -25,11 +25,17 @@ export function getPollingInitialDelay(
     models: ModelInfo[] | undefined
 ): number {
     if (!model || !models) {
+        console.warn(
+            `[Constants] ⚠️ getPollingInitialDelay: модель или список моделей не определены, используем задержку по умолчанию (70 сек). model=${model}, models=${models ? 'загружены' : 'не загружены'}`
+        );
         return POLLING_INITIAL_DELAY_VIDEO; // По умолчанию 70 секунд
     }
 
     const modelInfo = models.find((m) => m.key === model);
     if (!modelInfo) {
+        console.warn(
+            `[Constants] ⚠️ getPollingInitialDelay: модель ${model} не найдена в списке, используем задержку по умолчанию (70 сек)`
+        );
         return POLLING_INITIAL_DELAY_VIDEO; // По умолчанию 70 секунд
     }
 
@@ -38,9 +44,15 @@ export function getPollingInitialDelay(
         modelInfo.types.includes('IMAGE') &&
         !modelInfo.types.includes('VIDEO')
     ) {
+        console.log(
+            `[Constants] ✅ getPollingInitialDelay: модель ${model} - IMAGE, задержка 30 сек. types=${JSON.stringify(modelInfo.types)}`
+        );
         return POLLING_INITIAL_DELAY_IMAGE; // 30 секунд для изображений
     }
 
     // Для видео или смешанных типов используем большую задержку
+    console.log(
+        `[Constants] ✅ getPollingInitialDelay: модель ${model} - VIDEO или смешанный тип, задержка 70 сек. types=${JSON.stringify(modelInfo.types)}`
+    );
     return POLLING_INITIAL_DELAY_VIDEO; // 70 секунд для видео
 }

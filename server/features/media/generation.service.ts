@@ -14,7 +14,7 @@ import {
   type TaskStatusResult,
 } from "./providers";
 import type { SavedFileInfo } from "./file.service";
-import { saveFilesToDatabase } from "./database.service";
+import { saveFilesToDatabase, sendFilesToTelegram, updateFileUrlsInDatabase } from "./database.service";
 import { formatErrorMessage } from "./error-utils";
 
 // Импортируем polling сервис
@@ -130,14 +130,36 @@ export async function generateMedia(
     // Sync провайдер - файлы уже готовы
     let savedFiles = result;
 
-    // Для изображений: если провайдер вернул файлы без url, загружаем на imgbb
-    // (если они были сохранены локально через saveBase64File/saveFileFromUrl, url уже должен быть)
-    // Но проверяем и загружаем для тех, у кого url еще нет
-    const { uploadImageFilesToImgbb } = await import("./imgbb.service");
-    savedFiles = await uploadImageFilesToImgbb(savedFiles, requestId, prompt);
+    // Сохраняем файлы в БД (с локальными путями)
+    const savedMediaFiles = await saveFilesToDatabase(requestId, savedFiles, prompt);
 
-    // Сохраняем файлы в БД (с url если есть)
-    await saveFilesToDatabase(requestId, savedFiles, prompt);
+    // Отправляем в Telegram (используя локальные пути)
+    await sendFilesToTelegram(requestId, savedMediaFiles, prompt);
+
+    // Пытаемся загрузить изображения на imgbb (если ошибка - не критично)
+    try {
+      const { uploadImageFilesToImgbb } = await import("./imgbb.service");
+      const processedFiles = await uploadImageFilesToImgbb(savedFiles, requestId, prompt);
+      
+      // Обновляем URL в БД после успешной загрузки на imgbb
+      const filesToUpdate = processedFiles
+        .filter((file) => file.url && file.type === "IMAGE")
+        .map((file) => ({
+          filename: file.filename,
+          url: file.url,
+          previewUrl: file.previewUrl || null,
+        }));
+      
+          if (filesToUpdate.length > 0) {
+            await updateFileUrlsInDatabase(requestId, filesToUpdate);
+          }
+    } catch (imgbbError) {
+      console.error(
+        `[MediaService] ⚠️ Ошибка загрузки на imgbb (продолжаем без imgbb URL): requestId=${requestId}:`,
+        imgbbError instanceof Error ? imgbbError.message : imgbbError
+      );
+      // Не прерываем выполнение, просто логируем ошибку
+    }
 
     // Обновляем статус на COMPLETED
     await prisma.mediaRequest.update({
