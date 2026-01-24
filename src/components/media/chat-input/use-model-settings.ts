@@ -32,7 +32,7 @@ const DEFAULT_SETTINGS: ModelSettingsState = {
     seed: undefined,
     cfgScale: undefined,
     voice: 'Rachel',
-    stability: 0.5,
+    stability: 0.7,
     similarityBoost: 0.75,
     speed: 1,
     languageCode: '',
@@ -41,7 +41,7 @@ const DEFAULT_SETTINGS: ModelSettingsState = {
 export function useModelSettings(currentModel: MediaModel) {
     const modelType = useModelType(currentModel);
     const config = getModelSettingsConfig(currentModel);
-    
+
     const [settings, setSettings] = useState<ModelSettingsState>(DEFAULT_SETTINGS);
     const isInitialMount = useRef(true);
 
@@ -194,7 +194,7 @@ export function useModelSettings(currentModel: MediaModel) {
     // Сброс настроек для определенных моделей
     const resetModelSpecificSettings = () => {
         const updates: Partial<ModelSettingsState> = {};
-        
+
         if (modelType.isVeo || modelType.isImagen4) {
             updates.seed = undefined;
         }
@@ -205,7 +205,7 @@ export function useModelSettings(currentModel: MediaModel) {
             updates.negativePrompt = '';
             updates.cfgScale = undefined;
         }
-        
+
         if (Object.keys(updates).length > 0) {
             updateSettings(updates);
         }
