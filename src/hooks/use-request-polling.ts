@@ -1,8 +1,8 @@
 // Хук для управления polling статуса запроса генерации
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useGetRequestQuery } from '@/redux/media-api';
+import { useGetRequestQuery, useGetModelsQuery } from '@/redux/media-api';
 import type { MediaRequest } from '@/redux/media-api';
-import { POLLING_INITIAL_DELAY } from '@/lib/constants';
+import { getPollingInitialDelay } from '@/lib/constants';
 
 interface PendingMessage {
     id: string;
@@ -42,6 +42,9 @@ export function useRequestPolling({
     const [actualPollingRequestId, setActualPollingRequestId] = useState<number | null>(null);
     const pollingDelayTimerRef = useRef<NodeJS.Timeout | null>(null);
     
+    // Получаем список моделей для определения задержки
+    const { data: models } = useGetModelsQuery();
+    
     // Состояние для отслеживания предыдущих значений
     const [previousStatus, setPreviousStatus] = useState<string | null>(null);
     const [previousFilesCount, setPreviousFilesCount] = useState<number | null>(null);
@@ -65,15 +68,18 @@ export function useRequestPolling({
             return;
         }
 
+        // Определяем задержку на основе модели (если модель неизвестна, используем задержку по умолчанию)
+        const delay = getPollingInitialDelay(null, models);
+
         // Устанавливаем задержку перед началом polling
         console.log(
-            `[Chat] ⏳ Ожидание ${POLLING_INITIAL_DELAY / 1000} секунд перед началом polling: requestId=${requestId}`
+            `[Chat] ⏳ Ожидание ${delay / 1000} секунд перед началом polling: requestId=${requestId}`
         );
         pollingDelayTimerRef.current = setTimeout(() => {
             setActualPollingRequestId(requestId);
             pollingDelayTimerRef.current = null;
-        }, POLLING_INITIAL_DELAY);
-    }, []);
+        }, delay);
+    }, [models]);
 
     // Polling запрос (используем actualPollingRequestId после задержки)
     const shouldSkipPolling = !actualPollingRequestId || isTestMode;
