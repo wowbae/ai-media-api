@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGetRequestQuery } from '@/redux/media-api';
 import type { MediaRequest } from '@/redux/media-api';
+import { POLLING_INITIAL_DELAY } from '@/lib/constants';
 
 interface PendingMessage {
     id: string;
@@ -37,6 +38,9 @@ export function useRequestPolling({
     onPendingMessageUpdate,
 }: UseRequestPollingParams): UseRequestPollingReturn {
     const [pollingRequestId, setPollingRequestId] = useState<number | null>(null);
+    // Внутреннее состояние для реального polling (после задержки)
+    const [actualPollingRequestId, setActualPollingRequestId] = useState<number | null>(null);
+    const pollingDelayTimerRef = useRef<NodeJS.Timeout | null>(null);
     
     // Состояние для отслеживания предыдущих значений
     const [previousStatus, setPreviousStatus] = useState<string | null>(null);
@@ -44,40 +48,80 @@ export function useRequestPolling({
     const pollingStartTimeRef = useRef<number | null>(null);
     const [shouldUpdate, setShouldUpdate] = useState(false);
 
-    // Polling запрос
-    const shouldSkipPolling = !pollingRequestId || isTestMode;
-    const { data: pollingRequest } = useGetRequestQuery(pollingRequestId!, {
+    // Обёртка для setPollingRequestId с задержкой
+    const setPollingRequestIdWithDelay = useCallback((requestId: number | null) => {
+        // Очищаем предыдущий таймер
+        if (pollingDelayTimerRef.current) {
+            clearTimeout(pollingDelayTimerRef.current);
+            pollingDelayTimerRef.current = null;
+        }
+
+        // Обновляем внешнее состояние сразу (для совместимости с интерфейсом)
+        setPollingRequestId(requestId);
+
+        if (requestId === null) {
+            // Немедленно останавливаем polling
+            setActualPollingRequestId(null);
+            return;
+        }
+
+        // Устанавливаем задержку перед началом polling
+        console.log(
+            `[Chat] ⏳ Ожидание ${POLLING_INITIAL_DELAY / 1000} секунд перед началом polling: requestId=${requestId}`
+        );
+        pollingDelayTimerRef.current = setTimeout(() => {
+            setActualPollingRequestId(requestId);
+            pollingDelayTimerRef.current = null;
+        }, POLLING_INITIAL_DELAY);
+    }, []);
+
+    // Polling запрос (используем actualPollingRequestId после задержки)
+    const shouldSkipPolling = !actualPollingRequestId || isTestMode;
+    const { data: pollingRequest } = useGetRequestQuery(actualPollingRequestId!, {
         skip: shouldSkipPolling,
         pollingInterval: isTestMode ? 0 : 7000,
         refetchOnMountOrArgChange: true,
     });
 
-    // Запоминаем время начала polling
+    // Запоминаем время начала polling (когда actualPollingRequestId установлен)
     useEffect(() => {
-        if (pollingRequestId && !pollingStartTimeRef.current) {
+        if (actualPollingRequestId && !pollingStartTimeRef.current) {
             pollingStartTimeRef.current = Date.now();
+        } else if (!actualPollingRequestId && pollingStartTimeRef.current) {
+            // Сбрасываем время начала при остановке polling
+            pollingStartTimeRef.current = null;
         }
-    }, [pollingRequestId]);
+    }, [actualPollingRequestId]);
 
     // Останавливаем polling при включении тестового режима
     useEffect(() => {
         if (isTestMode && pollingRequestId !== null) {
             console.log('[Chat] 🧪 Тестовый режим включен: останавливаем polling');
-            setPollingRequestId(null);
+            setPollingRequestIdWithDelay(null);
         }
-    }, [isTestMode, pollingRequestId]);
+    }, [isTestMode, pollingRequestId, setPollingRequestIdWithDelay]);
+
+    // Очистка таймера при размонтировании
+    useEffect(() => {
+        return () => {
+            if (pollingDelayTimerRef.current) {
+                clearTimeout(pollingDelayTimerRef.current);
+                pollingDelayTimerRef.current = null;
+            }
+        };
+    }, []);
 
     // Обработка изменений polling request
     useEffect(() => {
-        if (!pollingRequest || !pollingRequestId) return;
+        if (!pollingRequest || !actualPollingRequestId) return;
 
-        // Проверяем, что pollingRequest соответствует текущему pollingRequestId
-        if (pollingRequest.id !== pollingRequestId) {
+        // Проверяем, что pollingRequest соответствует текущему actualPollingRequestId
+        if (pollingRequest.id !== actualPollingRequestId) {
             console.log(
-                '[Chat] ⚠️ pollingRequest.id не совпадает с pollingRequestId, игнорируем:',
+                '[Chat] ⚠️ pollingRequest.id не совпадает с actualPollingRequestId, игнорируем:',
                 {
                     pollingRequestId: pollingRequest.id,
-                    expectedId: pollingRequestId,
+                    expectedId: actualPollingRequestId,
                 }
             );
             return;
@@ -91,7 +135,7 @@ export function useRequestPolling({
             const pollingDuration = Date.now() - pollingStartTimeRef.current;
             if (pollingDuration > MAX_POLLING_TIME) {
                 console.warn('[Chat] ⚠️ Polling превысил максимальное время, останавливаем');
-                setPollingRequestId(null);
+                setPollingRequestIdWithDelay(null);
                 pollingStartTimeRef.current = null;
                 setPreviousStatus(null);
                 setPreviousFilesCount(null);
@@ -124,7 +168,7 @@ export function useRequestPolling({
         if (onPendingMessageUpdate) {
             onPendingMessageUpdate((prev) => {
                 if (!prev) return prev;
-                if (prev.requestId !== pollingRequestId) {
+                if (prev.requestId !== actualPollingRequestId) {
                     return prev;
                 }
 
@@ -174,7 +218,7 @@ export function useRequestPolling({
         // Останавливаем polling при завершении или ошибке
         if (currentStatus === 'COMPLETED' || currentStatus === 'FAILED') {
             console.log('[Chat] Запрос завершен, останавливаем polling');
-            setPollingRequestId(null);
+            setPollingRequestIdWithDelay(null);
             pollingStartTimeRef.current = null;
             setPreviousStatus(null);
             setPreviousFilesCount(null);
@@ -196,12 +240,12 @@ export function useRequestPolling({
             setPreviousStatus(currentStatus);
             setPreviousFilesCount(currentFilesCount);
         }
-    }, [pollingRequest, pollingRequestId, previousStatus, previousFilesCount, onChatRefetch, onPendingMessageUpdate]);
+    }, [pollingRequest, actualPollingRequestId, previousStatus, previousFilesCount, onChatRefetch, onPendingMessageUpdate]);
 
     return {
         pollingRequestId,
         pollingRequest,
-        setPollingRequestId,
+        setPollingRequestId: setPollingRequestIdWithDelay,
         pollingState: {
             previousStatus,
             previousFilesCount,
