@@ -152,9 +152,11 @@ export function MessageItem({
                         )}
                     </div>
                     {/* Превью прикрепленных файлов */}
-                    {request.inputFiles && request.inputFiles.length > 0 && (
+                    {((request.inputFiles && request.inputFiles.length > 0) ||
+                        (request.files && request.files.length > 0 && (!request.inputFiles || request.inputFiles.length === 0))) && (
                         <div className='mt-2 flex flex-wrap gap-2'>
-                            {request.inputFiles.map((fileUrl, index) => {
+                            {/* Сначала показываем inputFiles, если есть */}
+                            {request.inputFiles?.map((fileUrl, index) => {
                                 // Пропускаем пустые значения
                                 if (!fileUrl) {
                                     return null;
@@ -166,17 +168,23 @@ export function MessageItem({
                                     fileUrl.startsWith('http://') ||
                                     fileUrl.startsWith('https://');
 
-                                // Если это не data URL и не HTTP URL - пропускаем
-                                if (!isDataUrl && !isHttpUrl) {
+                                // Если это не data URL и не HTTP URL - может быть относительный путь (для видео)
+                                // Преобразуем относительный путь в полный URL
+                                let finalUrl = fileUrl;
+                                if (!isDataUrl && !isHttpUrl && fileUrl) {
+                                    // Относительный путь - преобразуем в полный URL
+                                    finalUrl = getMediaFileUrl(fileUrl);
+                                } else if (!isDataUrl && !isHttpUrl) {
                                     return null;
                                 }
 
                                 // Определяем, является ли это видео
                                 // Для data URL проверяем MIME type
                                 // Для HTTP URL - предполагаем изображение (imgbb не поддерживает видео)
+                                // Для относительных путей - проверяем расширение
                                 const isVideo = isDataUrl
                                     ? isVideoDataUrl(fileUrl)
-                                    : false;
+                                    : fileUrl.match(/\.(mp4|webm|mov)$/i) !== null;
 
                                 return (
                                     <div
@@ -185,13 +193,13 @@ export function MessageItem({
                                     >
                                         {isVideo ? (
                                             <video
-                                                src={fileUrl}
+                                                src={finalUrl}
                                                 className='h-full w-full object-cover'
                                                 // muted
                                             />
                                         ) : (
                                             <img
-                                                src={fileUrl}
+                                                src={finalUrl}
                                                 alt={`Прикрепленный файл ${index + 1}`}
                                                 className='h-full w-full object-cover'
                                                 crossOrigin='anonymous'
@@ -200,6 +208,37 @@ export function MessageItem({
                                     </div>
                                 );
                             })}
+                            {/* Fallback: показываем файлы из request.files, если inputFiles пустое */}
+                            {(!request.inputFiles || request.inputFiles.length === 0) &&
+                                request.files.map((file) => {
+                                    // Используем url (imgbb URL) или path (локальный путь)
+                                    const previewUrl = file.url || (file.path ? getMediaFileUrl(file.path) : null);
+                                    if (!previewUrl) return null;
+
+                                    const isVideo = file.type === 'VIDEO';
+
+                                    return (
+                                        <div
+                                            key={file.id}
+                                            className='h-16 w-16 overflow-hidden rounded-lg border border-primary-foreground/20'
+                                        >
+                                            {isVideo ? (
+                                                <video
+                                                    src={previewUrl}
+                                                    className='h-full w-full object-cover'
+                                                    // muted
+                                                />
+                                            ) : (
+                                                <img
+                                                    src={previewUrl}
+                                                    alt={file.filename}
+                                                    className='h-full w-full object-cover'
+                                                    crossOrigin='anonymous'
+                                                />
+                                            )}
+                                        </div>
+                                    );
+                                })}
                         </div>
                     )}
                     <div className='mt-1 flex items-center justify-end gap-2 text-xs text-primary-foreground/70'>

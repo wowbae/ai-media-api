@@ -433,10 +433,20 @@ export function createFilesRouter(): Router {
             // Сохраняем каждый файл
             for (const fileData of files) {
                 try {
+                    console.log(`[API] 📤 Обработка файла: ${fileData.filename} (${fileData.mimeType})`);
+                    
                     // Извлекаем чистый base64 если есть префикс data:...;base64,
                     const base64Clean = fileData.base64.replace(/^data:.*?;base64,/, '');
 
                     const savedFileInfo = await saveBase64File(base64Clean, fileData.mimeType);
+                    
+                    console.log(`[API] ✅ Файл сохранен: ${savedFileInfo.filename}`, {
+                        type: savedFileInfo.type,
+                        path: savedFileInfo.path,
+                        url: savedFileInfo.url || 'null (не загружен на imgbb)',
+                        previewPath: savedFileInfo.previewPath || 'null',
+                        previewUrl: savedFileInfo.previewUrl || 'null',
+                    });
 
                     // Создаем запись в БД
                     const mediaFile = await prisma.mediaFile.create({
@@ -461,8 +471,41 @@ export function createFilesRouter(): Router {
                         console.error('[API] Ошибка уведомления в Telegram (upload):', err);
                     });
                 } catch (error) {
-                    console.error(`[API] Ошибка сохранения файла ${fileData.filename}:`, error);
+                    console.error(`[API] ❌ Ошибка сохранения файла ${fileData.filename}:`, error);
                 }
+            }
+
+            // Собираем URL из сохраненных файлов для inputFiles
+            const inputFilesUrls: string[] = [];
+            for (const savedFile of savedFiles) {
+                // Для изображений используем url (imgbb URL)
+                if (savedFile.type === 'IMAGE' && savedFile.url) {
+                    inputFilesUrls.push(savedFile.url);
+                    console.log(`[API] 📎 Добавлен imgbb URL в inputFiles для изображения: ${savedFile.filename}`, {
+                        url: savedFile.url,
+                    });
+                } else if (savedFile.type === 'IMAGE' && !savedFile.url) {
+                    console.warn(`[API] ⚠️ Изображение ${savedFile.filename} не имеет imgbb URL, пропускаем в inputFiles`);
+                } else if (savedFile.type === 'VIDEO' && savedFile.path) {
+                    // Для видео используем относительный путь (клиент преобразует его в полный URL через getMediaFileUrl)
+                    inputFilesUrls.push(savedFile.path);
+                    console.log(`[API] 📎 Добавлен путь в inputFiles для видео: ${savedFile.filename}`, {
+                        path: savedFile.path,
+                    });
+                }
+            }
+
+            // Обновляем запрос, добавляя inputFiles
+            if (inputFilesUrls.length > 0) {
+                await prisma.mediaRequest.update({
+                    where: { id: mediaRequest.id },
+                    data: { inputFiles: inputFilesUrls },
+                });
+                console.log(`[API] ✅ inputFiles сохранены для запроса ${mediaRequest.id}: ${inputFilesUrls.length} файлов`, {
+                    urls: inputFilesUrls,
+                });
+            } else {
+                console.warn(`[API] ⚠️ Нет файлов для сохранения в inputFiles для запроса ${mediaRequest.id}`);
             }
 
             // Обновляем updatedAt чата
