@@ -30,6 +30,12 @@ export {
     type KieAiConfig,
 } from './kieai';
 
+// Wavespeed провайдер (Kling Video O1)
+export {
+    createWavespeedProvider,
+    type WavespeedConfig,
+} from './wavespeed';
+
 // Менеджер провайдеров
 export {
     createProviderManager,

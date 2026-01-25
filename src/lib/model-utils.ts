@@ -18,6 +18,7 @@ const MODEL_ICONS: Record<string, string> = {
     SEEDREAM_4_5_KIEAI: '🌌',
     SEEDREAM_4_5_EDIT_KIEAI: '🪄',
     ELEVENLABS_MULTILINGUAL_V2_KIEAI: '🎤',
+    KLING_VIDEO_O1_WAVESPEED: '🎥',
 };
 
 const DEFAULT_ICON = '✨';

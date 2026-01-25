@@ -45,7 +45,7 @@ export interface QualityConfig {
 
 export interface DurationConfig {
     options: DurationOption[];
-    defaultValue: 5 | 10;
+    defaultValue: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 }
 
 export interface SoundConfig {
@@ -119,6 +119,18 @@ const QUALITY_OPTIONS_SEEDREAM: QualityOption[] = [
 // Опции для длительности
 const DURATION_OPTIONS: DurationOption[] = [
     { value: '5', label: '5 сек' },
+    { value: '10', label: '10 сек' },
+];
+
+// Опции для длительности Wavespeed Kling Video O1 (от 3 до 10 секунд)
+const DURATION_OPTIONS_WAVESPEED: DurationOption[] = [
+    { value: '3', label: '3 сек' },
+    { value: '4', label: '4 сек' },
+    { value: '5', label: '5 сек' },
+    { value: '6', label: '6 сек' },
+    { value: '7', label: '7 сек' },
+    { value: '8', label: '8 сек' },
+    { value: '9', label: '9 сек' },
     { value: '10', label: '10 сек' },
 ];
 
@@ -247,6 +259,16 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
     MIDJOURNEY: {},
     SORA_2: {},
     ELEVENLABS_MULTILINGUAL_V2_KIEAI: {}, // Настройки через отдельные поля в UI
+    KLING_VIDEO_O1_WAVESPEED: {
+        format: {
+            options: FORMAT_OPTIONS_16_9_9_16,
+            defaultValue: '9:16',
+        },
+        duration: {
+            options: DURATION_OPTIONS_WAVESPEED,
+            defaultValue: 5,
+        },
+    },
 };
 
 // Получить конфигурацию для модели

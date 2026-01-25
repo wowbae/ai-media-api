@@ -38,6 +38,7 @@
         "pg": "^8.16.3",
         "prisma": "7",
         "sharp": "^0.34.5",
+        "wavespeed": "^0.2.2",
         "zod": "^4.3.5"
     },
     "devDependencies": {

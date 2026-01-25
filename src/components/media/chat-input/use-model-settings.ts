@@ -8,7 +8,7 @@ import { useModelType } from '@/hooks/use-model-type';
 export interface ModelSettingsState {
     format: '1:1' | '4:3' | '3:4' | '9:16' | '16:9' | '2:3' | '3:2' | '21:9' | undefined;
     quality: '1k' | '2k' | '4k' | undefined;
-    duration: 5 | 10 | undefined;
+    duration: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | undefined;
     veoGenerationType: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO' | undefined;
     sound: boolean | undefined;
     negativePrompt: string;

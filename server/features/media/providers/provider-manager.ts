@@ -15,6 +15,7 @@ import {
     createKieAiElevenLabsProvider,
 } from './kieai';
 import type { KieAiConfig } from './kieai/interfaces';
+import { createWavespeedProvider } from './wavespeed';
 import { MEDIA_MODELS, type MediaModelConfig } from '../config';
 import 'dotenv/config';
 
@@ -90,6 +91,14 @@ export function createProviderManager(): ProviderManager {
         providers.laozhang = createLaoZhangProvider({
             apiKey: laozhangApiKey,
             baseURL: 'https://api.laozhang.ai',
+        });
+    }
+
+    // Wavespeed провайдер (Kling Video O1)
+    const wavespeedApiKey = process.env.WAVESPEED_AI_API_KEY || '';
+    if (wavespeedApiKey) {
+        providers.wavespeed = createWavespeedProvider({
+            apiKey: wavespeedApiKey,
         });
     }
 

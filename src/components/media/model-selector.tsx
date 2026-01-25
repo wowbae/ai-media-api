@@ -45,6 +45,10 @@ const PROVIDER_BADGE_CONFIG: Record<
         label: 'Kie.ai',
         className: 'bg-blue-900/50 text-blue-400 border-blue-700/50',
     },
+    wavespeed: {
+        label: 'Wavespeed',
+        className: 'bg-cyan-900/50 text-cyan-400 border-cyan-700/50',
+    },
 };
 
 // Бейдж провайдера

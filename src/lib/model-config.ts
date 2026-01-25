@@ -356,6 +356,30 @@ const MODEL_CONFIGS: Record<MediaModel, ModelConfig> = {
         supportsTailImageUrl: false,
         supportsElevenLabsParams: true,
     },
+    KLING_VIDEO_O1_WAVESPEED: {
+        isNanoBanana: false,
+        isNanoBananaPro: false,
+        isNanoBananaProKieai: false,
+        isVeo: false,
+        isKling: false,
+        isKling25: false,
+        isImagen4: false,
+        isImagen4Ultra: false,
+        isSeedream4_5: false,
+        isSeedream4_5_Edit: false,
+        isElevenLabs: false,
+        supportsFormat: true, // aspect_ratio
+        supportsQuality: false,
+        supportsDuration: true, // от 3 до 10 секунд
+        supportsSound: false,
+        supportsVeoGenerationType: false,
+        supportsNegativePrompt: false,
+        supportsSeed: false,
+        supportsCfgScale: false,
+        supportsTailImageUrl: false,
+        supportsElevenLabsParams: false,
+        maxInputFiles: 10, // до 10 reference images
+    },
 };
 
 // Получить конфигурацию модели

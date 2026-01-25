@@ -6,7 +6,8 @@ export type MediaProviderType =
   | "openrouter"
   | "gptunnel"
   | "laozhang"
-  | "kieai";
+  | "kieai"
+  | "wavespeed";
 
 export interface MediaModelConfig {
   id: string;
@@ -211,6 +212,18 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         provider: 'kieai',
         pricing: {
             output: 0.1, // TODO: уточнить цену для ElevenLabs Multilingual v2
+        },
+    },
+    // Wavespeed провайдер - Kling Video O1 для генерации видео
+    KLING_VIDEO_O1_WAVESPEED: {
+        id: 'kwaivgi/kling-video-o1-std/reference-to-video',
+        name: 'Kling Video O1',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 4096,
+        supportsImageInput: true, // Поддерживает reference images (до 10)
+        provider: 'wavespeed',
+        pricing: {
+            output: 0.112, // $0.112 за 1 секунду видео (цена зависит от длительности: от 3 до 10 секунд)
         },
     },
     // пока выключил, не нужны, НО НЕ УДАЛЯТЬ ИХ
