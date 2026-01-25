@@ -41,7 +41,7 @@ export function createGenerateRouter(): Router {
                     format,
                     quality,
                     videoQuality,
-                    duration,
+                    duration: durationRaw,
                     ar,
                     sound,
                     outputFormat,
@@ -57,6 +57,16 @@ export function createGenerateRouter(): Router {
                     generationType,
                     originalTaskId,
                 } = req.body as GenerateMediaRequest;
+
+                // Преобразуем duration в число, если оно передано
+                const duration = durationRaw !== undefined && durationRaw !== null
+                    ? (() => {
+                        const num = typeof durationRaw === 'string' 
+                            ? parseInt(durationRaw, 10) 
+                            : Number(durationRaw);
+                        return !isNaN(num) && isFinite(num) ? num : undefined;
+                    })()
+                    : undefined;
 
                 console.log('[API] POST /generate - получен запрос:', {
                     chatId,

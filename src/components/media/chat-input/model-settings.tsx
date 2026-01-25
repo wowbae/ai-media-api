@@ -168,9 +168,9 @@ export function QualitySelect({
 
 // Селект для длительности
 interface DurationSelectProps {
-    value: 5 | 10 | undefined;
+    value: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | undefined;
     config: DurationConfig;
-    onValueChange: (value: 5 | 10) => void;
+    onValueChange: (value: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12) => void;
     disabled?: boolean;
     className?: string;
 }
@@ -183,7 +183,7 @@ export function DurationSelect({
     className = 'w-[100px]',
 }: DurationSelectProps) {
     const handleChange = (newValue: string) => {
-        const duration = parseInt(newValue) as 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+        const duration = parseInt(newValue) as 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12;
         onValueChange(duration);
         // Сохранение настроек происходит в основном компоненте через useEffect
     };
@@ -367,11 +367,11 @@ interface ModelSettingsPanelProps {
     model: string;
     format: AspectRatioFormat;
     quality: '1k' | '2k' | '4k' | undefined;
-    duration: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | undefined;
+    duration: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | undefined;
     sound: boolean | undefined;
     onFormatChange: (value: AspectRatioFormat) => void;
     onQualityChange: (value: '1k' | '2k' | '4k' | undefined) => void;
-    onDurationChange: (value: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10) => void;
+    onDurationChange: (value: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12) => void;
     onSoundChange: (value: boolean) => void;
     veoGenerationType?:
         | 'TEXT_2_VIDEO'

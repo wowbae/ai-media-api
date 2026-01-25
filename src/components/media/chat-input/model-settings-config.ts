@@ -12,7 +12,7 @@ export interface QualityOption {
 }
 
 export interface DurationOption {
-    value: '5' | '10';
+    value: '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '12';
     label: string;
 }
 
@@ -45,7 +45,7 @@ export interface QualityConfig {
 
 export interface DurationConfig {
     options: DurationOption[];
-    defaultValue: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+    defaultValue: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12;
 }
 
 export interface SoundConfig {
@@ -132,6 +132,13 @@ const DURATION_OPTIONS_WAVESPEED: DurationOption[] = [
     { value: '8', label: '8 сек' },
     { value: '9', label: '9 сек' },
     { value: '10', label: '10 сек' },
+];
+
+// Опции для длительности Seedance 1.5 Pro (4, 8, 12 секунд)
+const DURATION_OPTIONS_SEEDANCE: DurationOption[] = [
+    { value: '4', label: '4 сек' },
+    { value: '8', label: '8 сек' },
+    { value: '12', label: '12 сек' },
 ];
 
 // Опции для звука
@@ -267,6 +274,16 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
         duration: {
             options: DURATION_OPTIONS_WAVESPEED,
             defaultValue: 5,
+        },
+    },
+    SEEDANCE_1_5_PRO_KIEAI: {
+        format: {
+            options: FORMAT_OPTIONS_16_9_9_16,
+            defaultValue: '9:16',
+        },
+        duration: {
+            options: DURATION_OPTIONS_SEEDANCE,
+            defaultValue: 4,
         },
     },
 };

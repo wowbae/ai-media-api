@@ -226,6 +226,19 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.112, // $0.112 за 1 секунду видео (цена зависит от длительности: от 3 до 10 секунд)
         },
     },
+    // Kie.ai провайдер - Seedance 1.5 Pro для генерации видео
+    SEEDANCE_1_5_PRO_KIEAI: {
+        id: 'seedance-1-5-pro',
+        name: 'Seedance 1.5 Pro',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 2500,
+        promptLimit: 2500,
+        supportsImageInput: true, // Поддерживает image-to-video (до 2 изображений)
+        provider: 'kieai',
+        pricing: {
+            output: 0.1, // TODO: уточнить цену для Seedance 1.5 Pro
+        },
+    },
     // пока выключил, не нужны, НО НЕ УДАЛЯТЬ ИХ
     // NANO_BANANA_OPENROUTER: {
     //     id: 'google/gemini-3-pro-image-preview',

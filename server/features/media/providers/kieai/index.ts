@@ -8,3 +8,4 @@ export { createKieAiImagen4Provider } from "./imagen4";
 export { createKieAiSeedreamProvider } from "./seedream";
 export { createKieAiVeo3Provider } from "./veo";
 export { createKieAiElevenLabsProvider } from "./elevenlabs";
+export { createKieAiSeedanceProvider } from "./seedance";

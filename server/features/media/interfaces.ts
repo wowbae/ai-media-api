@@ -17,7 +17,8 @@ export type MediaModel =
     | 'SEEDREAM_4_5_KIEAI'
     | 'SEEDREAM_4_5_EDIT_KIEAI'
     | 'ELEVENLABS_MULTILINGUAL_V2_KIEAI'
-    | 'KLING_VIDEO_O1_WAVESPEED';
+    | 'KLING_VIDEO_O1_WAVESPEED'
+    | 'SEEDANCE_1_5_PRO_KIEAI';
 
 export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
 

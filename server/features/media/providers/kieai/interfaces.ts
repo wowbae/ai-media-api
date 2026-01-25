@@ -286,3 +286,44 @@ export interface KieAiUnifiedTaskResponse {
     updateTime: number;
   };
 }
+
+// Интерфейсы для Seedance 1.5 Pro API
+// Документация: https://kie.ai/seedance-1-5-pro
+
+// Соотношение сторон для Seedance 1.5 Pro
+export type KieAiSeedanceAspectRatio = "9:16" | "16:9";
+
+// Длительность видео для Seedance 1.5 Pro
+export type KieAiSeedanceDuration = "4" | "8" | "12";
+
+// Разрешение видео для Seedance 1.5 Pro
+export type KieAiSeedanceResolution = "480p" | "720p";
+
+// Запрос на создание задачи Seedance 1.5 Pro (Text-to-Video)
+export interface KieAiSeedanceTextToVideoRequest {
+  model: "seedance-1-5-pro";
+  callBackUrl?: string;
+  input: {
+    prompt: string; // 3-2500 символов
+    aspect_ratio: KieAiSeedanceAspectRatio;
+    resolution?: KieAiSeedanceResolution;
+    duration: KieAiSeedanceDuration;
+    fixed_lens?: boolean;
+    generate_audio?: boolean;
+  };
+}
+
+// Запрос на создание задачи Seedance 1.5 Pro (Image-to-Video)
+export interface KieAiSeedanceImageToVideoRequest {
+  model: "seedance-1-5-pro";
+  callBackUrl?: string;
+  input: {
+    prompt: string; // 3-2500 символов
+    input_urls: string[]; // Массив URL изображений (до 2 файлов)
+    aspect_ratio: KieAiSeedanceAspectRatio;
+    resolution?: KieAiSeedanceResolution;
+    duration: KieAiSeedanceDuration;
+    fixed_lens?: boolean;
+    generate_audio?: boolean;
+  };
+}

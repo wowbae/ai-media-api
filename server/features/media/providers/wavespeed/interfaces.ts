@@ -1,25 +1,44 @@
 // Интерфейсы для Wavespeed AI API
-// Документация: https://wavespeed.ai/docs
+// Документация REST API: https://wavespeed.ai/docs/rest-api
 
 // Конфигурация Wavespeed провайдера
 export interface WavespeedConfig {
   apiKey: string;
-  baseURL?: string; // Опционально, SDK использует свой baseURL
+  baseURL?: string; // По умолчанию https://api.wavespeed.ai/api/v3
 }
 
-// Опции для вызова SDK
-export interface WavespeedRunOptions {
-  timeout?: number; // Максимальное время ожидания в секундах (по умолчанию 36000.0)
-  pollInterval?: number; // Интервал проверки статуса в секундах (по умолчанию 1.0)
-  enableSyncMode?: boolean; // Режим синхронного запроса без polling (по умолчанию false)
+// Ответ от REST API при создании задачи
+// Согласно документации: https://wavespeed.ai/docs/submit-task
+export interface WavespeedSubmitResponse {
+  code: number;
+  message: string;
+  data: {
+    id: string; // Task ID (например: "088b5273b8f84fe0b0a313dcde55475d")
+    status: string; // "created" | "processing" | "completed" | "failed"
+    model?: string;
+    urls?: {
+      get: string; // URL для получения результата
+    };
+    created_at?: string;
+  };
 }
 
-// Ответ от SDK wavespeed.run()
-export interface WavespeedRunResponse {
-  outputs?: string[]; // Массив URL результатов
-  taskId?: string; // ID задачи (если async)
-  status?: string; // Статус задачи
-  [key: string]: unknown; // Дополнительные поля
+// Ответ от REST API при получении результата
+// Согласно документации: https://wavespeed.ai/docs/get-result
+export interface WavespeedResultResponse {
+  code: number;
+  message: string;
+  data: {
+    id: string;
+    status: string; // "created" | "processing" | "completed" | "failed"
+    model?: string;
+    outputs?: string[]; // Массив URL результатов (только когда status === "completed")
+    error?: string; // Сообщение об ошибке (только когда status === "failed")
+    timings?: {
+      inference?: number; // Время генерации в миллисекундах
+    };
+    created_at?: string;
+  };
 }
 
 // Маппинг статусов Wavespeed на внутренние статусы

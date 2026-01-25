@@ -90,7 +90,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     ) {
         const [prompt, setPrompt] = useState('');
         const [isLockEnabled, setIsLockEnabled] = useState(false);
-        
+
         // Используем хук для управления настройками модели
         const {
             settings,
@@ -112,17 +112,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
         // Список доступных голосов для ElevenLabs
         const elevenLabsVoices = [
-            'Rachel',
-            'Aria',
+            // 'Rachel',
+            // 'Aria',
             'Roger',
             'Sarah',
-            'Laura',
+            // 'Laura',
             'Charlie',
             'George',
             'Callum',
             'River',
             'Liam',
-            'Charlotte',
+            // 'Charlotte',
             'Alice',
             'Matilda',
             'Will',
@@ -149,7 +149,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
         // Используем хук для получения всех флагов модели
         const modelType = useModelType(currentModel);
-        
+
         // Деструктурируем настройки для удобства
         const {
             format,
@@ -338,8 +338,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             await addFileFromUrl(url, filename);
                         } catch (error) {
                             console.error('[ChatInput] Ошибка при прикреплении файла из запроса:', error);
-                            const errorMessage = error instanceof Error 
-                                ? error.message 
+                            const errorMessage = error instanceof Error
+                                ? error.message
                                 : 'Неизвестная ошибка при прикреплении файла';
                             alert(`Ошибка при прикреплении файла "${filePath}": ${errorMessage}`);
                         }
@@ -426,7 +426,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     videoFormat,
                     veoGenerationType,
                     klingAspectRatio,
-                    klingDuration: duration,
+                    klingDuration: duration === 5 || duration === 10 ? duration : undefined,
                     klingSound: sound,
                     negativePrompt,
                     seed,

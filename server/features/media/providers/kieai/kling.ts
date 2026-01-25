@@ -35,7 +35,7 @@ const KIEAI_STATUS_MAP: Record<string, TaskStatusResult["status"]> = {
 
 // Маппинг соотношений сторон
 function mapKlingAspectRatio(
-  aspectRatio?: "1:1" | "9:16" | "16:9",
+  aspectRatio?: "1:1" | "4:3" | "3:4" | "9:16" | "16:9" | "2:3" | "3:2" | "21:9",
 ): KieAiKlingAspectRatio {
   if (aspectRatio === "9:16") return "9:16";
   if (aspectRatio === "16:9") return "16:9";

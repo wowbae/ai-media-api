@@ -8,7 +8,7 @@ import { useModelType } from '@/hooks/use-model-type';
 export interface ModelSettingsState {
     format: '1:1' | '4:3' | '3:4' | '9:16' | '16:9' | '2:3' | '3:2' | '21:9' | undefined;
     quality: '1k' | '2k' | '4k' | undefined;
-    duration: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | undefined;
+    duration: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | undefined;
     veoGenerationType: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO' | undefined;
     sound: boolean | undefined;
     negativePrompt: string;
@@ -80,11 +80,18 @@ export function useModelSettings(currentModel: MediaModel) {
             newSettings.veoGenerationType = config.generationType.defaultValue;
         }
 
-        // Загружаем duration (только для Kling)
-        if (storedSettings.klingDuration) {
-            newSettings.duration = storedSettings.klingDuration;
-        } else if (config.duration?.defaultValue) {
-            newSettings.duration = config.duration.defaultValue;
+        // Загружаем duration: используем только значение из опций селектора текущей модели
+        if (config.duration) {
+            const candidate =
+                storedSettings.klingDuration ?? config.duration.defaultValue;
+            const optionValues = config.duration.options.map((o) =>
+                Number(o.value)
+            );
+            const isValid =
+                candidate !== undefined && optionValues.includes(candidate);
+            newSettings.duration = isValid
+                ? candidate
+                : config.duration.defaultValue;
         }
 
         // Загружаем sound (только для Kling)

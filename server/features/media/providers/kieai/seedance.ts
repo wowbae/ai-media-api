@@ -1,5 +1,6 @@
-// Kling 2.5 Turbo Pro провайдер через Kie.ai API
-// Документация: https://kie.ai/kling-2-5?model=kling%2Fv2-5-turbo-image-to-video-pro
+// Seedance 1.5 Pro провайдер через Kie.ai API
+// Документация: https://kie.ai/seedance-1-5-pro (Playground)
+// API model: bytedance/seedance-1.5-pro — https://docs.kie.ai/market/bytedance/seedance-1.5-pro
 import type {
   MediaProvider,
   GenerateParams,
@@ -15,10 +16,11 @@ import type {
   KieAiCreateResponse,
   KieAiStatusResponse,
   KieAiTaskStatus,
-  KieAiKling25TextToVideoRequest,
-  KieAiKling25ImageToVideoRequest,
-  KieAiKling25AspectRatio,
-  KieAiKling25Duration,
+  KieAiSeedanceTextToVideoRequest,
+  KieAiSeedanceImageToVideoRequest,
+  KieAiSeedanceAspectRatio,
+  KieAiSeedanceDuration,
+  KieAiSeedanceResolution,
 } from "./interfaces";
 
 // Маппинг статусов Kie.ai на внутренние статусы
@@ -28,105 +30,98 @@ const KIEAI_STATUS_MAP: Record<string, TaskStatusResult["status"]> = {
   completed: "done",
   done: "done",
   failed: "failed",
-  success: "done",
+  success: "done", // Новый статус от API
 };
 
-// Маппинг соотношений сторон
-function mapKling25AspectRatio(
+// Маппинг соотношений сторон (только 9:16 и 16:9)
+function mapSeedanceAspectRatio(
   aspectRatio?: "1:1" | "4:3" | "3:4" | "9:16" | "16:9" | "2:3" | "3:2" | "21:9",
-): KieAiKling25AspectRatio {
+): KieAiSeedanceAspectRatio {
   if (aspectRatio === "9:16") return "9:16";
   if (aspectRatio === "16:9") return "16:9";
-  return "1:1"; // По умолчанию
+  return "9:16"; // По умолчанию 9:16
 }
 
-// Маппинг длительности
-function mapKling25Duration(duration?: number): KieAiKling25Duration {
-  if (duration === 10) return "10";
-  return "5"; // По умолчанию 5 секунд
+// Маппинг длительности (4, 8, 12 секунд)
+function mapSeedanceDuration(
+  duration?: number,
+): KieAiSeedanceDuration {
+  if (duration === 4) return "4";
+  if (duration === 8) return "8";
+  if (duration === 12) return "12";
+  return "4"; // По умолчанию 4 секунды (как в UI)
 }
 
-export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
+// Маппинг разрешения
+function mapSeedanceResolution(
+  videoQuality?: "480p" | "720p" | "1080p",
+): KieAiSeedanceResolution {
+  if (videoQuality === "480p") return "480p";
+  if (videoQuality === "720p") return "720p";
+  return "720p"; // По умолчанию 720p
+}
+
+export function createKieAiSeedanceProvider(
+  config: KieAiConfig,
+): MediaProvider {
   const { apiKey, baseURL } = config;
 
   // Создание задачи на генерацию видео
-  async function createKling25Task(
+  async function createSeedanceTask(
     params: GenerateParams,
   ): Promise<KieAiCreateResponse> {
-    console.log("[Kie.ai Kling 2.5 Turbo Pro] Создание задачи:", {
+    console.log("[Kie.ai Seedance 1.5 Pro] Создание задачи:", {
       prompt: params.prompt.substring(0, 100),
       hasInputFiles: !!(params.inputFiles && params.inputFiles.length > 0),
     });
 
     const isImageToVideo = params.inputFiles && params.inputFiles.length > 0;
-    const duration = mapKling25Duration(params.duration);
+    const duration = mapSeedanceDuration(params.duration);
+    const aspectRatio = mapSeedanceAspectRatio(params.aspectRatio);
+    const resolution = mapSeedanceResolution(params.videoQuality);
 
-    // Формируем модель в зависимости от типа запроса
-    const model = isImageToVideo
-      ? "kling/v2-5-turbo-image-to-video-pro"
-      : "kling/v2-5-turbo-text-to-video-pro";
+    // Одна модель для T2V и I2V (дока: https://docs.kie.ai/market/bytedance/seedance-1.5-pro)
+    const model = "bytedance/seedance-1.5-pro";
 
     // Формируем input объект
     const input: Record<string, unknown> = {
       prompt: params.prompt,
+      aspect_ratio: aspectRatio,
+      resolution,
       duration,
     };
 
-    // Добавляем опциональные параметры
-    if (params.negativePrompt) {
-      input.negative_prompt = params.negativePrompt;
-    }
-
-    if (params.cfgScale !== undefined && params.cfgScale !== null) {
-      input.cfg_scale = params.cfgScale;
+    // Опциональные параметры
+    if (params.sound !== undefined) {
+      input.generate_audio = params.sound;
     }
 
     if (isImageToVideo) {
-      // Image-to-Video режим
-      const inputImage = params.inputFiles![0];
+      // Image-to-Video режим - поддерживает до 2 изображений
+      const inputImages = params.inputFiles!.slice(0, 2); // Максимум 2 изображения
+      const imageUrls: string[] = [];
 
-      // Если это data URL (base64) - загружаем на imgbb
-      let imageUrl: string;
-      if (inputImage.startsWith("data:")) {
-        if (!isImgbbConfigured()) {
-          throw new Error(
-            "IMGBB_API_KEY не настроен. Для image-to-video нужен imgbb.",
-          );
-        }
-        console.log(
-          "[Kie.ai Kling 2.5 Turbo Pro] Загрузка изображения на imgbb...",
-        );
-        imageUrl = await uploadToImgbb(inputImage);
-      } else {
-        // Уже URL - используем как есть
-        imageUrl = inputImage;
-      }
-
-      // Для Kling 2.5 Turbo Pro используется image_url (строка), а не image_urls (массив)
-      input.image_url = imageUrl;
-
-      // Добавляем tail_image_url если указан
-      if (params.tailImageUrl) {
-        // Если tail_image_url это data URL - загружаем на imgbb
-        if (params.tailImageUrl.startsWith("data:")) {
+      for (const inputImage of inputImages) {
+        // Если это data URL (base64) - загружаем на imgbb
+        let imageUrl: string;
+        if (inputImage.startsWith("data:")) {
           if (!isImgbbConfigured()) {
             throw new Error(
-              "IMGBB_API_KEY не настроен. Для tail_image_url нужен imgbb.",
+              "IMGBB_API_KEY не настроен. Для image-to-video нужен imgbb.",
             );
           }
           console.log(
-            "[Kie.ai Kling 2.5 Turbo Pro] Загрузка tail изображения на imgbb...",
+            "[Kie.ai Seedance 1.5 Pro] Загрузка изображения на imgbb...",
           );
-          input.tail_image_url = await uploadToImgbb(params.tailImageUrl);
+          imageUrl = await uploadToImgbb(inputImage);
         } else {
           // Уже URL - используем как есть
-          input.tail_image_url = params.tailImageUrl;
+          imageUrl = inputImage;
         }
+        imageUrls.push(imageUrl);
       }
-    } else {
-      // Text-to-Video режим
-      const aspectRatio = mapKling25AspectRatio(params.aspectRatio);
-      input.aspect_ratio = aspectRatio;
+
+      input.input_urls = imageUrls;
     }
 
     // Формируем тело запроса согласно документации
@@ -153,7 +148,7 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
       } catch {
         parsed = errorText;
       }
-      console.error("[Kie.ai Kling 2.5 Turbo Pro] Ошибка создания задачи:", {
+      console.error("[Kie.ai Seedance 1.5 Pro] Ошибка создания задачи:", {
         status: response.status,
         error: parsed,
       });
@@ -167,11 +162,11 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
       }
 
       throw new Error(
-        `Kie.ai Kling 2.5 Turbo Pro API error: ${response.status} - ${errorText}`,
+        `Kie.ai Seedance 1.5 Pro API error: ${response.status} - ${errorText}`,
       );
     }
 
-    // API возвращает { code: 200, msg: "success", data: { taskId: "..." } }
+    // API возвращает { code: 200, msg: "success", data: { taskId: "task_seedance-1-5-pro_..." } }
     const responseData = (await response.json()) as {
       code: number;
       msg: string;
@@ -180,7 +175,7 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
       };
     };
 
-    console.log("[Kie.ai Kling 2.5 Turbo Pro] Ответ от API:", {
+    console.log("[Kie.ai Seedance 1.5 Pro] Ответ от API:", {
       code: responseData.code,
       msg: responseData.msg,
       taskId: responseData.data?.taskId,
@@ -200,7 +195,7 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
 
     const taskId = responseData.data.taskId;
 
-    console.log("[Kie.ai Kling 2.5 Turbo Pro] Задача создана:", { taskId });
+    console.log("[Kie.ai Seedance 1.5 Pro] Задача создана:", { taskId });
 
     return {
       taskId,
@@ -216,14 +211,14 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
       throw new Error(`Некорректный taskId: ${taskId}`);
     }
 
-    console.log("[Kie.ai Kling 2.5 Turbo Pro] Проверка статуса задачи:", {
+    console.log("[Kie.ai Seedance 1.5 Pro] Проверка статуса задачи:", {
       taskId,
     });
 
     // Правильный эндпоинт согласно документации
     const url = `${baseURL}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`;
 
-    console.log(`[Kie.ai Kling 2.5 Turbo Pro] Запрос к эндпоинту: ${url}`);
+    console.log(`[Kie.ai Seedance 1.5 Pro] Запрос к эндпоинту: ${url}`);
 
     const response = await fetch(url, {
       method: "GET",
@@ -233,7 +228,7 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
       },
     });
 
-    console.log(`[Kie.ai Kling 2.5 Turbo Pro] Ответ:`, {
+    console.log(`[Kie.ai Seedance 1.5 Pro] Ответ:`, {
       status: response.status,
       ok: response.ok,
     });
@@ -246,13 +241,13 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
       } catch {
         parsed = errorText;
       }
-      console.error("[Kie.ai Kling 2.5 Turbo Pro] ❌ Ошибка API:", {
+      console.error("[Kie.ai Seedance 1.5 Pro] ❌ Ошибка API:", {
         taskId,
         status: response.status,
         error: parsed,
       });
       throw new Error(
-        `Kie.ai Kling 2.5 Turbo Pro API error: ${response.status} - ${errorText}`,
+        `Kie.ai Seedance 1.5 Pro API error: ${response.status} - ${errorText}`,
       );
     }
 
@@ -273,7 +268,7 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
       };
     };
 
-    console.log("[Kie.ai Kling 2.5 Turbo Pro] Статус задачи:", {
+    console.log("[Kie.ai Seedance 1.5 Pro] Статус задачи:", {
       taskId,
       state: apiResponse.data?.state,
     });
@@ -315,12 +310,12 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
         };
         resultUrls = resultData.resultUrls || [];
         console.log(
-          "[Kie.ai Kling 2.5 Turbo Pro] Распарсен resultJson:",
+          "[Kie.ai Seedance 1.5 Pro] Распарсен resultJson:",
           resultUrls,
         );
       } catch (error) {
         console.error(
-          "[Kie.ai Kling 2.5 Turbo Pro] Ошибка парсинга resultJson:",
+          "[Kie.ai Seedance 1.5 Pro] Ошибка парсинга resultJson:",
           error,
         );
       }
@@ -346,11 +341,11 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
   }
 
   return {
-    name: "kieai-kling-25",
+    name: "kieai-seedance",
     isAsync: true,
 
     async generate(params: GenerateParams): Promise<TaskCreatedResult> {
-      const result = await createKling25Task(params);
+      const result = await createSeedanceTask(params);
 
       // Маппим статус на внутренний формат
       const mappedStatus =
@@ -370,7 +365,7 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
       // Логируем ошибки при статусе failed
       if (result.status === "failed") {
         console.warn(
-          "[Kie.ai Kling 2.5 Turbo Pro] Задача завершилась с ошибкой:",
+          "[Kie.ai Seedance 1.5 Pro] Задача завершилась с ошибкой:",
           {
             taskId,
             status: result.status,
@@ -379,7 +374,7 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
           },
         );
       } else {
-        console.log("[Kie.ai Kling 2.5 Turbo Pro] Статус задачи:", {
+        console.log("[Kie.ai Seedance 1.5 Pro] Статус задачи:", {
           taskId,
           status: result.status,
           mappedStatus,
@@ -395,7 +390,7 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
         undefined;
 
       console.log(
-        "[Kie.ai Kling 2.5 Turbo Pro] Извлеченный resultUrl:",
+        "[Kie.ai Seedance 1.5 Pro] Извлеченный resultUrl:",
         resultUrl,
       );
 
@@ -411,7 +406,7 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
 
       if (result.status !== "completed") {
         throw new Error(
-          `Задача Kie.ai Kling 2.5 Turbo Pro не завершена: status=${result.status}, error=${result.error}`,
+          `Задача Kie.ai Seedance 1.5 Pro не завершена: status=${result.status}, error=${result.error}`,
         );
       }
 
@@ -450,19 +445,19 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
 
       // Скачиваем только уникальные URL
       console.log(
-        "[Kie.ai Kling 2.5 Turbo Pro] Всего URL найдено:",
+        "[Kie.ai Seedance 1.5 Pro] Всего URL найдено:",
         urlsToDownload.length,
       );
 
       for (const url of urlsToDownload) {
         if (!downloadedUrls.has(url)) {
-          console.log("[Kie.ai Kling 2.5 Turbo Pro] Скачивание файла:", url);
+          console.log("[Kie.ai Seedance 1.5 Pro] Скачивание файла:", url);
           const savedFile = await saveFileFromUrl(url);
           files.push(savedFile);
           downloadedUrls.add(url);
         } else {
           console.log(
-            "[Kie.ai Kling 2.5 Turbo Pro] ⏭️  URL уже скачан, пропускаем:",
+            "[Kie.ai Seedance 1.5 Pro] ⏭️  URL уже скачан, пропускаем:",
             url,
           );
         }
@@ -470,16 +465,16 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
 
       if (files.length === 0) {
         console.error(
-          "[Kie.ai Kling 2.5 Turbo Pro] ❌ Не найдено ни одного URL для скачивания. Полная структура:",
+          "[Kie.ai Seedance 1.5 Pro] ❌ Не найдено ни одного URL для скачивания. Полная структура:",
           JSON.stringify(result, null, 2),
         );
         throw new Error(
-          `Не удалось получить результат задачи Kie.ai Kling 2.5 Turbo Pro: taskId=${taskId}`,
+          `Не удалось получить результат задачи Kie.ai Seedance 1.5 Pro: taskId=${taskId}`,
         );
       }
 
       console.log(
-        `[Kie.ai Kling 2.5 Turbo Pro] Файлы сохранены: ${files.length} файлов`,
+        `[Kie.ai Seedance 1.5 Pro] Файлы сохранены: ${files.length} файлов`,
       );
 
       return files;

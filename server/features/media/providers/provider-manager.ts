@@ -13,6 +13,7 @@ import {
     createKieAiSeedreamProvider,
     createKieAiVeo3Provider,
     createKieAiElevenLabsProvider,
+    createKieAiSeedanceProvider,
 } from './kieai';
 import type { KieAiConfig } from './kieai/interfaces';
 import { createWavespeedProvider } from './wavespeed';
@@ -83,6 +84,7 @@ export function createProviderManager(): ProviderManager {
         SEEDREAM_4_5_KIEAI: createKieAiSeedreamProvider,
         SEEDREAM_4_5_EDIT_KIEAI: createKieAiSeedreamProvider,
         ELEVENLABS_MULTILINGUAL_V2_KIEAI: createKieAiElevenLabsProvider,
+        SEEDANCE_1_5_PRO_KIEAI: createKieAiSeedanceProvider,
     };
 
     // LaoZhang провайдер (Nano Banana Pro, Sora 2, Veo 3.1)
