@@ -73,12 +73,21 @@ export function createKieAiSeedanceProvider(
     console.log("[Kie.ai Seedance 1.5 Pro] Создание задачи:", {
       prompt: params.prompt.substring(0, 100),
       hasInputFiles: !!(params.inputFiles && params.inputFiles.length > 0),
+      aspectRatio: params.aspectRatio,
+      duration: params.duration,
+      videoQuality: params.videoQuality,
     });
 
     const isImageToVideo = params.inputFiles && params.inputFiles.length > 0;
     const duration = mapSeedanceDuration(params.duration);
     const aspectRatio = mapSeedanceAspectRatio(params.aspectRatio);
     const resolution = mapSeedanceResolution(params.videoQuality);
+
+    console.log("[Kie.ai Seedance 1.5 Pro] Маппированные параметры:", {
+      aspectRatio,
+      duration,
+      resolution,
+    });
 
     // Одна модель для T2V и I2V (дока: https://docs.kie.ai/market/bytedance/seedance-1.5-pro)
     const model = "bytedance/seedance-1.5-pro";
@@ -306,17 +315,54 @@ export function createKieAiSeedanceProvider(
     if (taskData.state === "success" && taskData.resultJson) {
       try {
         const resultData = JSON.parse(taskData.resultJson) as {
-          resultUrls: string[];
+          resultUrls?: string[];
+          resultUrl?: string;
+          resultVideoUrl?: string;
         };
-        resultUrls = resultData.resultUrls || [];
-        console.log(
-          "[Kie.ai Seedance 1.5 Pro] Распарсен resultJson:",
-          resultUrls,
-        );
+
+        // 1. Основной путь из документации Market API — массив resultUrls
+        if (resultData.resultUrls && Array.isArray(resultData.resultUrls)) {
+          resultUrls = resultData.resultUrls.filter(
+            (url) => typeof url === "string" && url.length > 0,
+          );
+        }
+
+        // 2. Fallback: одиночный resultUrl
+        if (
+          resultUrls.length === 0 &&
+          typeof resultData.resultUrl === "string" &&
+          resultData.resultUrl.length > 0
+        ) {
+          resultUrls = [resultData.resultUrl];
+        }
+
+        // 3. Fallback: поле resultVideoUrl (как в Aleph / других видео API)
+        if (
+          resultUrls.length === 0 &&
+          typeof resultData.resultVideoUrl === "string" &&
+          resultData.resultVideoUrl.length > 0
+        ) {
+          resultUrls = [resultData.resultVideoUrl];
+        }
+
+        if (resultUrls.length === 0) {
+          console.warn(
+            "[Kie.ai Seedance 1.5 Pro] Статус success, но resultUrls пустой. Ключи resultJson:",
+            Object.keys(resultData),
+          );
+        } else {
+          console.log(
+            "[Kie.ai Seedance 1.5 Pro] Распарсен resultJson:",
+            resultUrls,
+          );
+        }
       } catch (error) {
         console.error(
           "[Kie.ai Seedance 1.5 Pro] Ошибка парсинга resultJson:",
-          error,
+          {
+            error: error instanceof Error ? error.message : error,
+            resultJson: taskData.resultJson.substring(0, 200),
+          },
         );
       }
     }
