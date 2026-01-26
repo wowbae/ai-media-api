@@ -88,7 +88,15 @@ export async function sendFilesToTelegram(
   prompt: string,
 ): Promise<void> {
   if (files.length === 0) {
+    console.warn(`[MediaDatabase] ⚠️ Нет файлов для отправки в Telegram: requestId=${requestId}`);
     return;
+  }
+
+  console.log(`[MediaDatabase] 📤 Начало отправки файлов в Telegram: requestId=${requestId}, файлов: ${files.length}`);
+  
+  // Логируем информацию о файлах
+  for (const file of files) {
+    console.log(`[MediaDatabase] Файл для отправки: id=${file.id}, type=${file.type}, path=${file.path ? 'есть' : 'нет'}, url=${file.url ? 'есть' : 'нет'}, filename=${file.filename}`);
   }
 
   const request = await prisma.mediaRequest.findUnique({
@@ -97,14 +105,16 @@ export async function sendFilesToTelegram(
   });
 
   if (!request) {
-    console.warn(`[MediaDatabase] Request не найден для отправки в Telegram: ${requestId}`);
+    console.error(`[MediaDatabase] ❌ Request не найден для отправки в Telegram: ${requestId}`);
     return;
   }
 
   if (!request.chat) {
-    console.warn(`[MediaDatabase] Чат не найден для requestId=${requestId}`);
+    console.error(`[MediaDatabase] ❌ Чат не найден для requestId=${requestId}`);
     return;
   }
+
+  console.log(`[MediaDatabase] Чат найден: name=${request.chat.name}, id=${request.chat.id}`);
 
   try {
     const telegramResult = await notifyTelegramGroupBatch(
@@ -112,11 +122,21 @@ export async function sendFilesToTelegram(
       request.chat.name,
       prompt,
     );
-    console.log(
-      `[MediaDatabase] Telegram: ${telegramResult ? "отправлено группой" : "не отправлено"} (${files.length} файлов)`,
-    );
+    
+    if (telegramResult) {
+      console.log(
+        `[MediaDatabase] ✅ Telegram: успешно отправлено (${files.length} файлов)`,
+      );
+    } else {
+      console.error(
+        `[MediaDatabase] ❌ Telegram: не удалось отправить (${files.length} файлов)`,
+      );
+    }
   } catch (telegramError) {
-    console.error("[MediaDatabase] Ошибка Telegram:", telegramError);
+    console.error("[MediaDatabase] ❌ Ошибка Telegram:", telegramError);
+    if (telegramError instanceof Error) {
+      console.error("[MediaDatabase] Stack trace:", telegramError.stack);
+    }
     // Не прерываем выполнение, просто логируем ошибку
   }
 }

@@ -241,11 +241,16 @@ export async function notifyTelegramGroupBatch(
         return false;
     }
 
+    console.log(`[Telegram] 📤 Подготовка к отправке ${files.length} файлов в Telegram`);
+    for (const file of files) {
+        console.log(`[Telegram] Файл: id=${file.id}, type=${file.type}, path=${file.path ? 'есть' : 'нет'}, url=${file.url ? 'есть' : 'нет'}, filename=${file.filename}`);
+    }
+
     const bot = await getBot();
 
     if (!bot) {
-        console.warn(
-            '[Telegram] ⚠️ Telegram bot не инициализирован - уведомление не отправлено'
+        console.error(
+            '[Telegram] ❌ Telegram bot не инициализирован - уведомление не отправлено'
         );
         return false;
     }
@@ -297,33 +302,49 @@ export async function notifyTelegramGroupBatch(
                 );
 
                 if (!existsSync(absolutePath)) {
-                     // Check if URL is available as fallback
+                     console.warn(`[Telegram] ⚠️ Локальный файл не найден: ${absolutePath}, проверяем URL...`);
+                     // Для видео в media group требуется локальный файл, URL не поддерживается
+                     if (file.type === 'VIDEO') {
+                         console.error(`[Telegram] ❌ Видео файл не найден локально и не может быть отправлен через URL в media group: ${absolutePath}, пропускаем файл`);
+                         continue;
+                     }
+                     // Для изображений и других типов можно использовать URL как fallback
                      if (file.url) {
-                         inputFile = new InputFile(new URL(file.url), file.filename); // Grammy supports URL via InputFile or string?
-                         // Grammy sendPhoto can take string URL. InputFile from URL is also possible.
-                         // But InputFile(url) is for downloading by bot server? No, Grammy InputFile accepts Stream, Buffer, File path.
-                         // To send by URL, we pass string directly to sendPhoto/sendDocument.
-                         // But here we are building `mediaGroup`.
-                         // mediaGroup elements take `media: string | InputFile`.
-                         // So we can pass `file.url` as string.
+                         console.log(`[Telegram] ✅ Используем URL как fallback: ${file.url}`);
                          inputFile = file.url;
                      } else {
-                        console.error(`[Telegram] ❌ Файл не найден: ${absolutePath}`);
+                        console.error(`[Telegram] ❌ Файл не найден и нет URL: ${absolutePath}, пропускаем файл`);
                         continue;
                      }
                 } else {
+                    console.log(`[Telegram] ✅ Читаем локальный файл: ${absolutePath}`);
                     const fileBuffer = await readFile(absolutePath);
                     inputFile = new InputFile(fileBuffer, file.filename);
                 }
             } else if (file.url) {
+                // Для видео в media group требуется локальный файл
+                if (file.type === 'VIDEO') {
+                    console.error(`[Telegram] ❌ Видео файл не имеет локального пути и не может быть отправлен через URL в media group, пропускаем файл`);
+                    continue;
+                }
+                // Для изображений можно использовать URL
                 inputFile = file.url;
             } else {
                  console.error(`[Telegram] ❌ Файл ${file.id} не имеет пути или URL`);
                  continue;
             }
 
-            // Для изображений используем тип 'photo', для остального 'document'
-            const mediaType = file.type === 'IMAGE' ? 'photo' : 'document';
+            // Определяем тип медиа для Telegram media group
+            let mediaType: 'photo' | 'video' | 'document' | 'audio';
+            if (file.type === 'IMAGE') {
+                mediaType = 'photo';
+            } else if (file.type === 'VIDEO') {
+                mediaType = 'video';
+            } else if (file.type === 'AUDIO') {
+                mediaType = 'audio';
+            } else {
+                mediaType = 'document';
+            }
 
             mediaGroup.push({
                 type: mediaType,
@@ -336,9 +357,11 @@ export async function notifyTelegramGroupBatch(
         }
 
         if (mediaGroup.length === 0) {
-            console.error('[Telegram] ❌ Нет доступных файлов для отправки');
+            console.error('[Telegram] ❌ Нет доступных файлов для отправки после обработки');
             return false;
         }
+
+        console.log(`[Telegram] ✅ Подготовлено ${mediaGroup.length} файлов для отправки в media group`);
 
         // Если только один файл, отправляем как обычное сообщение с кнопкой удаления
         if (mediaGroup.length === 1) {
@@ -352,10 +375,24 @@ export async function notifyTelegramGroupBatch(
                     mediaStorageConfig.basePath,
                     firstFile.path
                 );
-                 const fileBuffer = await readFile(absolutePath);
-                 inputFile = new InputFile(fileBuffer, firstFile.filename);
+                
+                if (!existsSync(absolutePath)) {
+                    console.warn(`[Telegram] ⚠️ Локальный файл не найден для одиночной отправки: ${absolutePath}, проверяем URL...`);
+                    if (firstFile.url) {
+                        console.log(`[Telegram] ✅ Используем URL для одиночной отправки: ${firstFile.url}`);
+                        inputFile = firstFile.url;
+                    } else {
+                        console.error(`[Telegram] ❌ Файл не найден и нет URL: ${absolutePath}`);
+                        return false;
+                    }
+                } else {
+                    console.log(`[Telegram] ✅ Читаем локальный файл для одиночной отправки: ${absolutePath}`);
+                    const fileBuffer = await readFile(absolutePath);
+                    inputFile = new InputFile(fileBuffer, firstFile.filename);
+                }
             } else if (firstFile.url) {
-                 inputFile = firstFile.url;
+                console.log(`[Telegram] ✅ Используем URL для одиночной отправки (нет локального пути): ${firstFile.url}`);
+                inputFile = firstFile.url;
             } else {
                  console.error(`[Telegram] ❌ Файл ${firstFile.id} не имеет пути или URL`);
                  return false;
