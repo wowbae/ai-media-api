@@ -8,7 +8,7 @@ export interface MediaSettings {
   videoFormat?: "16:9" | "9:16"; // Формат видео для Veo
   veoGenerationType?: "TEXT_2_VIDEO" | "FIRST_AND_LAST_FRAMES_2_VIDEO" | "REFERENCE_2_VIDEO"; // Режим генерации для Veo 3.1
   klingAspectRatio?: "16:9" | "9:16"; // Формат видео для Kling 2.6
-  klingDuration?: 5 | 10; // Длительность видео для Kling 2.6
+  klingDuration?: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12; // Длительность видео (Kling, Wavespeed, Seedance)
   klingSound?: boolean; // Звук для Kling 2.6
 }
 

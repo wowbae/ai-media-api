@@ -41,7 +41,10 @@ import { useGetModelsQuery } from '@/redux/api/models.endpoints';
 import { useTestMode } from '@/hooks/use-test-mode';
 import { useModelType } from '@/hooks/use-model-type';
 import { useChatInputFiles } from './chat-input/use-chat-input-files';
-import { useChatInputSubmit } from './chat-input/use-chat-input-submit';
+import {
+    useChatInputSubmit,
+    type SubmitParams,
+} from './chat-input/use-chat-input-submit';
 import { ModelSettingsPanel } from './chat-input/model-settings';
 import { useModelSettings } from './chat-input/use-model-settings';
 
@@ -409,7 +412,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         ? (format as '16:9' | '9:16')
                         : undefined;
 
-                handleSubmit(event, {
+                const params: SubmitParams = {
                     prompt,
                     attachedFiles,
                     format: format as
@@ -426,7 +429,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     videoFormat,
                     veoGenerationType,
                     klingAspectRatio,
-                    klingDuration: duration === 5 || duration === 10 ? duration : undefined,
+                    klingDuration:
+                        modelType.supportsDuration && duration !== undefined
+                            ? duration
+                            : undefined,
                     klingSound: sound,
                     negativePrompt,
                     seed,
@@ -443,7 +449,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         resetModelSpecificSettings();
                         clearFiles();
                     },
-                });
+                };
+                handleSubmit(event, params);
             },
             [
                 isDisabled,

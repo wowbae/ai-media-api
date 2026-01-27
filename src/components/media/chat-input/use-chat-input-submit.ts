@@ -23,7 +23,10 @@ interface UseChatInputSubmitParams {
     getFileAsBase64: (file: File) => Promise<string>;
 }
 
-interface SubmitParams {
+/** Длительность видео в секундах для моделей с supportsDuration (Kling, Wavespeed, Seedance и т.д.) */
+export type DurationSeconds = 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12;
+
+export interface SubmitParams {
     prompt: string;
     attachedFiles: AttachedFile[];
     format: '1:1' | '4:3' | '3:4' | '9:16' | '16:9' | '2:3' | '3:2' | '21:9' | undefined;
@@ -31,7 +34,7 @@ interface SubmitParams {
     videoFormat: '16:9' | '9:16' | undefined;
     veoGenerationType: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO' | undefined;
     klingAspectRatio: '16:9' | '9:16' | undefined;
-    klingDuration: 5 | 10 | undefined;
+    klingDuration: DurationSeconds | undefined;
     klingSound: boolean | undefined;
     negativePrompt: string;
     seed: string | number | undefined;

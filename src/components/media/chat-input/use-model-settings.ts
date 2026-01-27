@@ -133,11 +133,15 @@ export function useModelSettings(currentModel: MediaModel) {
                 klingSound: modelType.isKling ? settings.sound : undefined,
             });
         } else {
-            // Для остальных моделей сохраняем в format и quality
-            saveMediaSettings({
+            // Для остальных моделей (Seedance, Wavespeed и т.д.) — format, quality, при supportsDuration ещё klingDuration
+            const base: MediaSettings = {
                 format: settings.format as MediaSettings['format'],
                 quality: settings.quality,
-            });
+            };
+            if (config.duration && settings.duration !== undefined) {
+                base.klingDuration = settings.duration;
+            }
+            saveMediaSettings(base);
         }
     }, [settings, modelType]);
 
