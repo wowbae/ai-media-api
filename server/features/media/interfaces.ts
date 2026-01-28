@@ -36,7 +36,8 @@ export interface GenerateMediaRequest {
   ar?: "16:9" | "9:16"; // Формат видео для Veo
   generationType?: "TEXT_2_VIDEO" | "FIRST_AND_LAST_FRAMES_2_VIDEO" | "REFERENCE_2_VIDEO" | "EXTEND_VIDEO"; // Режим генерации для Veo 3.1
   originalTaskId?: string; // taskId оригинального видео для режима EXTEND_VIDEO
-  sound?: boolean; // Звук для Kling 2.6
+  sound?: boolean; // Звук для Kling 2.6 / generate_audio для Seedance 1.5 Pro
+  fixedLens?: boolean; // Флаг fixed_lens для Seedance 1.5 Pro
   outputFormat?: "png" | "jpg"; // Формат выход ного файла для Nano Banana Pro (Kie.ai)
   negativePrompt?: string; // Негативный промпт для Imagen4 и Kling 2.5 Turbo Pro
   seed?: string | number; // Seed для Imagen4

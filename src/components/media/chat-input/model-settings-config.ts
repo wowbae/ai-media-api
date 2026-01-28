@@ -285,6 +285,12 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             options: DURATION_OPTIONS_SEEDANCE,
             defaultValue: 4,
         },
+        // generate_audio (звук) для Seedance 1.5 Pro
+        sound: {
+            options: SOUND_OPTIONS,
+            // По умолчанию без звука, как в большинстве видео-моделей
+            defaultValue: false,
+        },
     },
 };
 

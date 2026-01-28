@@ -101,6 +101,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             setQuality,
             setDuration,
             setSound,
+            setFixedLens,
             setVeoGenerationType,
             setNegativePrompt,
             setSeed,
@@ -168,6 +169,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             similarityBoost,
             speed,
             languageCode,
+            fixedLens,
         } = settings;
 
         // Хуки для работы с файлами и отправкой
@@ -449,8 +451,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         resetModelSpecificSettings();
                         clearFiles();
                     },
+                    // fixedLens устанавливаем ниже при вызове handleSubmit
+                    fixedLens: undefined,
                 };
-                handleSubmit(event, params);
+                handleSubmit(event, {
+                    ...params,
+                    // fixedLens используется только для Seedance 1.5 Pro
+                    fixedLens:
+                        currentModel === 'SEEDANCE_1_5_PRO_KIEAI'
+                            ? fixedLens
+                            : undefined,
+                });
             },
             [
                 isDisabled,
@@ -560,6 +571,47 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         Seedream 4.5 Edit поддерживает до 14 изображений для
                         редактирования
                     </p>
+                )}
+
+                {/* Дополнительные параметры Seedance 1.5 Pro */}
+                {currentModel === 'SEEDANCE_1_5_PRO_KIEAI' && (
+                    <div className='mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground'>
+                        <span>Камера:</span>
+                        <Select
+                            value={
+                                fixedLens === undefined
+                                    ? 'false'
+                                    : fixedLens
+                                      ? 'true'
+                                      : 'false'
+                            }
+                            onValueChange={(value) =>
+                                setFixedLens(value === 'true')
+                            }
+                            disabled={isDisabled}
+                        >
+                            <SelectTrigger className='w-[150px] border-border bg-secondary text-foreground rounded-xl'>
+                                <SelectValue
+                                    placeholder='Режим камеры'
+                                />
+                            </SelectTrigger>
+                            <SelectContent
+                                side='top'
+                                sideOffset={8}
+                                position='popper'
+                                collisionPadding={20}
+                                avoidCollisions={true}
+                                className='border-border bg-card data-[side=top]:animate-none!'
+                            >
+                                <SelectItem value='true' className='text-muted-foreground focus:bg-accent focus:text-accent-foreground'>
+                                    Фиксированный ракурс (fixed_lens)
+                                </SelectItem>
+                                <SelectItem value='false' className='text-muted-foreground focus:bg-accent focus:text-accent-foreground'>
+                                    Свободная камера
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 )}
 
                 {/* Верхняя панель с выбором модели и настроек */}

@@ -11,6 +11,8 @@ export interface ModelSettingsState {
     duration: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | undefined;
     veoGenerationType: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO' | undefined;
     sound: boolean | undefined;
+    // Специальный флаг для Seedance 1.5 Pro (fixed_lens)
+    fixedLens: boolean | undefined;
     negativePrompt: string;
     seed: string | number | undefined;
     cfgScale: number | undefined;
@@ -28,6 +30,7 @@ const DEFAULT_SETTINGS: ModelSettingsState = {
     duration: undefined,
     veoGenerationType: undefined,
     sound: undefined,
+    fixedLens: undefined,
     negativePrompt: '',
     seed: undefined,
     cfgScale: undefined,
@@ -166,6 +169,10 @@ export function useModelSettings(currentModel: MediaModel) {
         updateSettings({ sound });
     };
 
+    const setFixedLens = (fixedLens: ModelSettingsState['fixedLens']) => {
+        updateSettings({ fixedLens });
+    };
+
     const setVeoGenerationType = (veoGenerationType: ModelSettingsState['veoGenerationType']) => {
         updateSettings({ veoGenerationType });
     };
@@ -228,6 +235,7 @@ export function useModelSettings(currentModel: MediaModel) {
         setQuality,
         setDuration,
         setSound,
+        setFixedLens,
         setVeoGenerationType,
         setNegativePrompt,
         setSeed,

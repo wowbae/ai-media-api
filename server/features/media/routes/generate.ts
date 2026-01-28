@@ -44,6 +44,7 @@ export function createGenerateRouter(): Router {
                     duration: durationRaw,
                     ar,
                     sound,
+                    fixedLens,
                     outputFormat,
                     negativePrompt,
                     seed,
@@ -83,7 +84,9 @@ export function createGenerateRouter(): Router {
                     seed,
                     cfgScale,
                     tailImageUrl: tailImageUrl ? 'provided' : undefined,
+                    fixedLens,
                     inputFilesCount: inputFiles?.length || 0,
+                    inputFiles: inputFiles?.map((f) => f.substring(0, 50) + "...") || [],
                     timestamp: new Date().toISOString(),
                 });
 
@@ -246,6 +249,8 @@ export function createGenerateRouter(): Router {
                 if (generationType !== undefined)
                     requestSettings.generationType = generationType;
                 if (sound !== undefined) requestSettings.sound = sound;
+                if (fixedLens !== undefined)
+                    requestSettings.fixedLens = fixedLens;
                 if (outputFormat !== undefined)
                     requestSettings.outputFormat = outputFormat;
                 if (
@@ -321,6 +326,15 @@ export function createGenerateRouter(): Router {
                 });
 
                 // Запускаем генерацию асинхронно (передаем обработанные inputFiles - URL для изображений)
+                console.log('[API] Запуск generateMedia с параметрами:', {
+                    requestId: mediaRequest.id,
+                    model: selectedModel,
+                    processedInputFilesCount: processedInputFiles.length,
+                    processedInputFiles: processedInputFiles.map((f) => f.substring(0, 50) + "..."),
+                    fixedLens,
+                    sound,
+                });
+
                 generateMedia(
                     mediaRequest.id,
                     prompt.trim(),
@@ -334,6 +348,7 @@ export function createGenerateRouter(): Router {
                     generationType,
                     originalTaskId,
                     sound,
+                    fixedLens,
                     outputFormat,
                     negativePrompt,
                     seed,

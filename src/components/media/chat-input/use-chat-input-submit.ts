@@ -36,6 +36,7 @@ export interface SubmitParams {
     klingAspectRatio: '16:9' | '9:16' | undefined;
     klingDuration: DurationSeconds | undefined;
     klingSound: boolean | undefined;
+    fixedLens?: boolean;
     negativePrompt: string;
     seed: string | number | undefined;
     cfgScale: number | undefined;
@@ -196,7 +197,10 @@ export function useChatInputSubmit({
                             veoGenerationType: params.modelType.isVeo
                                 ? params.veoGenerationType
                                 : undefined,
-                            inputFilesCount: params.attachedFiles.length,
+                            attachedFilesCount: params.attachedFiles.length,
+                            imageFilesCount: params.attachedFiles.filter((f) =>
+                                f.file.type.startsWith('image/')
+                            ).length,
                             timestamp: new Date().toISOString(),
                         }
                     );
@@ -274,6 +278,14 @@ export function useChatInputSubmit({
                         }
                     }
 
+                    console.log('[ChatInput] 📤 Отправка запроса generateMedia:', {
+                        chatId,
+                        model: currentModel,
+                        inputFilesUrlsCount: inputFilesUrls.length,
+                        inputFilesUrls: inputFilesUrls.map((url) => url.substring(0, 50) + "..."),
+                        hasInputFiles: inputFilesUrls.length > 0,
+                    });
+
                     result = await generateMedia({
                         chatId,
                         prompt: finalPrompt,
@@ -304,6 +316,9 @@ export function useChatInputSubmit({
                             params.klingSound !== undefined && {
                                 sound: params.klingSound,
                             }),
+                        ...(params.fixedLens !== undefined && {
+                            fixedLens: params.fixedLens,
+                        }),
                         ...(params.modelType.supportsNegativePrompt &&
                             params.negativePrompt &&
                             params.negativePrompt.trim() && {

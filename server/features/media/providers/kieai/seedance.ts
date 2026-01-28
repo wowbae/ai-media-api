@@ -73,9 +73,13 @@ export function createKieAiSeedanceProvider(
     console.log("[Kie.ai Seedance 1.5 Pro] Создание задачи:", {
       prompt: params.prompt.substring(0, 100),
       hasInputFiles: !!(params.inputFiles && params.inputFiles.length > 0),
+      inputFilesCount: params.inputFiles?.length || 0,
+      inputFiles: params.inputFiles?.map((f) => f.substring(0, 50) + "...") || [],
       aspectRatio: params.aspectRatio,
       duration: params.duration,
       videoQuality: params.videoQuality,
+      sound: params.sound,
+      fixedLens: params.fixedLens,
     });
 
     const isImageToVideo = params.inputFiles && params.inputFiles.length > 0;
@@ -105,10 +109,19 @@ export function createKieAiSeedanceProvider(
       input.generate_audio = params.sound;
     }
 
+    if (params.fixedLens !== undefined) {
+      input.fixed_lens = params.fixedLens;
+    }
+
     if (isImageToVideo) {
       // Image-to-Video режим - поддерживает до 2 изображений
       const inputImages = params.inputFiles!.slice(0, 2); // Максимум 2 изображения
       const imageUrls: string[] = [];
+
+      console.log("[Kie.ai Seedance 1.5 Pro] Обработка изображений для image-to-video:", {
+        inputImagesCount: inputImages.length,
+        firstImagePreview: inputImages[0]?.substring(0, 50) + "...",
+      });
 
       for (const inputImage of inputImages) {
         // Если это data URL (base64) - загружаем на imgbb
@@ -130,7 +143,14 @@ export function createKieAiSeedanceProvider(
         imageUrls.push(imageUrl);
       }
 
+      console.log("[Kie.ai Seedance 1.5 Pro] Обработанные URL изображений:", {
+        imageUrlsCount: imageUrls.length,
+        imageUrls: imageUrls.map((url) => url.substring(0, 50) + "..."),
+      });
+
       input.input_urls = imageUrls;
+    } else {
+      console.log("[Kie.ai Seedance 1.5 Pro] Режим text-to-video (без изображений)");
     }
 
     // Формируем тело запроса согласно документации
