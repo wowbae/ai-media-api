@@ -6,6 +6,7 @@ import type { ModelInfo } from '@/redux/api/base';
 // Маппинг моделей на их иконки (эмодзи)
 const MODEL_ICONS: Record<string, string> = {
     NANO_BANANA_OPENROUTER: '🍌',
+    NANO_BANANA_PRO_KIEAI: '🍌',
     MIDJOURNEY: '🎨',
     VEO_3_1_FAST_KIEAI: '🎥',
     NANO_BANANA_PRO_LAOZHANG: '🍌',
