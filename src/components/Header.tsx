@@ -3,8 +3,9 @@ import { Link, useLocation } from '@tanstack/react-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectIsAuthenticated, selectCurrentUser, logout } from '@/redux/auth-slice';
 import { TokenBalance } from './TokenBalance';
+import { KieCredits } from './KieCredits';
 import { openTelegramBot } from '@/lib/telegram-utils';
-import { Link2, LinkIcon, Settings } from 'lucide-react';
+import { LinkIcon } from 'lucide-react';
 
 export const Header = () => {
     const [isMounted, setIsMounted] = useState(false);
@@ -74,7 +75,8 @@ export const Header = () => {
                         </>
                     ) : isAuthenticated ? (
                         <>
-                            <TokenBalance />
+                            {/* <TokenBalance /> не нужен тк теперь берем кредиты на api*/}
+                            <KieCredits />
                             {!isOnMediaPage && (
                                 <Link
                                     to='/media'
@@ -89,7 +91,6 @@ export const Header = () => {
                                 title='Привязать Telegram группу'
                             >
                                 <LinkIcon className='h-4 w-4' />
-                                {/* <Settings className='h-4 w-4' /> */}
                                 <span className='hidden sm:inline'>
                                     Telegram
                                 </span>

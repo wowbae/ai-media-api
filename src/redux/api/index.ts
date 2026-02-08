@@ -28,6 +28,7 @@ export {
     useGetChatsQuery,
     useGetChatQuery,
     useGetPricingQuery,
+    useGetKieCreditsQuery,
     useCreateChatMutation,
     useUpdateChatMutation,
     useDeleteChatMutation,

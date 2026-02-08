@@ -34,6 +34,14 @@ export const mediaEndpoints = baseApi.injectEndpoints({
             providesTags: [{ type: 'Model', id: 'PRICING' }],
         }),
 
+        // Остаток кредитов Kie.ai (GET api.kie.ai/api/v1/chat/credit)
+        getKieCredits: build.query<number | null, void>({
+            query: () => '/kie-credits',
+            transformResponse: (response: { success: boolean; credits: number | null }) =>
+                response.success ? response.credits : null,
+            providesTags: [{ type: 'Model', id: 'KIE_CREDITS' }],
+        }),
+
         // Получить все чаты
         getChats: build.query<MediaChat[], void>({
             query: () => '/chats',
@@ -497,6 +505,7 @@ export const {
     useGetChatsQuery,
     useGetChatQuery,
     useGetPricingQuery,
+    useGetKieCreditsQuery,
     useCreateChatMutation,
     useUpdateChatMutation,
     useDeleteChatMutation,

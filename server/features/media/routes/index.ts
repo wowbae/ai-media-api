@@ -8,6 +8,7 @@ import { createFilesRouter } from './files';
 import { createRequestsRouter } from './requests';
 import { createModelsRouter } from './models';
 import { createPricingRouter } from './pricing';
+import { createKieCreditsRouter } from './kie-credits';
 
 export const mediaRouter = Router();
 
@@ -22,3 +23,4 @@ mediaRouter.use(createFilesRouter());
 mediaRouter.use(createRequestsRouter());
 mediaRouter.use(createModelsRouter());
 mediaRouter.use(createPricingRouter());
+mediaRouter.use(createKieCreditsRouter());

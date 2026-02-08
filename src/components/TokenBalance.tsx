@@ -5,6 +5,8 @@ import { Coins } from 'lucide-react';
 import { useGetMeQuery } from '@/redux/api/auth.endpoints';
 import { handleSessionTimeout } from '@/redux/api/utils';
 
+// TODO: удалить этот компонент, тк берем кредиты на api
+// не нужен тк теперь берем кредиты на api
 export const TokenBalance = () => {
     const user: User | null = useSelector(selectCurrentUser);
     const dispatch = useDispatch();
