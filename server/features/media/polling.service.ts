@@ -1,5 +1,4 @@
 // Сервис для polling статуса async задач генерации
-// Отвечает за проверку статуса задач у провайдеров и обновление БД
 import type { MediaModel } from "./interfaces";
 import { prisma } from "prisma/client";
 import { getProviderManager } from "./providers";
@@ -14,18 +13,41 @@ import {
   handlePollingError,
 } from "./polling.utils";
 
-// Начальная задержка перед первым чеком статуса (70 секунд)
-const POLLING_INITIAL_DELAY = 70 * 1000;
-// Интервал polling для async провайдеров (5 секунд)
-const POLLING_INTERVAL = 5000;
+// Начальная задержка перед первым чеком статуса (50 секунд)
+const POLLING_INITIAL_DELAY = 50 * 1000;
+
+// Адаптивные интервалы polling для уменьшения нагрузки на API
+// Чем дольше ждём, тем реже делаем запросы
+const POLLING_INTERVALS = [
+  { duration: 2 * 60 * 1000, interval: 10 * 1000 },   // Первые 2 мин: каждые 10 сек
+  { duration: 3 * 60 * 1000, interval: 30 * 1000 },   // Следующие 3 мин: каждые 30 сек
+  { duration: 5 * 60 * 1000, interval: 60 * 1000 },   // Далее: каждые 60 сек
+];
+
 // Максимальное время ожидания (10 минут)
 const MAX_POLLING_TIME = 10 * 60 * 1000;
 
 // Хранилище активных polling задач
+// Синглтон для отслеживания задач в памяти (восстанавливается при рестарте сервера)
 export const activePollingTasks = new Map<
   number,
   { taskId: string; providerName: string; model?: MediaModel }
 >();
+
+/**
+ * Получить интервал polling на основе прошедшего времени
+ */
+function getPollingInterval(elapsed: number): number {
+  let accumulated = 0;
+  for (const { duration, interval } of POLLING_INTERVALS) {
+    accumulated += duration;
+    if (elapsed < accumulated) {
+      return interval;
+    }
+  }
+  // Fallback: последний интервал (60 сек)
+  return POLLING_INTERVALS[POLLING_INTERVALS.length - 1].interval;
+}
 
 /**
  * Polling для async провайдеров
@@ -44,18 +66,15 @@ export async function pollTaskResult(
     `[MediaService] 🔄 Начало polling: requestId=${requestId}, taskId=${taskId}`,
   );
 
-  // Проверяем начальный статус запроса
   const { shouldSkip } = await checkInitialRequestStatus(requestId);
   if (shouldSkip) return;
 
-  // Первая задержка перед началом polling (70 секунд)
   console.log(
     `[MediaService] ⏳ Ожидание ${POLLING_INITIAL_DELAY / 1000} секунд перед первым чеком статуса: requestId=${requestId}`,
   );
   await sleep(POLLING_INITIAL_DELAY);
 
   while (Date.now() - startTime < MAX_POLLING_TIME) {
-    // Проверяем, не была ли задача отменена
     if (!isPollingActive(requestId)) {
       console.log(`[MediaService] Polling отменён: requestId=${requestId}`);
       await prisma.mediaRequest.update({
@@ -104,8 +123,10 @@ export async function pollTaskResult(
         return;
       }
 
-      // pending или processing - продолжаем polling
-      await sleep(POLLING_INTERVAL);
+      // Адаптивный интервал polling
+      const elapsed = Date.now() - startTime;
+      const interval = getPollingInterval(elapsed);
+      await sleep(interval);
     } catch (error) {
       const shouldContinue = await handlePollingError(requestId, error, providerName, startTime, MAX_POLLING_TIME);
       if (!shouldContinue) return;

@@ -634,3 +634,37 @@ export async function uploadImageFilesToImgbb(
         return files; // Возвращаем оригинальные файлы при ошибке
     }
 }
+
+/**
+ * Загружает изображения на imgbb и обновляет URL в БД
+ * @param files - Файлы для загрузки
+ * @param requestId - ID запроса
+ * @param prompt - Промпт (для логирования)
+ * @returns Обработанные файлы с URL
+ */
+export async function uploadFilesToImgbbAndUpdateDatabase(
+    files: SavedFileInfo[],
+    requestId: number,
+    prompt: string
+): Promise<void> {
+    try {
+        const processedFiles = await uploadImageFilesToImgbb(files, requestId, prompt);
+
+        const filesToUpdate = processedFiles
+            .filter((file) => file.url && file.type === "IMAGE")
+            .map((file) => ({
+                filename: file.filename,
+                url: file.url,
+                previewUrl: file.previewUrl || null,
+            }));
+
+        if (filesToUpdate.length > 0) {
+            await updateFileUrlsInDatabase(requestId, filesToUpdate);
+        }
+    } catch (imgbbError) {
+        console.error(
+            `[MediaService] ⚠️ Ошибка загрузки на imgbb: requestId=${requestId}:`,
+            imgbbError instanceof Error ? imgbbError.message : imgbbError
+        );
+    }
+}

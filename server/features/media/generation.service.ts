@@ -140,30 +140,9 @@ export async function generateMedia(options: GenerateMediaOptions): Promise<Save
     // Отправляем в Telegram (используя локальные пути)
     await sendFilesToTelegram(requestId, savedMediaFiles, prompt);
 
-    // Пытаемся загрузить изображения на imgbb (если ошибка - не критично)
-    try {
-      const { uploadImageFilesToImgbb } = await import("./imgbb.service");
-      const processedFiles = await uploadImageFilesToImgbb(savedFiles, requestId, prompt);
-      
-      // Обновляем URL в БД после успешной загрузки на imgbb
-      const filesToUpdate = processedFiles
-        .filter((file) => file.url && file.type === "IMAGE")
-        .map((file) => ({
-          filename: file.filename,
-          url: file.url,
-          previewUrl: file.previewUrl || null,
-        }));
-      
-          if (filesToUpdate.length > 0) {
-            await updateFileUrlsInDatabase(requestId, filesToUpdate);
-          }
-    } catch (imgbbError) {
-      console.error(
-        `[MediaService] ⚠️ Ошибка загрузки на imgbb (продолжаем без imgbb URL): requestId=${requestId}:`,
-        imgbbError instanceof Error ? imgbbError.message : imgbbError
-      );
-      // Не прерываем выполнение, просто логируем ошибку
-    }
+    // Загружаем изображения на imgbb и обновляем URL в БД
+    const { uploadFilesToImgbbAndUpdateDatabase } = await import("./imgbb.service");
+    await uploadFilesToImgbbAndUpdateDatabase(savedFiles, requestId, prompt);
 
     // Обновляем статус на COMPLETED
     await prisma.mediaRequest.update({

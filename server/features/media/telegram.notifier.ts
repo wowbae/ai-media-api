@@ -11,13 +11,7 @@ import { getBot } from '../telegram/bot/bot.service';
 
 // Публичная функция инициализации (для вызова при старте)
 export async function initTelegramNotifier(): Promise<void> {
-    // Бот инициализируется в init.ts, здесь просто проверяем доступность
-    const bot = getBot();
-    if (bot) {
-        console.log('✅ Telegram notifier готов к работе');
-    } else {
-        console.warn('⚠️ Telegram bot не доступен для уведомлений');
-    }
+    // Бот инициализируется в init.ts, лог будет там
 }
 
 // Нормализация chat_id - преобразование в число, если это строка с числом
@@ -170,7 +164,7 @@ export async function notifyTelegramGroupBatch(
     files: MediaFile[],
     chatName: string,
     prompt: string
-): Promise<boolean> {
+){
     // Determine target groups
     let targetGroupIds: (string | number)[] = [];
 
@@ -185,8 +179,16 @@ export async function notifyTelegramGroupBatch(
             }
         });
 
-        // Если есть userId, получаем telegramGroup отдельным запросом
-        if (request?.userId) {
+        // Если нет request или userId - используем fallback
+        if (!request?.userId) {
+            if (telegramConfig.notificationGroupId) {
+                targetGroupIds = [telegramConfig.notificationGroupId];
+            } else {
+                console.warn('[Telegram] ⚠️ No target group found for user or global config');
+                return false;
+            }
+        } else {
+            // Получаем telegramGroup по userId
             const telegramGroup = await prisma.telegramGroup.findUnique({
                 where: { userId: request.userId },
                 select: {
@@ -197,28 +199,24 @@ export async function notifyTelegramGroupBatch(
             if (telegramGroup) {
                 targetGroupIds = [telegramGroup.groupId];
             } else if (telegramConfig.notificationGroupId) {
-                // Fallback to global config (Admin/Legacy)
                 targetGroupIds = [telegramConfig.notificationGroupId];
             } else {
                 console.warn('[Telegram] ⚠️ No target group found for user or global config');
                 return false;
             }
-        } else if (telegramConfig.notificationGroupId) {
-            // Fallback to global config (Admin/Legacy)
-            targetGroupIds = [telegramConfig.notificationGroupId];
-        } else {
-            console.warn('[Telegram] ⚠️ No target group found for user or global config');
-            return false;
         }
     } catch (e) {
         console.error('[Telegram] Error fetching user groups:', e);
         if (telegramConfig.notificationGroupId) {
             targetGroupIds = [telegramConfig.notificationGroupId];
+        } else {
+            return false;
         }
     }
 
-    if (files.length === 0) {
-        console.warn('[Telegram] ⚠️ Нет файлов для отправки');
+    // Проверка: если targetGroupIds пустой - нечего отправлять
+    if (targetGroupIds.length === 0) {
+        console.warn('[Telegram] ⚠️ Нет целевых групп для отправки');
         return false;
     }
 
@@ -247,21 +245,21 @@ export async function notifyTelegramGroupBatch(
             `[Telegram] Бот инициализирован, отправка в группу: ${groupId}`
         );
 
-    // Проверяем доступность чата перед отправкой
-    const hasAccess = await validateChatAccess(bot, groupId);
-    if (!hasAccess) {
-        console.error(`[Telegram] ❌ Нет доступа к чату ${groupId}, skipping`);
-        continue;
-    }
+        // Проверяем доступность чата перед отправкой
+        const hasAccess = await validateChatAccess(bot, groupId);
+        if (!hasAccess) {
+            console.error(`[Telegram] ❌ Нет доступа к чату ${groupId}, skipping`);
+            continue;
+        }
 
-    try {
+        try {
         // Формируем caption для первого файла
         const firstFile = files[0];
         const caption = await formatCaption(firstFile, chatName, prompt);
 
         // Подготавливаем массив медиа для отправки группой
         const mediaGroup: Array<{
-            type: 'photo' | 'document';
+            type: 'photo' | 'video' | 'document' | 'audio';
             media: string | InputFile;
             caption?: string;
             parse_mode?: 'HTML';
@@ -356,7 +354,7 @@ export async function notifyTelegramGroupBatch(
                     mediaStorageConfig.basePath,
                     firstFile.path
                 );
-                
+
                 if (!existsSync(absolutePath)) {
                     console.warn(`[Telegram] ⚠️ Локальный файл не найден для одиночной отправки: ${absolutePath}, проверяем URL...`);
                     if (firstFile.url) {
@@ -427,7 +425,8 @@ export async function notifyTelegramGroupBatch(
                 await deleteMediaAfterTelegramSend(firstFile);
             }
 
-            return true;
+            successCount += 1;
+            break;
         }
 
         // Для нескольких файлов отправляем как media group
@@ -469,7 +468,8 @@ export async function notifyTelegramGroupBatch(
             await deleteMediaAfterTelegramSend(mediaFile);
         }
 
-        return true;
+        successCount += 1;
+        break;
     } catch (error: unknown) {
         const telegramError = error as {
             error_code?: number;
@@ -504,9 +504,10 @@ export async function notifyTelegramGroupBatch(
         // Continue for other groups if one fails
         console.error(`[Telegram] Failed to send to one group, continuing...`);
     }
-
-    return successCount > 0;
     }
+
+    if (successCount > 0) return true;
+    return false;
 }
 
 // Отправка медиа-файла в Telegram группу (для обратной совместимости)

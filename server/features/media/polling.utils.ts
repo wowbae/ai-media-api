@@ -77,28 +77,16 @@ export async function checkProviderTaskStatus(
 }
 
 /**
- * Обработка успешного завершения задачи (status = "done")
+ * Получить результат задачи от провайдера с retry-логикой
  */
-export async function handleTaskCompleted(
-  requestId: number,
+async function getTaskResultWithRetry(
+  provider: any,
   taskId: string,
-  providerName: string,
-  model: MediaModel,
-  prompt: string
-): Promise<void> {
-  const providerManager = getProviderManager();
-  const provider = providerManager.getProvider(model);
-
-  if (!provider.getTaskResult) {
-    throw new Error(
-      `Провайдер ${providerName} не поддерживает getTaskResult`,
-    );
-  }
-
-  // Retry логика для getTaskResult
-  let savedFiles: Awaited<ReturnType<typeof provider.getTaskResult>> | null = null;
+  requestId: number
+): Promise<Awaited<ReturnType<typeof provider.getTaskResult>>> {
   const maxRetries = 3;
   let retryCount = 0;
+  let savedFiles: Awaited<ReturnType<typeof provider.getTaskResult>> | null = null;
 
   while (retryCount < maxRetries && !savedFiles) {
     try {
@@ -129,15 +117,7 @@ export async function handleTaskCompleted(
           console.log(
             `[MediaService] ⚠️ Файлы уже есть в БД (${existingFiles.length}), возможно частичное сохранение. Продолжаем...`,
           );
-          await prisma.mediaRequest.update({
-            where: { id: requestId },
-            data: {
-              status: 'COMPLETED',
-              completedAt: new Date(),
-            },
-          });
-          activePollingTasks.delete(requestId);
-          return;
+          return existingFiles;
         }
 
         throw new Error(
@@ -159,39 +139,32 @@ export async function handleTaskCompleted(
     );
   }
 
-  // Сохраняем файлы в БД (атомарно с транзакцией)
+  return savedFiles;
+}
+
+/**
+ * Сохранить файлы и отправить уведомления
+ */
+async function saveFilesAndNotify(
+  requestId: number,
+  savedFiles: any[],
+  prompt: string
+): Promise<void> {
+  // Сохраняем файлы в БД
   const savedMediaFiles = await saveFilesToDatabase(requestId, savedFiles, prompt);
 
   // Отправляем в Telegram
   await sendFilesToTelegram(requestId, savedMediaFiles, prompt);
 
-  // Пытаемся загрузить изображения на imgbb
-  try {
-    const { uploadImageFilesToImgbb } = await import("./imgbb.service");
-    const processedFiles = await uploadImageFilesToImgbb(
-      savedFiles,
-      requestId,
-      prompt
-    );
+  // Загружаем изображения на imgbb и обновляем URL в БД
+  const { uploadFilesToImgbbAndUpdateDatabase } = await import("./imgbb.service");
+  await uploadFilesToImgbbAndUpdateDatabase(savedFiles, requestId, prompt);
+}
 
-    const filesToUpdate = processedFiles
-      .filter((file) => file.url && file.type === "IMAGE")
-      .map((file) => ({
-        filename: file.filename,
-        url: file.url,
-        previewUrl: file.previewUrl || null,
-      }));
-
-    if (filesToUpdate.length > 0) {
-      await updateFileUrlsInDatabase(requestId, filesToUpdate);
-    }
-  } catch (imgbbError) {
-    console.error(
-      `[MediaService] ⚠️ Ошибка загрузки на imgbb: requestId=${requestId}:`,
-      imgbbError instanceof Error ? imgbbError.message : imgbbError
-    );
-  }
-
+/**
+ * Обновить статус запроса на COMPLETED
+ */
+async function markRequestCompleted(requestId: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 200));
 
   await prisma.mediaRequest.update({
@@ -203,8 +176,36 @@ export async function handleTaskCompleted(
   });
 
   await new Promise((resolve) => setTimeout(resolve, 100));
-
   activePollingTasks.delete(requestId);
+}
+
+/**
+ * Обработка успешного завершения задачи (status = "done")
+ */
+export async function handleTaskCompleted(
+  requestId: number,
+  taskId: string,
+  providerName: string,
+  model: MediaModel,
+  prompt: string
+): Promise<void> {
+  const providerManager = getProviderManager();
+  const provider = providerManager.getProvider(model);
+
+  if (!provider.getTaskResult) {
+    throw new Error(
+      `Провайдер ${providerName} не поддерживает getTaskResult`,
+    );
+  }
+
+  // Получаем результат с retry-логикой
+  const savedFiles = await getTaskResultWithRetry(provider, taskId, requestId);
+
+  // Сохраняем файлы и отправляем уведомления
+  await saveFilesAndNotify(requestId, savedFiles, prompt);
+
+  // Обновляем статус
+  await markRequestCompleted(requestId);
 
   console.log(
     `[MediaService] ✅ Async генерация завершена: requestId=${requestId}, файлов: ${savedFiles.length}`,

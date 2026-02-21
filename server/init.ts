@@ -1,4 +1,3 @@
-// express server
 // Главный файл инициализации сервера
 import express from "express";
 import cors from "cors";
@@ -18,32 +17,22 @@ dotenv.config();
 
 export const app = express();
 
-// middleware
-// Увеличиваем лимит для загрузки файлов (50mb)
+// Middleware
 app.use(express.json({ limit: serverConfig.bodyLimit }));
 app.use(express.urlencoded({ extended: true, limit: serverConfig.bodyLimit }));
 app.use(cors());
 
-// Middleware для явной установки заголовков кеширования для медиа-файлов
-// Файлы имеют уникальные имена и не изменяются, поэтому кешируем на неделю
+// Middleware для кеширования медиа-файлов
 app.use("/media-files", (req, res, next) => {
-  // Устанавливаем кеширование для медиа-файлов на неделю
-  // Файлы имеют уникальные имена и не изменяются, поэтому кешируем на неделю
-  const oneWeekInSeconds = 604800; // 7 дней
+  const oneWeekInSeconds = 604800;
   const oneWeekInMs = oneWeekInSeconds * 1000;
 
   res.setHeader("Cache-Control", "public, max-age=604800, immutable");
   res.setHeader("Expires", new Date(Date.now() + oneWeekInMs).toUTCString());
-
-  // CORS заголовки для медиа-файлов (не мешают кешированию)
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-  res.setHeader("Access-Control-Max-Age", "604800"); // Кешируем preflight на неделю
+  res.setHeader("Access-Control-Max-Age", "604800");
 
-  // Важно: Vary заголовок должен быть минимальным для кеширования
-  // Не добавляем Vary: Origin, чтобы кеш работал для всех источников
-
-  // Обработка OPTIONS запросов для CORS preflight
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
   }
@@ -52,14 +41,13 @@ app.use("/media-files", (req, res, next) => {
 });
 
 // Статическая раздача медиа-файлов с кешированием
-// Файлы уже локальные, поэтому кешируем их на неделю
 app.use(
   "/media-files",
   express.static(path.join(process.cwd(), "ai-media"), {
-    maxAge: "7d", // Кешируем на неделю
-    immutable: true, // Файлы не изменяются (имена уникальные)
-    etag: true, // Используем ETag для валидации
-    lastModified: true, // Используем Last-Modified
+    maxAge: "7d",
+    immutable: true,
+    etag: true,
+    lastModified: true,
   }),
 );
 
@@ -68,18 +56,14 @@ app.use("/api/media", mediaRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/telegram", telegramRouter);
 
-// регистрация маршрутов, если будут сюда их добавлять
+// Регистрация маршрутов
 registerRoutes(app, []);
 
-// запуск сервера
+// Запуск сервера
 const server = app.listen(serverConfig.port, () => {
   console.log(`🚀 Server is running on port ${serverConfig.port}`);
 
-  // Синхронизируем БД с файловой системой (удаляем записи о несуществующих файлах)
-  // Запускается с задержкой 5 секунд, чтобы не блокировать старт
   syncMediaFilesWithFileSystem(5000);
-
-  // Восстанавливаем незавершенные задачи после запуска сервера
   recoverUnfinishedTasks().catch((error) => {
     console.error("❌ Ошибка при восстановлении незавершенных задач:", error);
   });
@@ -96,28 +80,21 @@ server.on("error", (error: NodeJS.ErrnoException) => {
   }
 });
 
-// Telegram Bot (опционально - только если есть токен)
+// Telegram Bot
 const botService = getTelegramBotService();
 
 if (process.env.TELEGRAM_BOT_TOKEN) {
-  botService
-    .initialize(process.env.TELEGRAM_BOT_TOKEN, (me) => {
-      // регистрируем обработчики после инициализации
-      const bot = botService.getBot();
-      if (bot) {
-        handlers.map((h) => bot.use(h));
-      }
-    })
-    .catch((err) => {
-      console.warn("⚠️ Telegram Bot не запущен:", err.message);
-    });
+  botService.initialize(process.env.TELEGRAM_BOT_TOKEN, (me) => {
+    const bot = botService.getBot();
+    if (bot) {
+      handlers.map((h) => bot.use(h));
+      console.log('✅ Telegram notifier готов к работе');
+    }
+  }).catch((err) => {
+    console.warn("⚠️ Telegram Bot не запущен:", err.message);
+  });
 } else {
   console.log("ℹ️ TELEGRAM_BOT_TOKEN не указан - Telegram бот отключен");
-}
-
-// Экспорт бота для совместимости
-export function getBotInstance() {
-  return getBot();
 }
 
 // Обработка сигналов завершения для корректного освобождения порта
@@ -129,7 +106,6 @@ function gracefulShutdown(signal: string) {
     process.exit(0);
   });
 
-  // Принудительное завершение через 10 секунд, если сервер не закрылся
   setTimeout(() => {
     console.error("Forced shutdown after timeout");
     process.exit(1);

@@ -1,9 +1,10 @@
 // Базовые типы и конфигурация для Redux API
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { createAuthHeaders, handleSessionTimeout } from './utils';
+import { config } from '@/lib/config';
 
 // URL API сервера
-export const API_BASE_URL = 'http://localhost:4000/api/media';
+export const API_BASE_URL = config.apiUrl;
 
 // ==================== Базовые типы ====================
 
