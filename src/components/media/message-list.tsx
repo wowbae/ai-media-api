@@ -107,17 +107,10 @@ export function MessageList({
     // Автопрокрутка к последнему сообщению
     // Используем scrollIntoView на элементе-маркере в конце списка
     useEffect(() => {
-        // Если пользователь не в самом низу, не прокручиваем автоматически (опционально)
-        // Но здесь мы оставим как было, чтобы новые сообщения всегда были видны
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                if (messagesEndRef.current) {
-                    messagesEndRef.current.scrollIntoView({
-                        behavior: 'smooth',
-                    });
-                }
-            });
-        });
+        const timeoutId = setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 0);
+        return () => clearTimeout(timeoutId);
     }, [requests.length, requestsStatusKey]);
 
     if (isLoading) {

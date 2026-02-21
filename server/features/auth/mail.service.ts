@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { authConfig } from './config';
+import { authConfig } from '../../config';
 
 // Create generic transporter
 const transporter = nodemailer.createTransport({

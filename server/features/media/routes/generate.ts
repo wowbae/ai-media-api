@@ -335,11 +335,11 @@ export function createGenerateRouter(): Router {
                     sound,
                 });
 
-                generateMedia(
-                    mediaRequest.id,
-                    prompt.trim(),
-                    selectedModel,
-                    processedInputFiles,
+                generateMedia({
+                    requestId: mediaRequest.id,
+                    prompt: prompt.trim(),
+                    model: selectedModel,
+                    inputFiles: processedInputFiles,
                     format,
                     quality,
                     videoQuality,
@@ -359,7 +359,7 @@ export function createGenerateRouter(): Router {
                     similarityBoost,
                     speed,
                     languageCode
-                ).catch((error) => {
+                }).catch((error) => {
                     console.error('Ошибка генерации:', error);
                 });
 

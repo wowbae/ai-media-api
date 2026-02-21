@@ -53,7 +53,7 @@ export interface MediaRequest {
     id: number;
     chatId: number;
     prompt: string;
-    model: MediaModel | null; // Модель, использованная для этого запроса
+    model: MediaModel | null;
     costUsd?: number | null;
     costTokens?: number | null;
     status: RequestStatus;
@@ -62,7 +62,7 @@ export interface MediaRequest {
     createdAt: string;
     completedAt: string | null;
     seed: string | null;
-    settings?: Record<string, unknown>; // Параметры запроса для повторения (format, quality, duration, sound, и т.д.)
+    settings?: Record<string, unknown>;
     files: MediaFile[];
 }
 
@@ -72,9 +72,9 @@ export interface MediaFile {
     type: MediaType;
     filename: string;
     path: string | null;
-    url: string | null; // URL на imgbb (для IMAGE, используется для отправки в нейросеть)
+    url: string | null;
     previewPath: string | null;
-    previewUrl: string | null; // URL превью на imgbb (для IMAGE, создается асинхронно)
+    previewUrl: string | null;
     size: number | null;
     width: number | null;
     height: number | null;
@@ -85,7 +85,6 @@ export interface MediaChatWithRequests extends MediaChat {
     requests: MediaRequest[];
 }
 
-// Информация о модели с провайдером
 export interface ModelInfo {
     key: string;
     name: string;
@@ -127,22 +126,21 @@ export interface GenerateMediaRequest {
     quality?: '1k' | '2k' | '4k';
     videoQuality?: '480p' | '720p' | '1080p';
     duration?: number;
-    ar?: '16:9' | '9:16'; // Формат видео для Veo
-    generationType?: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO'; // Режим генерации для Veo 3.1
-    originalTaskId?: string; // taskId оригинального видео для режима EXTEND_VIDEO
-    sound?: boolean; // Звук для Kling 2.6 / generate_audio для Seedance 1.5 Pro
-    fixedLens?: boolean; // Флаг fixed_lens для Seedance 1.5 Pro
-    outputFormat?: 'png' | 'jpg'; // Формат выходного файла для Nano Banana Pro (Kie.ai)
-    negativePrompt?: string; // Негативный промпт для Imagen4 и Kling 2.5 Turbo Pro
-    seed?: string | number; // Seed для Imagen4
-    cfgScale?: number; // CFG scale для Kling 2.5 Turbo Pro
-    tailImageUrl?: string; // Tail frame image для Kling 2.5 Turbo Pro (image-to-video)
-    // Параметры для ElevenLabs Multilingual v2
-    voice?: string; // Голос для TTS (по умолчанию "Rachel")
-    stability?: number; // Стабильность (0-1, по умолчанию 0.5)
-    similarityBoost?: number; // Усиление сходства (0-1, по умолчанию 0.75)
-    speed?: number; // Скорость (0.5-2, по умолчанию 1)
-    languageCode?: string; // Код языка (опционально)
+    ar?: '16:9' | '9:16';
+    generationType?: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO';
+    originalTaskId?: string;
+    sound?: boolean;
+    fixedLens?: boolean;
+    outputFormat?: 'png' | 'jpg';
+    negativePrompt?: string;
+    seed?: string | number;
+    cfgScale?: number;
+    tailImageUrl?: string;
+    voice?: string;
+    stability?: number;
+    similarityBoost?: number;
+    speed?: number;
+    languageCode?: string;
 }
 
 export interface GenerateMediaResponse {
@@ -167,18 +165,25 @@ export interface ApiResponse<T> {
     error?: string;
 }
 
-// ==================== Базовый API ====================
+// ==================== Базовый query ====================
 
-// Обертка для baseQuery с обработкой ошибок
-const baseQueryWithErrorHandling = async (args: any, api: any, extraOptions: any) => {
+/**
+ * Универсальная обертка для baseQuery с обработкой ошибок
+ * @param baseUrl - Базовый URL API (по умолчанию API_BASE_URL)
+ */
+export async function baseQueryWithErrorHandling(
+    args: any,
+    api: any,
+    extraOptions: any,
+    baseUrl?: string
+) {
     const result = await fetchBaseQuery({
-        baseUrl: API_BASE_URL,
+        baseUrl: baseUrl || API_BASE_URL,
         prepareHeaders: createAuthHeaders,
     })(args, api, extraOptions);
 
     // Обработка ошибок 401 (Unauthorized)
     if (result.error && 'status' in result.error && result.error.status === 401) {
-        // Перенаправляем на логин только если это не запрос /auth/me (чтобы не спамить при отсутствии токена)
         const url = typeof args === 'string' ? args : args?.url || '';
         if (!url.includes('/auth/me')) {
             handleSessionTimeout();
@@ -186,17 +191,15 @@ const baseQueryWithErrorHandling = async (args: any, api: any, extraOptions: any
     }
 
     return result;
-};
+}
 
 export const baseApi = createApi({
     reducerPath: 'mediaApi',
     baseQuery: baseQueryWithErrorHandling,
     tagTypes: ['Chat', 'Request', 'File', 'Model'],
-    // Настройки для оптимистичного обновления
-    keepUnusedDataFor: 60, // Хранить неиспользуемые данные 60 секунд
-    // Показывать кешированные данные сразу, обновлять в фоне если старше 10 секунд
+    keepUnusedDataFor: 60,
     refetchOnMountOrArgChange: 10,
-    refetchOnFocus: true, // Обновлять при фокусе окна для актуальности данных
-    refetchOnReconnect: true, // Обновлять при восстановлении соединения
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
     endpoints: () => ({}),
 });

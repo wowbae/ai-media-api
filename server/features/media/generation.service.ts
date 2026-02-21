@@ -16,36 +16,38 @@ import {
 import type { SavedFileInfo } from "./file.service";
 import { saveFilesToDatabase, sendFilesToTelegram, updateFileUrlsInDatabase } from "./database.service";
 import { formatErrorMessage } from "./error-utils";
+import type { GenerateMediaOptions } from "./types";
 
 // Импортируем polling сервис
 import { pollTaskResult, activePollingTasks } from "./polling.service";
 
 // Основная функция генерации медиа через провайдеры
-export async function generateMedia(
-  requestId: number,
-  prompt: string,
-  model: MediaModel,
-  inputFiles: string[] = [],
-  format?: "1:1" | "9:16" | "16:9",
-  quality?: "1k" | "2k" | "4k",
-  videoQuality?: "480p" | "720p" | "1080p",
-  duration?: number,
-  ar?: "16:9" | "9:16",
-  generationType?: "TEXT_2_VIDEO" | "FIRST_AND_LAST_FRAMES_2_VIDEO" | "REFERENCE_2_VIDEO" | "EXTEND_VIDEO",
-  originalTaskId?: string,
-  sound?: boolean,
-  fixedLens?: boolean,
-  outputFormat?: "png" | "jpg",
-  negativePrompt?: string,
-  seed?: string | number,
-  cfgScale?: number,
-  tailImageUrl?: string,
-  voice?: string,
-  stability?: number,
-  similarityBoost?: number,
-  speed?: number,
-  languageCode?: string,
-): Promise<SavedFileInfo[]> {
+export async function generateMedia(options: GenerateMediaOptions): Promise<SavedFileInfo[]> {
+  const {
+    requestId,
+    prompt,
+    model,
+    inputFiles = [],
+    format,
+    quality,
+    videoQuality,
+    duration,
+    ar,
+    generationType,
+    originalTaskId,
+    sound,
+    fixedLens,
+    outputFormat,
+    negativePrompt,
+    seed,
+    cfgScale,
+    tailImageUrl,
+    voice,
+    stability,
+    similarityBoost,
+    speed,
+    languageCode,
+  } = options;
   const providerManager = getProviderManager();
   const provider = providerManager.getProvider(model);
   const modelConfig = providerManager.getModelConfig(model);
@@ -299,7 +301,7 @@ export async function recoverUnfinishedTasks(): Promise<void> {
         activePollingTasks.set(request.id, {
           taskId: request.taskId,
           providerName: provider.name,
-          model: requestModel,
+          model: requestModel as MediaModel,
         });
 
         // Запускаем polling в фоне

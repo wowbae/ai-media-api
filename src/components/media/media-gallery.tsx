@@ -1,15 +1,11 @@
 // Компонент галереи всех медиафайлов чата
 import { useState, useMemo, useEffect, useRef } from 'react';
 import {
-    Trash2,
-    Paperclip,
     ChevronDown,
     ImageIcon,
     VideoIcon,
-    Loader2,
     Pin,
     RefreshCcw,
-    Maximize2,
     Download,
     X,
 } from 'lucide-react';
@@ -19,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { MediaPreview } from './media-preview';
 import { MediaFullscreenView } from './media-fullscreen-view';
+import { GalleryFileCard } from './gallery-file-card';
 import {
     type MediaFile,
     useDeleteFileMutation,
@@ -63,19 +60,12 @@ export function MediaGallery({
     const [pinnedImageIds, setPinnedImageIds] = useState<Set<number>>(
         new Set()
     );
-    // Используем ref для доступа к актуальному значению pinnedImageIds в useEffect
-    const pinnedImageIdsRef = useRef<Set<number>>(new Set());
 
     // Создаем функцию для эффекта загрузки
     const loadingEffectForAttachFile = useMemo(
         () => createLoadingEffectForAttachFile(setAttachingFile),
         []
     );
-
-    // Синхронизируем ref с state
-    useEffect(() => {
-        pinnedImageIdsRef.current = pinnedImageIds;
-    }, [pinnedImageIds]);
 
     // Загружаем закрепленные изображения из localStorage
     useEffect(() => {
@@ -87,14 +77,11 @@ export function MediaGallery({
                 const ids = JSON.parse(stored) as number[];
                 const newSet = new Set(ids);
                 setPinnedImageIds(newSet);
-                pinnedImageIdsRef.current = newSet;
             } catch (error) {
                 console.error('Error loading pinned images:', error);
             }
         } else {
-            const newSet = new Set<number>();
-            setPinnedImageIds(newSet);
-            pinnedImageIdsRef.current = newSet;
+            setPinnedImageIds(new Set<number>());
         }
     }, [chatId]);
 
@@ -148,8 +135,7 @@ export function MediaGallery({
             // Это гарантирует, что при смене чата мы показываем только файлы нового чата
             setAccumulatedFiles((prev) => {
                 const newFilesIds = new Set(filesData.data.map((f) => f.id));
-                // Используем ref для получения актуального значения pinnedImageIds
-                const currentPinnedIds = pinnedImageIdsRef.current;
+                const currentPinnedIds = pinnedImageIds;
 
                 // Сохраняем закрепленные файлы из предыдущего списка, которых нет в новых данных
                 // ВАЖНО: не сохраняем файлы, которые уже есть в новых данных, чтобы не дублировать
@@ -171,20 +157,20 @@ export function MediaGallery({
                 const newFiles = filesData.data.filter(
                     (f) => !existingIds.has(f.id)
                 );
-                
+
                 // Обновляем существующие файлы актуальными данными из пагинации
                 // Это важно для закрепленных файлов, которые были предзагружены из chatData
                 // Создаем Map для быстрого поиска обновленных файлов
                 const updatedFilesMap = new Map(
                     filesData.data.map((f) => [f.id, f])
                 );
-                
+
                 // Обновляем существующие файлы или оставляем их как есть
                 const updatedFiles = prev.map((existingFile) => {
                     // Если файл есть в новых данных - используем их (актуальные данные о превью)
                     return updatedFilesMap.get(existingFile.id) || existingFile;
                 });
-                
+
                 return [...updatedFiles, ...newFiles];
             });
         }
@@ -196,7 +182,7 @@ export function MediaGallery({
 
         setAccumulatedFiles((prev) => {
             const existingIds = new Set(prev.map((f) => f.id));
-            const currentPinnedIds = pinnedImageIdsRef.current;
+            const currentPinnedIds = pinnedImageIds;
             const newPinnedFiles: MediaFile[] = [];
 
             // Извлекаем все файлы из chatData
@@ -218,8 +204,6 @@ export function MediaGallery({
             return [...newPinnedFiles, ...prev];
         });
     }, [chatData, pinnedImageIds]);
-
-    const allFiles = useMemo(() => accumulatedFiles, [accumulatedFiles]);
 
     // Функции для работы с закрепленными изображениями
     function togglePinImage(fileId: number) {
@@ -248,7 +232,7 @@ export function MediaGallery({
         const pinned: MediaFile[] = [];
         const unpinned: MediaFile[] = [];
 
-        allFiles.forEach((file) => {
+        accumulatedFiles.forEach((file) => {
             if (file.type === 'VIDEO') {
                 videos.push(file);
             } else if (file.type === 'IMAGE') {
@@ -265,15 +249,7 @@ export function MediaGallery({
             pinnedImages: pinned,
             unpinnedImages: unpinned,
         };
-    }, [allFiles, pinnedImageIds]);
-
-    // Отображаемые файлы
-    const visibleVideoFiles = useMemo(() => videoFiles, [videoFiles]);
-    const visiblePinnedImages = useMemo(() => pinnedImages, [pinnedImages]);
-    const visibleUnpinnedImages = useMemo(
-        () => unpinnedImages,
-        [unpinnedImages]
-    );
+    }, [accumulatedFiles, pinnedImageIds]);
 
     // Автоматическая подгрузка следующей страницы при скролле
     useEffect(() => {
@@ -345,7 +321,7 @@ export function MediaGallery({
         );
     }
 
-    if (allFiles.length === 0) {
+    if (accumulatedFiles.length === 0) {
         return (
             <div className='flex h-full w-[30%] flex-col border-l border-border bg-background'>
                 <div className={PANEL_HEADER_CLASSES}>
@@ -369,7 +345,7 @@ export function MediaGallery({
                     )}
                 >
                     <h2 className={PANEL_HEADER_TITLE_CLASSES}>
-                        Медиафайлы ({allFiles.length})
+                        Медиафайлы ({accumulatedFiles.length})
                     </h2>
                     {totalCost > 0 && (
                         <div className='text-[10px] font-medium px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20'>
@@ -404,117 +380,20 @@ export function MediaGallery({
                                 </button>
                                 {isPinnedExpanded && (
                                     <div className='grid grid-cols-3 gap-2 mt-2'>
-                                        {visiblePinnedImages.map((file) => (
-                                            <div
+                                        {pinnedImages.map((file) => (
+                                            <GalleryFileCard
                                                 key={file.id}
-                                                className='group relative cursor-pointer transition-transform hover:scale-105'
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleFileClick(file);
-                                                }}
-                                                role='button'
-                                                tabIndex={0}
-                                                onKeyDown={(e) => {
-                                                    if (
-                                                        e.key === 'Enter' ||
-                                                        e.key === ' '
-                                                    ) {
-                                                        e.preventDefault();
-                                                        handleFileClick(file);
-                                                    }
-                                                }}
-                                            >
-                                                <div
-                                                    onClick={(e) =>
-                                                        e.stopPropagation()
-                                                    }
-                                                >
-                                                    <MediaPreview
-                                                        file={file}
-                                                        className='h-full w-full'
-                                                    />
-                                                </div>
-                                                {/* Кнопка прикрепления слева вверху */}
-                                                {onAttachFile && (
-                                                    <Button
-                                                        size='icon'
-                                                        variant='ghost'
-                                                        className='absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100'
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            // Используем path если есть, иначе url (для файлов на imgbb)
-                                                            const fileUrl = file.path
-                                                                ? getMediaFileUrl(file.path)
-                                                                : file.url;
-                                                            if (!fileUrl) {
-                                                                console.warn('[MediaGallery] Нет file.path и file.url');
-                                                                alert('Ошибка: у файла отсутствует путь или URL. Невозможно прикрепить файл.');
-                                                                return;
-                                                            }
-                                                            loadingEffectForAttachFile();
-                                                            // Передаем file.url как imgbbUrl для изображений, чтобы не загружать на imgbb повторно
-                                                            onAttachFile(
-                                                                fileUrl,
-                                                                file.filename,
-                                                                file.type === 'IMAGE' ? (file.url || undefined) : undefined
-                                                            );
-                                                        }}
-                                                        title='Прикрепить к промпту'
-                                                    >
-                                                        {attachingFile ? (
-                                                            <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                                                        ) : (
-                                                            <Paperclip className='h-3.5 w-3.5' />
-                                                        )}
-                                                    </Button>
-                                                )}
-                                                {/* Кнопка повторить запрос */}
-                                                {onRepeatRequest && (
-                                                    <Button
-                                                        size='icon'
-                                                        variant='ghost'
-                                                        className='absolute left-8 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100'
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onRepeatRequest(
-                                                                file.requestId
-                                                            );
-                                                        }}
-                                                        title='Повторить запрос'
-                                                    >
-                                                        <RefreshCcw className='h-3.5 w-3.5' />
-                                                    </Button>
-                                                )}
-                                                {/* Кнопка закрепления */}
-                                                <Button
-                                                    size='icon'
-                                                    variant='ghost'
-                                                    className='absolute right-7 top-1 h-6 w-6 text-yellow-400 opacity-0 transition-opacity hover:text-yellow-300 hover:bg-yellow-600/20 group-hover:opacity-100'
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        togglePinImage(file.id);
-                                                    }}
-                                                    title='Открепить'
-                                                >
-                                                    <Pin className='h-3.5 w-3.5 fill-current' />
-                                                </Button>
-                                                {/* Кнопка удаления справа вверху */}
-                                                <Button
-                                                    size='icon'
-                                                    variant='ghost'
-                                                    className='absolute right-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-red-400 hover:bg-red-600/20 group-hover:opacity-100'
-                                                    onClick={(e) =>
-                                                        handleDeleteFile(
-                                                            e,
-                                                            file.id
-                                                        )
-                                                    }
-                                                    disabled={isDeleting}
-                                                    title='Удалить файл'
-                                                >
-                                                    <Trash2 className='h-3.5 w-3.5' />
-                                                </Button>
-                                            </div>
+                                                file={file}
+                                                onClick={handleFileClick}
+                                                onAttachFile={onAttachFile}
+                                                onRepeatRequest={onRepeatRequest}
+                                                onDeleteFile={handleDeleteFile}
+                                                onTogglePin={togglePinImage}
+                                                isDeleting={isDeleting}
+                                                attachingFile={attachingFile}
+                                                onLoadingEffect={loadingEffectForAttachFile}
+                                                isPinned={true}
+                                            />
                                         ))}
                                     </div>
                                 )}
@@ -545,117 +424,20 @@ export function MediaGallery({
                                 </button>
                                 {isImageExpanded && (
                                     <div className='grid grid-cols-3 gap-2 mt-2'>
-                                        {visibleUnpinnedImages.map((file) => (
-                                            <div
+                                        {unpinnedImages.map((file) => (
+                                            <GalleryFileCard
                                                 key={file.id}
-                                                className='group relative cursor-pointer transition-transform hover:scale-105'
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleFileClick(file);
-                                                }}
-                                                role='button'
-                                                tabIndex={0}
-                                                onKeyDown={(e) => {
-                                                    if (
-                                                        e.key === 'Enter' ||
-                                                        e.key === ' '
-                                                    ) {
-                                                        e.preventDefault();
-                                                        handleFileClick(file);
-                                                    }
-                                                }}
-                                            >
-                                                <div
-                                                    onClick={(e) =>
-                                                        e.stopPropagation()
-                                                    }
-                                                >
-                                                    <MediaPreview
-                                                        file={file}
-                                                        className='h-full w-full'
-                                                    />
-                                                </div>
-                                                {/* Кнопка прикрепления слева вверху (только для изображений) */}
-                                                {onAttachFile && (
-                                                    <Button
-                                                        size='icon'
-                                                        variant='ghost'
-                                                        className='absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100'
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            // Используем path если есть, иначе url (для файлов на imgbb)
-                                                            const fileUrl = file.path
-                                                                ? getMediaFileUrl(file.path)
-                                                                : file.url;
-                                                            if (!fileUrl) {
-                                                                console.warn('[MediaGallery] Нет file.path и file.url');
-                                                                alert('Ошибка: у файла отсутствует путь или URL. Невозможно прикрепить файл.');
-                                                                return;
-                                                            }
-                                                            loadingEffectForAttachFile();
-                                                            // Передаем file.url как imgbbUrl для изображений, чтобы не загружать на imgbb повторно
-                                                            onAttachFile(
-                                                                fileUrl,
-                                                                file.filename,
-                                                                file.type === 'IMAGE' ? (file.url || undefined) : undefined
-                                                            );
-                                                        }}
-                                                        title='Прикрепить к промпту'
-                                                    >
-                                                        {attachingFile ? (
-                                                            <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                                                        ) : (
-                                                            <Paperclip className='h-3.5 w-3.5' />
-                                                        )}
-                                                    </Button>
-                                                )}
-                                                {/* Кнопка повторить запрос */}
-                                                {onRepeatRequest && (
-                                                    <Button
-                                                        size='icon'
-                                                        variant='ghost'
-                                                        className='absolute left-8 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100'
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onRepeatRequest(
-                                                                file.requestId
-                                                            );
-                                                        }}
-                                                        title='Повторить запрос'
-                                                    >
-                                                        <RefreshCcw className='h-3.5 w-3.5' />
-                                                    </Button>
-                                                )}
-                                                {/* Кнопка закрепления */}
-                                                <Button
-                                                    size='icon'
-                                                    variant='ghost'
-                                                    className='absolute right-7 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-yellow-400 hover:bg-yellow-600/20 group-hover:opacity-100'
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        togglePinImage(file.id);
-                                                    }}
-                                                    title='Закрепить'
-                                                >
-                                                    <Pin className='h-3.5 w-3.5' />
-                                                </Button>
-                                                {/* Кнопка удаления справа вверху */}
-                                                <Button
-                                                    size='icon'
-                                                    variant='ghost'
-                                                    className='absolute right-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-red-400 hover:bg-red-600/20 group-hover:opacity-100'
-                                                    onClick={(e) =>
-                                                        handleDeleteFile(
-                                                            e,
-                                                            file.id
-                                                        )
-                                                    }
-                                                    disabled={isDeleting}
-                                                    title='Удалить файл'
-                                                >
-                                                    <Trash2 className='h-3.5 w-3.5' />
-                                                </Button>
-                                            </div>
+                                                file={file}
+                                                onClick={handleFileClick}
+                                                onAttachFile={onAttachFile}
+                                                onRepeatRequest={onRepeatRequest}
+                                                onDeleteFile={handleDeleteFile}
+                                                onTogglePin={togglePinImage}
+                                                isDeleting={isDeleting}
+                                                attachingFile={attachingFile}
+                                                onLoadingEffect={loadingEffectForAttachFile}
+                                                isPinned={false}
+                                            />
                                         ))}
                                     </div>
                                 )}
@@ -684,117 +466,19 @@ export function MediaGallery({
                                 </button>
                                 {isVideoExpanded && (
                                     <div className='grid grid-cols-3 gap-2 mt-2'>
-                                        {visibleVideoFiles.map((file) => (
-                                            <div
+                                        {videoFiles.map((file) => (
+                                            <GalleryFileCard
                                                 key={file.id}
-                                                className='group relative cursor-pointer transition-transform hover:scale-105'
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleFileClick(file);
-                                                }}
-                                                role='button'
-                                                tabIndex={0}
-                                                onKeyDown={(e) => {
-                                                    if (
-                                                        e.key === 'Enter' ||
-                                                        e.key === ' '
-                                                    ) {
-                                                        e.preventDefault();
-                                                        handleFileClick(file);
-                                                    }
-                                                }}
-                                            >
-                                                <div
-                                                    onClick={(e) =>
-                                                        e.stopPropagation()
-                                                    }
-                                                >
-                                                    <MediaPreview
-                                                        file={file}
-                                                        className='h-full w-full'
-                                                    />
-                                                </div>
-                                                {/* Кнопка прикрепления слева вверху (только для изображений) */}
-                                                {onAttachFile && (
-                                                    <Button
-                                                        size='icon'
-                                                        variant='ghost'
-                                                        className='absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100'
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            // Используем path если есть, иначе url (для файлов на imgbb)
-                                                            const fileUrl = file.path
-                                                                ? getMediaFileUrl(file.path)
-                                                                : file.url;
-                                                            if (!fileUrl) {
-                                                                console.warn('[MediaGallery] Нет file.path и file.url');
-                                                                alert('Ошибка: у файла отсутствует путь или URL. Невозможно прикрепить файл.');
-                                                                return;
-                                                            }
-                                                            loadingEffectForAttachFile();
-                                                            // Передаем file.url как imgbbUrl для изображений, чтобы не загружать на imgbb повторно
-                                                            onAttachFile(
-                                                                fileUrl,
-                                                                file.filename,
-                                                                file.type === 'IMAGE' ? (file.url || undefined) : undefined
-                                                            );
-                                                        }}
-                                                        title='Прикрепить к промпту'
-                                                    >
-                                                        {attachingFile ? (
-                                                            <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                                                        ) : (
-                                                            <Paperclip className='h-3.5 w-3.5' />
-                                                        )}
-                                                    </Button>
-                                                )}
-                                                {/* Кнопка разворачивания видео */}
-                                                <Button
-                                                    size='icon'
-                                                    variant='ghost'
-                                                    className='absolute left-1 top-8 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-blue-400 hover:bg-blue-600/20 group-hover:opacity-100'
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleFileClick(file);
-                                                    }}
-                                                    title='Развернуть видео'
-                                                >
-                                                    <Maximize2 className='h-3.5 w-3.5' />
-                                                </Button>
-                                                {/* Кнопка повторить запрос */}
-                                                {onRepeatRequest && (
-                                                    <Button
-                                                        size='icon'
-                                                        variant='ghost'
-                                                        className='absolute left-8 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100'
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onRepeatRequest(
-                                                                file.requestId
-                                                            );
-                                                        }}
-                                                        title='Повторить запрос'
-                                                    >
-                                                        <RefreshCcw className='h-3.5 w-3.5' />
-                                                    </Button>
-                                                )}
-                                                {/* Кнопка удаления справа вверху */}
-                                                <Button
-                                                    size='icon'
-                                                    variant='ghost'
-                                                    className='absolute right-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-red-400 hover:bg-red-600/20 group-hover:opacity-100'
-                                                    onClick={(e) =>
-                                                        handleDeleteFile(
-                                                            e,
-                                                            file.id
-                                                        )
-                                                    }
-                                                    disabled={isDeleting}
-                                                    title='Удалить файл'
-                                                >
-                                                    <Trash2 className='h-3.5 w-3.5' />
-                                                </Button>
-                                            </div>
+                                                file={file}
+                                                onClick={handleFileClick}
+                                                onAttachFile={onAttachFile}
+                                                onRepeatRequest={onRepeatRequest}
+                                                onDeleteFile={handleDeleteFile}
+                                                isDeleting={isDeleting}
+                                                attachingFile={attachingFile}
+                                                onLoadingEffect={loadingEffectForAttachFile}
+                                                isVideo={true}
+                                            />
                                         ))}
                                     </div>
                                 )}

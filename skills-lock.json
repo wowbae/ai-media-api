@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "skills": {
+    "api-patterns": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "48f9d87a6e5aae730b2c70012e9a1f46b868e17cdd42697b6ac88c5e56fe6cec"
+    },
+    "architecture": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "b1353789802977897b7fec1dab2e7bb218f74c4f029d26562118ec2aa650685d"
+    },
+    "brainstorming": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "b7e0f98c642d474406f1ebe1e38572b653a453007c2e92f1c5199efa581e8a43"
+    },
+    "clean-code": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "3554f62f58a36cb29748f44e82b7facbd500d4637cc0f2092df4dfff8192338d"
+    },
+    "code-review-checklist": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "e38105a283f7d55b5d990a1981b5aaaaab1fe2a166a4a2959b77fa43113ecc5f"
+    },
+    "database-design": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "c441de2beac978d466fec3347600ea3a6415db28f19c4d7677c951cbc41f4686"
+    },
+    "frontend-design": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "cde819a3e6d2556ffb3255b0502db9090364427dec4a8d5f432206ac1fa93a44"
+    },
+    "frontend-developer": {
+      "source": "rmyndharis/antigravity-skills",
+      "sourceType": "github",
+      "computedHash": "889cc99236908a5f3176b41182ae7419c6ecc758b5a3d742560c6ba557d68171"
+    },
+    "intelligent-routing": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "1d31ea695a7ffe03cb7c997f3c39049c3a8b1bcad782f8bde8978806905188cd"
+    },
+    "mobile-design": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "27e338f7267fed0ce198852af954f79ce6746b9c94e4e530e581e19e568b8ba0"
+    },
+    "nestjs_specialist": {
+      "source": "vuralserhat86/antigravity-agentic-skills",
+      "sourceType": "github",
+      "computedHash": "1f86c430b26d35d73af12ac93c8fe54cc68ed8f08cd2fbe9d9c1ba41308e14ed"
+    },
+    "nodejs-backend-patterns": {
+      "source": "rmyndharis/antigravity-skills",
+      "sourceType": "github",
+      "computedHash": "52ab991c5fcfdb9776490b3d070688177c5e801b531146f626c9babf4bca6fdf"
+    },
+    "nodejs-best-practices": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "52d0a8813848bb7df01ba851e9ca0c8d853db46daa07f575a6b5efa7ff1d8a0d"
+    },
+    "parallel-agents": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "69b29cf1e4d9116b8abc9a8e4eca2c20f060df51dd27fb9198dc3b75cca6c1aa"
+    },
+    "react-best-practices": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "b688f530941122db14164956520e7d72ac611663ff8d705a0b5b4468a8a28d8c"
+    },
+    "server-management": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "2dba122ff030813d134fe02b14754b259ac1e852be3c155498fc7dad9e997935"
+    },
+    "systematic-debugging": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "8a33368b3e74181d9c164ae8c494f53b75df62745d9853760a9856ab41150f99"
+    },
+    "tailwind-patterns": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "f1d8fc8850ee31be541fa04fb7b9ac9f7214fe8239306664f2d5a319d4da9677"
+    },
+    "web-design-guidelines": {
+      "source": "vudovn/antigravity-kit",
+      "sourceType": "github",
+      "computedHash": "97ff58dd9f1e45eebcf75aceb6ba19566ecc0f82652bc5d9071edabb450b9c10"
+    }
+  }
+}

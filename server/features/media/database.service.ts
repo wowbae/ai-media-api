@@ -1,4 +1,5 @@
 // Сервис для работы с базой данных медиа-файлов
+// Отвечает за сохранение, отправку в Telegram и синхронизацию файлов
 import { MediaFile } from "@prisma/client";
 import { prisma } from "prisma/client";
 import { notifyTelegramGroupBatch } from "./telegram.notifier";
@@ -7,7 +8,8 @@ import { existsSync } from "fs";
 import path from "path";
 import { mediaStorageConfig } from "./config";
 
-// Сохранение файлов в БД
+// Сохранение файлов в БД (атомарная операция с транзакцией)
+// Все файлы сохраняются в рамках одной транзакции для целостности данных
 export async function saveFilesToDatabase(
   requestId: number,
   savedFiles: SavedFileInfo[],
@@ -37,43 +39,46 @@ export async function saveFilesToDatabase(
     `[MediaDatabase] Сохранение ${uniqueFiles.length} файлов для requestId=${requestId}`,
   );
 
-  const savedMediaFiles: MediaFile[] = [];
+  // Используем транзакцию для атомарного сохранения всех файлов
+  const savedMediaFiles = await prisma.$transaction(async (tx) => {
+    const files: MediaFile[] = [];
 
-  for (const file of uniqueFiles) {
-    // Для IMAGE: сохраняем и url (imgbb) и path (локально) - оба равноценны и важны
-    // Для VIDEO: сохраняем path (локально) и url (URL провайдера) для использования после удаления с сервера
-    const mediaFile = await prisma.mediaFile.create({
-      data: {
-        requestId,
+    for (const file of uniqueFiles) {
+      const mediaFile = await tx.mediaFile.create({
+        data: {
+          requestId,
+          type: file.type,
+          filename: file.filename,
+          path: file.path,
+          url: file.url || null,
+          previewPath: file.previewPath || null,
+          previewUrl: null,
+          size: file.size || null,
+          width: file.width || null,
+          height: file.height || null,
+        },
+      });
+
+      console.log(`[MediaDatabase] Файл сохранён: id=${mediaFile.id}`, {
         type: file.type,
-        filename: file.filename,
-        path: file.path, // Локальный путь (для VIDEO и отображения IMAGE)
-        url: file.url || null, // URL на imgbb (для IMAGE) или URL провайдера (для VIDEO)
-        previewPath: file.previewPath || null, // Локальный путь превью (для VIDEO и отображения IMAGE)
-        previewUrl: null, // Превью URL будет загружен асинхронно в фоне
-        size: file.size || null,
-        width: file.width || null,
-        height: file.height || null,
-      },
-    });
+        path: file.path ? 'есть' : 'нет',
+        url: file.url ? 'есть' : 'нет',
+        previewPath: file.previewPath ? 'есть' : 'нет',
+      });
+      files.push(mediaFile);
+    }
 
-    console.log(`[MediaDatabase] Файл сохранён: id=${mediaFile.id}`, {
-      type: file.type,
-      path: file.path ? 'есть' : 'нет',
-      url: file.url ? 'есть' : 'нет',
-      previewPath: file.previewPath ? 'есть' : 'нет',
-    });
-    savedMediaFiles.push(mediaFile);
+    return files;
+  });
 
-    // Для изображений: асинхронно загружаем превью на imgbb в фоне (не блокирует ответ)
+  // Асинхронная загрузка превью на imgbb (не блокирует ответ, не в транзакции)
+  for (const file of savedMediaFiles) {
     if (file.type === "IMAGE" && file.previewPath && !file.previewUrl) {
-      // Загружаем превью на imgbb асинхронно в фоне
-      uploadPreviewToImgbb(mediaFile.id, file.previewPath).catch((error) => {
+      uploadPreviewToImgbb(file.id, file.previewPath).catch((error) => {
         console.error(
-          `[MediaDatabase] ❌ Ошибка загрузки превью на imgbb (fileId=${mediaFile.id}):`,
+          `[MediaDatabase] ❌ Ошибка загрузки превью на imgbb (fileId=${file.id}):`,
           error
         );
-        // Не прерываем процесс, просто previewUrl останется null
       });
     }
   }

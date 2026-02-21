@@ -1,5 +1,5 @@
 import { prisma } from 'prisma/client';
-import { bot } from 'server/init';
+import { getBot } from '../bot.service';
 import { Composer } from 'grammy';
 import { findTriggerKeys } from '../utils/find.trigger.keys';
 

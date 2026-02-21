@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { prisma } from 'prisma/client';
 import { User, PasswordResetToken, UserRole } from '@prisma/client';
-import { authConfig } from './config';
+import { authConfig } from '../../config';
 import { sendPasswordResetEmail } from './mail.service';
 
 // Payload for JWT
@@ -67,7 +67,7 @@ export class AuthService {
             email: user.email,
             role: user.role,
         };
-        return jwt.sign(payload, authConfig.jwtSecret, { expiresIn: authConfig.jwtExpiresIn });
+        return jwt.sign(payload, authConfig.jwtSecret, { expiresIn: authConfig.jwtExpiresIn as string });
     }
 
     // Verify Token

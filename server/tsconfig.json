@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "baseUrl": "..",
+    "paths": {
+      "@/*": ["./src/*"],
+      "prisma/*": ["./prisma/*"]
+    }
+  },
+  "include": ["./**/*.ts", "../prisma/**/*.ts"],
+  "exclude": ["node_modules"]
+}

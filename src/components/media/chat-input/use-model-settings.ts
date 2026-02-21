@@ -5,6 +5,11 @@ import { loadMediaSettings, saveMediaSettings, type MediaSettings } from '@/lib/
 import { getModelSettingsConfig } from './model-settings-config';
 import { useModelType } from '@/hooks/use-model-type';
 
+// Экспортируемые типы значений для использования снаружи
+export type FormatValue = '1:1' | '4:3' | '3:4' | '9:16' | '16:9' | '2:3' | '3:2' | '21:9' | undefined;
+export type QualityValue = '1k' | '2k' | '4k' | undefined;
+export type DurationValue = 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | undefined;
+
 export interface ModelSettingsState {
     format: '1:1' | '4:3' | '3:4' | '9:16' | '16:9' | '2:3' | '3:2' | '21:9' | undefined;
     quality: '1k' | '2k' | '4k' | undefined;

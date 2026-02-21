@@ -1,27 +1,31 @@
 // express server
+// Главный файл инициализации сервера
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { registerRoutes } from "./routes";
-import { Bot } from "grammy";
 import { handlers } from "./features/telegram/bot/handlers/export";
 import { authRouter } from "./features/auth/routes";
 import { mediaRouter } from "./features/media/routes/index";
 import { telegramRouter } from "./features/telegram/routes";
 import { recoverUnfinishedTasks } from "./features/media/generation.service";
 import { syncMediaFilesWithFileSystem } from "./features/media/database.service";
+import { getTelegramBotService, getBot } from "./features/telegram/bot/bot.service";
+import { serverConfig } from "./config";
 
 dotenv.config();
 
 export const app = express();
 
 // middleware
-app.use(express.json({ limit: "50mb" })); // увеличиваем лимит для загрузки файлов
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+// Увеличиваем лимит для загрузки файлов (50mb)
+app.use(express.json({ limit: serverConfig.bodyLimit }));
+app.use(express.urlencoded({ extended: true, limit: serverConfig.bodyLimit }));
 app.use(cors());
 
 // Middleware для явной установки заголовков кеширования для медиа-файлов
+// Файлы имеют уникальные имена и не изменяются, поэтому кешируем на неделю
 app.use("/media-files", (req, res, next) => {
   // Устанавливаем кеширование для медиа-файлов на неделю
   // Файлы имеют уникальные имена и не изменяются, поэтому кешируем на неделю
@@ -68,9 +72,8 @@ app.use("/api/telegram", telegramRouter);
 registerRoutes(app, []);
 
 // запуск сервера
-const PORT = process.env.PORT || 4000;
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
+const server = app.listen(serverConfig.port, () => {
+  console.log(`🚀 Server is running on port ${serverConfig.port}`);
 
   // Синхронизируем БД с файловой системой (удаляем записи о несуществующих файлах)
   // Запускается с задержкой 5 секунд, чтобы не блокировать старт
@@ -85,7 +88,7 @@ const server = app.listen(PORT, () => {
 // Обработка ошибок сервера
 server.on("error", (error: NodeJS.ErrnoException) => {
   if (error.code === "EADDRINUSE") {
-    console.error(`Port ${PORT} is already in use`);
+    console.error(`Port ${serverConfig.port} is already in use`);
     process.exit(1);
   } else {
     console.error("Server error:", error);
@@ -94,20 +97,16 @@ server.on("error", (error: NodeJS.ErrnoException) => {
 });
 
 // Telegram Bot (опционально - только если есть токен)
-export let bot: Bot | null = null;
+const botService = getTelegramBotService();
 
 if (process.env.TELEGRAM_BOT_TOKEN) {
-  bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
-
-  // регистрируем обработчики, ПОРЯДОК ВАЖЕН
-  handlers.map((h) => bot!.use(h));
-
-  bot
-    .start({
-      drop_pending_updates: true,
-      onStart: (me) => {
-        console.log(`✅ Telegram Bot @${me.username} is running`);
-      },
+  botService
+    .initialize(process.env.TELEGRAM_BOT_TOKEN, (me) => {
+      // регистрируем обработчики после инициализации
+      const bot = botService.getBot();
+      if (bot) {
+        handlers.map((h) => bot.use(h));
+      }
     })
     .catch((err) => {
       console.warn("⚠️ Telegram Bot не запущен:", err.message);
@@ -116,14 +115,17 @@ if (process.env.TELEGRAM_BOT_TOKEN) {
   console.log("ℹ️ TELEGRAM_BOT_TOKEN не указан - Telegram бот отключен");
 }
 
+// Экспорт бота для совместимости
+export function getBotInstance() {
+  return getBot();
+}
+
 // Обработка сигналов завершения для корректного освобождения порта
 function gracefulShutdown(signal: string) {
   console.log(`\n${signal} received, shutting down gracefully...`);
   server.close(async () => {
     console.log("Server closed, port is now free");
-    if (bot) {
-      await bot.stop().catch(console.error);
-    }
+    await botService.stop().catch(console.error);
     process.exit(0);
   });
 

@@ -46,7 +46,28 @@ import {
     type SubmitParams,
 } from './chat-input/use-chat-input-submit';
 import { ModelSettingsPanel } from './chat-input/model-settings';
-import { useModelSettings } from './chat-input/use-model-settings';
+import { useModelSettings, type FormatValue, type QualityValue, type DurationValue } from './chat-input/use-model-settings';
+
+// Список доступных голосов для ElevenLabs (вне компонента — не пересоздаётся при рендере)
+const ELEVENLABS_VOICES = [
+    'Roger',
+    'Sarah',
+    'Charlie',
+    'George',
+    'Callum',
+    'River',
+    'Liam',
+    'Alice',
+    'Matilda',
+    'Will',
+    'Jessica',
+    'Eric',
+    'Chris',
+    'Brian',
+    'Daniel',
+    'Lily',
+    'Bill',
+] as const;
 
 // Props для компонента ввода чата
 export interface ChatInputProps {
@@ -114,30 +135,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             resetModelSpecificSettings,
         } = useModelSettings(currentModel);
 
-        // Список доступных голосов для ElevenLabs
-        const elevenLabsVoices = [
-            // 'Rachel',
-            // 'Aria',
-            'Roger',
-            'Sarah',
-            // 'Laura',
-            'Charlie',
-            'George',
-            'Callum',
-            'River',
-            'Liam',
-            // 'Charlotte',
-            'Alice',
-            'Matilda',
-            'Will',
-            'Jessica',
-            'Eric',
-            'Chris',
-            'Brian',
-            'Daniel',
-            'Lily',
-            'Bill',
-        ];
         const [needsScrollbar, setNeedsScrollbar] = useState(false);
         const [attachingFile, setAttachingFile] = useState(false);
 
@@ -278,12 +275,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 setPrompt(newPrompt);
                 // Фокусируемся на textarea после установки промпта
                 setTimeout(() => {
-                    const textarea = document.querySelector(
-                        'textarea[placeholder*="Опишите"]'
-                    ) as HTMLTextAreaElement;
+                    const textarea = textareaRef.current;
                     if (textarea) {
                         textarea.focus();
-                        // Устанавливаем курсор в конец текста
                         textarea.setSelectionRange(
                             newPrompt.length,
                             newPrompt.length
@@ -300,13 +294,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 const settings = request.settings || {};
 
                 // Универсальные параметры
-                if (settings.format) setFormat(settings.format as any);
-                if (settings.quality) setQuality(settings.quality as any);
+                if (settings.format) setFormat(settings.format as FormatValue);
+                if (settings.quality) setQuality(settings.quality as QualityValue);
 
                 // Видео параметры (Veo, Kling)
-                if (settings.duration) setDuration(settings.duration as any);
+                if (settings.duration) setDuration(settings.duration as DurationValue);
                 if (settings.veoGenerationType)
-                    setVeoGenerationType(settings.veoGenerationType as any);
+                    setVeoGenerationType(settings.veoGenerationType as 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO');
                 if (settings.sound !== undefined)
                     setSound(settings.sound as boolean);
 
@@ -314,7 +308,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 if (settings.negativePrompt)
                     setNegativePrompt(settings.negativePrompt as string);
                 if (settings.seed || request.seed)
-                    setSeed((settings.seed || request.seed) as any);
+                    setSeed((settings.seed || request.seed) as string | number);
                 if (settings.cfgScale) setCfgScale(settings.cfgScale as number);
 
                 // ElevenLabs параметры
@@ -740,7 +734,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                         avoidCollisions={true}
                                         className='border-border bg-card data-[side=top]:animate-none!'
                                     >
-                                        {elevenLabsVoices.map((voiceOption) => (
+                                        {ELEVENLABS_VOICES.map((voiceOption) => (
                                             <SelectItem
                                                 key={voiceOption}
                                                 value={voiceOption}

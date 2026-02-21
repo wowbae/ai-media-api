@@ -7,36 +7,17 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import { prisma } from 'prisma/client';
 import { deleteFile as deleteLocalFile } from './file.service';
-
-// Бот будет получен лениво при первом использовании
-let botInstance: Bot | null = null;
-let isInitialized = false;
-
-// Ленивая инициализация бота для отправки уведомлений
-async function getBot(): Promise<Bot | null> {
-    if (isInitialized) return botInstance;
-
-    isInitialized = true;
-
-    try {
-        // Ждем немного, чтобы init.ts успел экспортировать бота
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        const initModule = await import('../../init');
-        botInstance = initModule.bot;
-        if (botInstance) {
-            console.log('✅ Telegram notifier инициализирован');
-        }
-    } catch (error) {
-        console.warn('⚠️ Telegram bot не доступен для уведомлений');
-    }
-
-    return botInstance;
-}
+import { getBot } from '../telegram/bot/bot.service';
 
 // Публичная функция инициализации (для вызова при старте)
 export async function initTelegramNotifier(): Promise<void> {
-    // Просто триггерим ленивую инициализацию
-    await getBot();
+    // Бот инициализируется в init.ts, здесь просто проверяем доступность
+    const bot = getBot();
+    if (bot) {
+        console.log('✅ Telegram notifier готов к работе');
+    } else {
+        console.warn('⚠️ Telegram bot не доступен для уведомлений');
+    }
 }
 
 // Нормализация chat_id - преобразование в число, если это строка с числом

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from '@tanstack/react-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectIsAuthenticated, selectCurrentUser, logout } from '@/redux/auth-slice';
-import { TokenBalance } from './TokenBalance';
 import { KieCredits } from './KieCredits';
 import { openTelegramBot } from '@/lib/telegram-utils';
 import { LinkIcon } from 'lucide-react';
@@ -75,7 +74,6 @@ export const Header = () => {
                         </>
                     ) : isAuthenticated ? (
                         <>
-                            {/* <TokenBalance /> не нужен тк теперь берем кредиты на api*/}
                             <KieCredits />
                             {!isOnMediaPage && (
                                 <Link

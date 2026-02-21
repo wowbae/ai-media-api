@@ -69,8 +69,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 
     try {
         const payload = AuthService.verifyToken(token);
-        // Attach user to request (need to extend Express request type ideally, but for now simple attach)
-        (req as any).user = payload;
+        req.user = payload;
         next();
     } catch (error) {
         return res.status(401).json({ error: 'Invalid token' });
@@ -78,8 +77,10 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 };
 
 router.get('/me', authenticate, asyncHandler(async (req: Request, res: Response) => {
-    const userPayload = (req as any).user;
-    const user = await AuthService.getCurrentUser(userPayload.userId);
+    if (!req.user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const user = await AuthService.getCurrentUser(req.user.userId);
     if (!user) {
         return res.status(404).json({ error: 'User not found' });
     }
