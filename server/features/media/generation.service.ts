@@ -89,11 +89,6 @@ export async function generateMedia(options: GenerateMediaOptions): Promise<void
     // Проверяем тип результата
     if (isTaskCreatedResult(result)) {
       // Async провайдер - задача создана
-      console.log("[MediaService] Async задача создана:", {
-        taskId: result.taskId,
-        provider: provider.name,
-      });
-
       // Сохраняем taskId в БД
       await prisma.mediaRequest.update({
         where: { id: requestId },
@@ -125,7 +120,7 @@ export async function generateMedia(options: GenerateMediaOptions): Promise<void
       }
 
       console.log(
-        `[MediaService] ✅ Задача создана: requestId=${requestId}, taskId=${result.taskId}`,
+        `[MediaService] ✅ Async задача создана: requestId=${requestId}, taskId=${result.taskId}, provider=${provider.name}`,
       );
     } else {
       // Sync провайдер - результат сразу готов

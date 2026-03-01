@@ -255,13 +255,6 @@ export function createKieAiSeedream5Provider(
 
     const taskId = responseData.data.taskId;
 
-    console.log("[Kie.ai Seedream 5.0] Задача создана:", {
-      taskId,
-      mode: isEditMode ? "Edit" : "Text-to-Image",
-      code: responseData.code,
-      msg: responseData.msg,
-    });
-
     return {
       taskId,
     };
