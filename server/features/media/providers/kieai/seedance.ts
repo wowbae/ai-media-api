@@ -297,11 +297,6 @@ export function createKieAiSeedanceProvider(
       };
     };
 
-    console.log("[Kie.ai Seedance 1.5 Pro] Статус задачи:", {
-      taskId,
-      state: apiResponse.data?.state,
-    });
-
     if (apiResponse.code !== 200) {
       throw new Error(
         `Kie.ai API вернул ошибку: ${apiResponse.code} - ${apiResponse.message}`,
