@@ -327,3 +327,83 @@ export interface KieAiSeedanceImageToVideoRequest {
     generate_audio?: boolean;
   };
 }
+
+// Интерфейсы для Kling 3.0 API
+// Документация: https://kie.ai/kling-3-0
+
+// Режим генерации для Kling 3.0
+export type KieAiKling3Mode = "std" | "pro";
+
+// Соотношение сторон для Kling 3.0
+export type KieAiKling3AspectRatio = "1:1" | "16:9" | "9:16";
+
+// Длительность видео для Kling 3.0 (3-15 секунд)
+export type KieAiKling3Duration = 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
+
+// Запрос на создание задачи Kling 3.0 (Text-to-Video)
+export interface KieAiKling3TextToVideoRequest {
+  model: "kling/3.0-text-to-video";
+  callBackUrl?: string;
+  input: {
+    prompt: string; // Максимум 2500 символов
+    duration: KieAiKling3Duration;
+    aspect_ratio?: KieAiKling3AspectRatio;
+    mode?: KieAiKling3Mode;
+    multi_shots?: boolean;
+    sound?: boolean;
+  };
+}
+
+// Запрос на создание задачи Kling 3.0 (Image-to-Video)
+export interface KieAiKling3ImageToVideoRequest {
+  model: "kling/3.0-image-to-video";
+  callBackUrl?: string;
+  input: {
+    prompt: string; // Максимум 2500 символов
+    image_urls: string[]; // URL для start frame и/или end frame (JPG/PNG, макс 10MB)
+    duration: KieAiKling3Duration;
+    mode?: KieAiKling3Mode;
+    multi_shots?: boolean;
+    sound?: boolean;
+  };
+}
+
+// Интерфейсы для Seedream 5.0 Lite API
+// Документация: https://kie.ai/seedream5-0-lite
+
+// Соотношение сторон для Seedream 5.0
+export type KieAiSeedream5AspectRatio =
+  | "1:1"
+  | "4:3"
+  | "3:4"
+  | "16:9"
+  | "9:16"
+  | "2:3"
+  | "3:2"
+  | "21:9";
+
+// Качество для Seedream 5.0
+export type KieAiSeedream5Quality = "basic" | "high";
+
+// Запрос на создание задачи Seedream 5.0 (Text-to-Image)
+export interface KieAiSeedream5TextToImageRequest {
+  model: "seedream/5.0-lite-text-to-image";
+  callBackUrl?: string;
+  input: {
+    prompt: string;
+    aspect_ratio: KieAiSeedream5AspectRatio;
+    quality: KieAiSeedream5Quality;
+  };
+}
+
+// Запрос на создание задачи Seedream 5.0 (Edit/Image-to-Image)
+export interface KieAiSeedream5EditRequest {
+  model: "seedream/5.0-lite-edit";
+  callBackUrl?: string;
+  input: {
+    prompt: string;
+    image_urls: string[]; // Массив URL изображений (до 14 файлов, JPEG/PNG/WEBP, макс 10MB)
+    aspect_ratio: KieAiSeedream5AspectRatio;
+    quality: KieAiSeedream5Quality;
+  };
+}

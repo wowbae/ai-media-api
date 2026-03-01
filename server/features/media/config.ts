@@ -131,6 +131,42 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.1, // TODO: уточнить цену для Seedream 4.5 Edit
         },
     },
+    SEEDREAM_5_0_LITE_KIEAI: {
+        id: 'seedream/5.0-lite-text-to-image',
+        name: 'Seedream 5.0 Lite',
+        types: ['IMAGE'] as const,
+        maxPromptLength: 8192,
+        promptLimit: 3000,
+        supportsImageInput: false,
+        provider: 'kieai',
+        pricing: {
+            output: 0.1, // TODO: уточнить цену для Seedream 5.0 Lite
+        },
+    },
+    SEEDREAM_5_0_LITE_EDIT_KIEAI: {
+        id: 'seedream/5.0-lite-edit',
+        name: 'Seedream 5.0 Lite Edit',
+        types: ['IMAGE'] as const,
+        maxPromptLength: 8192,
+        promptLimit: 3000,
+        supportsImageInput: true, // Поддерживает image-to-image с до 14 файлов
+        provider: 'kieai',
+        pricing: {
+            output: 0.1, // TODO: уточнить цену для Seedream 5.0 Lite Edit
+        },
+    },
+    KLING_3_0_KIEAI: {
+        id: 'kling/3.0',
+        name: 'Kling 3.0',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 4096,
+        promptLimit: 2500,
+        supportsImageInput: true, // Поддерживает image-to-video (start/end frame)
+        provider: 'kieai',
+        pricing: {
+            output: 0.15, // TODO: уточнить цену для Kling 3.0
+        },
+    },
     // LaoZhang провайдер
     NANO_BANANA_PRO_LAOZHANG: {
         id: 'gemini-3-pro-image-preview',

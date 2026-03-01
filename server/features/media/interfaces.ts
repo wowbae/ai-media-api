@@ -10,11 +10,14 @@ export type MediaModel =
     | 'VEO_3_1_KIEAI'
     | 'KLING_2_6_KIEAI'
     | 'KLING_2_5_TURBO_PRO_KIEAI'
+    | 'KLING_3_0_KIEAI'
     | 'NANO_BANANA_PRO_KIEAI'
     | 'IMAGEN4_KIEAI'
     | 'IMAGEN4_ULTRA_KIEAI'
     | 'SEEDREAM_4_5_KIEAI'
     | 'SEEDREAM_4_5_EDIT_KIEAI'
+    | 'SEEDREAM_5_0_LITE_KIEAI'
+    | 'SEEDREAM_5_0_LITE_EDIT_KIEAI'
     | 'ELEVENLABS_MULTILINGUAL_V2_KIEAI'
     | 'KLING_VIDEO_O1_WAVESPEED'
     | 'SEEDANCE_1_5_PRO_KIEAI';
@@ -48,6 +51,9 @@ export interface GenerateMediaRequest {
   similarityBoost?: number; // Усиление сходства (0-1, по умолчанию 0.75)
   speed?: number; // Скорость (0.5-2, по умолчанию 1)
   languageCode?: string; // Код языка (опционально)
+  // Параметры для Kling 3.0
+  mode?: "std" | "pro"; // Режим генерации для Kling 3.0
+  multiShots?: boolean; // Multi-shot режим для Kling 3.0
 }
 
 export interface GenerateMediaResponse {

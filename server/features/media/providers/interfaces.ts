@@ -39,6 +39,9 @@ export interface GenerateParams {
   similarityBoost?: number; // Усиление сходства (0-1, по умолчанию 0.75)
   speed?: number; // Скорость (0.5-2, по умолчанию 1)
   languageCode?: string; // Код языка (опционально)
+  // Параметры для Kling 3.0
+  mode?: "std" | "pro"; // Режим генерации для Kling 3.0
+  multiShots?: boolean; // Multi-shot режим для Kling 3.0
 }
 
 // Результат создания задачи (для async провайдеров)
