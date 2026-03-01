@@ -63,10 +63,10 @@ registerRoutes(app, []);
 
 // Запуск сервера
 const server = app.listen(serverConfig.port, () => {
-  console.log(`🚀 Server is running on port ${serverConfig.port}`);
+  console.log(`✅ Server is running on port ${serverConfig.port}`);
 
   syncMediaFilesWithFileSystem(5000);
-  
+
   // Инициализируем TaskTrackingService для восстановления задач
   getTaskTrackingService();
   console.log('✅ TaskTrackingService инициализирован');

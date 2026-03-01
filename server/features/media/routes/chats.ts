@@ -11,6 +11,7 @@ import {
     setCachedChat,
     invalidateChatCache,
 } from './cache';
+import { authenticate } from '../../auth/routes';
 
 export function createChatsRouter(): Router {
     const router = Router();
@@ -219,8 +220,9 @@ export function createChatsRouter(): Router {
     });
 
     // Создать новый чат
-    router.post('/chats', async (req: Request, res: Response) => {
+    router.post('/chats', authenticate, async (req: Request, res: Response) => {
         try {
+            const user = (req as any).user;
             const { name, model, settings } = req.body as CreateChatRequest;
 
             if (!name || name.trim().length === 0) {
@@ -231,6 +233,7 @@ export function createChatsRouter(): Router {
 
             const chat = await prisma.mediaChat.create({
                 data: {
+                    userId: user?.userId, // ← Сохраняем userId
                     name: name.trim(),
                     model: model || 'NANO_BANANA_PRO_KIEAI',
                     settings: (settings || {}) as Prisma.InputJsonValue,

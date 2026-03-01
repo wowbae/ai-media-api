@@ -151,7 +151,7 @@ async function performSync(): Promise<void> {
       },
     });
 
-    console.log(`[MediaDatabase] Найдено ${allFiles.length} записей в БД`);
+    // console.log(`[MediaDatabase] Найдено ${allFiles.length} записей в БД`);
 
     if (allFiles.length === 0) {
       console.log("[MediaDatabase] ✅ Нет файлов для проверки");
