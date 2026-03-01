@@ -21,6 +21,7 @@ export interface GPTunnelMediaCreateResponse {
     created_at: number;
     status: GPTunnelTaskStatus;
     url: string | null;
+    error?: string;
 }
 
 // Ответ на проверку статуса через /v1/media/result

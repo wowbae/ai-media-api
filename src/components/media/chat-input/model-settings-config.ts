@@ -187,6 +187,16 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: '2k',
         },
     },
+    NANO_BANANA_2_KIEAI: {
+        format: {
+            options: FORMAT_OPTIONS_1_1_16_9_9_16,
+            defaultValue: '9:16',
+        },
+        quality: {
+            options: QUALITY_OPTIONS_1K_2K_4K,
+            defaultValue: '2k',
+        },
+    },
     IMAGEN4_KIEAI: {
         format: {
             options: FORMAT_OPTIONS_1_1_16_9_9_16,

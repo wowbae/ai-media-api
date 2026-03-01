@@ -84,6 +84,18 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.09, // $0.09 за изображение
         },
     },
+    NANO_BANANA_2_KIEAI: {
+        id: 'nano-banana-2',
+        name: 'Nano Banana 2',
+        types: ['IMAGE'] as const,
+        maxPromptLength: 8192,
+        promptLimit: 5000,
+        supportsImageInput: true, // Поддерживает image-to-image (до 14 файлов)
+        provider: 'kieai',
+        pricing: {
+            output: 0.05, // $0.05 за изображение (ниже чем Pro)
+        },
+    },
     IMAGEN4_KIEAI: {
         id: 'google/imagen4',
         name: 'Google Imagen4',

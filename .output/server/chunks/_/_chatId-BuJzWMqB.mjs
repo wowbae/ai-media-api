@@ -1,9 +1,8 @@
 import { jsxDEV, Fragment } from 'react/jsx-dev-runtime';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { Loader2, ChevronDown, Pin, Paperclip, RefreshCcw, Trash2, ImageIcon, VideoIcon, Maximize2, Download, X, AlertCircle, CheckCircle2, FileIcon, Video, AudioLines } from 'lucide-react';
-import { u as useTestMode, C as ChatSidebar, a as ChatInput, c as cn, g as getModelIcon, M as ModelBadge, S as ScrollArea, B as Button, b as createLoadingEffectForAttachFile, P as PANEL_HEADER_CLASSES, d as PANEL_HEADER_TITLE_CLASSES, e as Skeleton, D as Dialog, f as DialogContent, h as DialogTitle, i as downloadFile, j as getProviderDisplayName, k as isVideoDataUrl, l as formatTime, m as formatFileSize, n as Badge } from './chat-input-BHukpy2u.mjs';
-import { R as Route, g as useGetChatQuery, h as useUpdateChatMutation, i as useGenerateMediaMutation, j as useLazyGetRequestQuery, k as useGetRequestQuery, e as useGetModelsQuery, c as useDeleteFileMutation, f as useGetFilesQuery, d as useUploadThumbnailMutation } from './router-ZQUnxrzB.mjs';
-import { getMediaFileUrl } from './constants-SLUBuX75.mjs';
+import { Loader2, Pin, ChevronDown, ImageIcon, VideoIcon, RefreshCcw, Download, X, Copy, AlertCircle, Paperclip, Trash2, Maximize2, CheckCircle2, FileIcon, Video, AudioLines } from 'lucide-react';
+import { u as useTestMode, C as ChatSidebar, a as ChatInput, c as cn, g as getModelIcon, M as ModelBadge, S as ScrollArea, b as createLoadingEffectForAttachFile, P as PANEL_HEADER_CLASSES, d as PANEL_HEADER_TITLE_CLASSES, e as Skeleton, D as Dialog, f as DialogContent, h as DialogTitle, i as getOriginalFileUrl, B as Button, j as downloadFile, k as getProviderDisplayName, l as isVideoDataUrl, m as getMediaFileUrl, n as formatTime, o as formatFileSize, p as Badge } from './chat-input-BK5on2xW.mjs';
+import { R as Route, f as useGetChatQuery, h as useUpdateChatMutation, i as useGenerateMediaMutation, j as useLazyGetRequestQuery, d as useGetModelsQuery, b as useDeleteFileMutation, e as useGetFilesQuery, g as useGetPricingQuery, c as useUploadThumbnailMutation } from './router-EhyTjV9k.mjs';
 import '@tanstack/react-router';
 import '@radix-ui/react-scroll-area';
 import '@radix-ui/react-dropdown-menu';
@@ -85,6 +84,41 @@ function markThumbnailPending(fileId) {
 function unmarkThumbnailPending(fileId) {
   pendingThumbnails.delete(fileId);
 }
+const CACHE_NAME = "video-cache-v1";
+async function cacheVideo(url, fileId) {
+  if (!("caches" in window)) {
+    console.warn("[VideoCache] Cache API \u043D\u0435 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442\u0441\u044F");
+    return;
+  }
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const response = await fetch(url);
+    if (response.ok) {
+      await cache.put(`video-${fileId}`, response.clone());
+      console.log(`[VideoCache] \u2705 \u0412\u0438\u0434\u0435\u043E \u0437\u0430\u043A\u0435\u0448\u0438\u0440\u043E\u0432\u0430\u043D\u043E: fileId=${fileId}`);
+    } else {
+      console.warn(`[VideoCache] \u26A0\uFE0F \u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0432\u0438\u0434\u0435\u043E \u0434\u043B\u044F \u043A\u0435\u0448\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F: ${response.status}`);
+    }
+  } catch (error) {
+    console.warn("[VideoCache] \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u043A\u0435\u0448\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F \u0432\u0438\u0434\u0435\u043E:", error);
+  }
+}
+async function getCachedVideo(fileId) {
+  if (!("caches" in window)) {
+    return null;
+  }
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(`video-${fileId}`);
+    if (cached) {
+      console.log(`[VideoCache] \u2705 \u0412\u0438\u0434\u0435\u043E \u043D\u0430\u0439\u0434\u0435\u043D\u043E \u0432 \u043A\u0435\u0448\u0435: fileId=${fileId}`);
+    }
+    return cached || null;
+  } catch (error) {
+    console.warn("[VideoCache] \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u044F \u0438\u0437 \u043A\u0435\u0448\u0430:", error);
+    return null;
+  }
+}
 function MediaPreview({
   file,
   showDelete = false,
@@ -93,8 +127,18 @@ function MediaPreview({
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
-  const originalFileUrl = file.path ? getMediaFileUrl(file.path) : file.url || null;
-  const imagePreviewUrl = file.previewUrl || (file.previewPath ? getMediaFileUrl(file.previewPath) : null) || file.url || originalFileUrl;
+  const originalFileUrl = getOriginalFileUrl(file);
+  const imagePreviewUrls = [
+    file.previewPath ? getMediaFileUrl(file.previewPath) : null,
+    // Локальный превью - самый быстрый
+    file.path ? getMediaFileUrl(file.path) : null,
+    // Локальный оригинал - быстрый
+    file.previewUrl,
+    // imgbb превью - медленнее
+    file.url
+    // imgbb оригинал - самый медленный
+  ].filter((url) => url !== null && url !== void 0).filter((url, index, self) => self.indexOf(url) === index);
+  const imagePreviewUrl = imagePreviewUrls[0] || null;
   async function handleDelete() {
     try {
       await deleteFile(file.id).unwrap();
@@ -103,10 +147,11 @@ function MediaPreview({
     }
   }
   function handleDownload() {
-    if (originalFileUrl) {
-      downloadFile(originalFileUrl, file.filename);
+    const downloadUrl = getOriginalFileUrl(file);
+    if (downloadUrl) {
+      downloadFile(downloadUrl, file.filename);
     } else {
-      console.warn("[MediaPreview] \u041D\u0435\u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u0430\u0439\u043B: \u043D\u0435\u0442 URL \u0438\u043B\u0438 path", file);
+      console.warn("[MediaPreview] \u041D\u0435\u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u0430\u0439\u043B: \u043D\u0435\u0442 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u044C\u043D\u043E\u0433\u043E URL", file);
     }
   }
   return /* @__PURE__ */ jsxDEV(Fragment, { children: [
@@ -122,6 +167,7 @@ function MediaPreview({
             ImagePreview,
             {
               src: imagePreviewUrl || "",
+              fallbackUrls: imagePreviewUrls.slice(1),
               alt: file.filename,
               onClick: () => setIsFullscreen(true)
             },
@@ -129,7 +175,7 @@ function MediaPreview({
             false,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-              lineNumber: 86,
+              lineNumber: 96,
               columnNumber: 11
             },
             this
@@ -138,7 +184,7 @@ function MediaPreview({
             VideoPreview,
             {
               fileId: file.id,
-              previewUrl: file.previewUrl || file.previewPath,
+              previewUrl: file.previewPath || file.previewUrl || null,
               originalUrl: originalFileUrl || "",
               filename: file.filename
             },
@@ -146,14 +192,14 @@ function MediaPreview({
             false,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-              lineNumber: 94,
+              lineNumber: 105,
               columnNumber: 11
             },
             this
           ),
           file.type === "AUDIO" && /* @__PURE__ */ jsxDEV(AudioPreview, { originalUrl: originalFileUrl || "", filename: file.filename }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 103,
+            lineNumber: 114,
             columnNumber: 11
           }, this),
           file.type !== "VIDEO" && file.type !== "AUDIO" && /* @__PURE__ */ jsxDEV("div", { className: "absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100", children: [
@@ -166,7 +212,7 @@ function MediaPreview({
                 onClick: () => setIsFullscreen(true),
                 children: /* @__PURE__ */ jsxDEV(Maximize2, { className: "h-4 w-4" }, void 0, false, {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                  lineNumber: 116,
+                  lineNumber: 127,
                   columnNumber: 17
                 }, this)
               },
@@ -174,7 +220,7 @@ function MediaPreview({
               false,
               {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                lineNumber: 110,
+                lineNumber: 121,
                 columnNumber: 15
               },
               this
@@ -188,7 +234,7 @@ function MediaPreview({
                 onClick: handleDownload,
                 children: /* @__PURE__ */ jsxDEV(Download, { className: "h-4 w-4" }, void 0, false, {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                  lineNumber: 126,
+                  lineNumber: 137,
                   columnNumber: 15
                 }, this)
               },
@@ -196,7 +242,7 @@ function MediaPreview({
               false,
               {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                lineNumber: 120,
+                lineNumber: 131,
                 columnNumber: 13
               },
               this
@@ -211,7 +257,7 @@ function MediaPreview({
                 disabled: isDeleting,
                 children: /* @__PURE__ */ jsxDEV(Trash2, { className: "h-4 w-4" }, void 0, false, {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                  lineNumber: 137,
+                  lineNumber: 148,
                   columnNumber: 17
                 }, this)
               },
@@ -219,14 +265,14 @@ function MediaPreview({
               false,
               {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                lineNumber: 130,
+                lineNumber: 141,
                 columnNumber: 15
               },
               this
             )
           ] }, void 0, true, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 108,
+            lineNumber: 119,
             columnNumber: 11
           }, this),
           file.type === "VIDEO" && showDelete && /* @__PURE__ */ jsxDEV("div", { className: "absolute right-2 top-2 z-10", children: /* @__PURE__ */ jsxDEV(
@@ -239,7 +285,7 @@ function MediaPreview({
               disabled: isDeleting,
               children: /* @__PURE__ */ jsxDEV(Trash2, { className: "h-4 w-4" }, void 0, false, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                lineNumber: 153,
+                lineNumber: 164,
                 columnNumber: 15
               }, this)
             },
@@ -247,33 +293,33 @@ function MediaPreview({
             false,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-              lineNumber: 146,
+              lineNumber: 157,
               columnNumber: 13
             },
             this
           ) }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 145,
+            lineNumber: 156,
             columnNumber: 11
           }, this),
-          /* @__PURE__ */ jsxDEV("div", { className: "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2", children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center justify-between", children: [
+          /* @__PURE__ */ jsxDEV("div", { className: "absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-2", children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center justify-between", children: [
             /* @__PURE__ */ jsxDEV(TypeIcon, { type: file.type }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-              lineNumber: 161,
+              lineNumber: 172,
               columnNumber: 13
             }, this),
             /* @__PURE__ */ jsxDEV("span", { className: "text-xs text-muted-foreground", children: formatFileSize(file.size || 0) }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-              lineNumber: 162,
+              lineNumber: 173,
               columnNumber: 13
             }, this)
           ] }, void 0, true, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 160,
+            lineNumber: 171,
             columnNumber: 11
           }, this) }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 159,
+            lineNumber: 170,
             columnNumber: 9
           }, this)
         ]
@@ -282,7 +328,7 @@ function MediaPreview({
       true,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-        lineNumber: 78,
+        lineNumber: 88,
         columnNumber: 7
       },
       this
@@ -298,7 +344,7 @@ function MediaPreview({
             file.filename
           ] }, void 0, true, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 176,
+            lineNumber: 187,
             columnNumber: 13
           }, this),
           /* @__PURE__ */ jsxDEV("div", { className: "relative", children: [
@@ -313,7 +359,7 @@ function MediaPreview({
               false,
               {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                lineNumber: 180,
+                lineNumber: 191,
                 columnNumber: 15
               },
               this
@@ -327,7 +373,7 @@ function MediaPreview({
                   onClick: handleDownload,
                   children: /* @__PURE__ */ jsxDEV(Download, { className: "h-4 w-4" }, void 0, false, {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                    lineNumber: 191,
+                    lineNumber: 202,
                     columnNumber: 19
                   }, this)
                 },
@@ -335,7 +381,7 @@ function MediaPreview({
                 false,
                 {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                  lineNumber: 186,
+                  lineNumber: 197,
                   columnNumber: 17
                 },
                 this
@@ -348,7 +394,7 @@ function MediaPreview({
                   onClick: () => setIsFullscreen(false),
                   children: /* @__PURE__ */ jsxDEV(X, { className: "h-4 w-4" }, void 0, false, {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                    lineNumber: 198,
+                    lineNumber: 209,
                     columnNumber: 19
                   }, this)
                 },
@@ -356,39 +402,39 @@ function MediaPreview({
                 false,
                 {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                  lineNumber: 193,
+                  lineNumber: 204,
                   columnNumber: 17
                 },
                 this
               )
             ] }, void 0, true, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-              lineNumber: 185,
+              lineNumber: 196,
               columnNumber: 15
             }, this),
-            /* @__PURE__ */ jsxDEV("div", { className: "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4", children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center justify-between text-white", children: [
+            /* @__PURE__ */ jsxDEV("div", { className: "absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-4", children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center justify-between text-white", children: [
               /* @__PURE__ */ jsxDEV("span", { className: "font-medium text-foreground", children: file.filename }, void 0, false, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                lineNumber: 203,
+                lineNumber: 214,
                 columnNumber: 19
               }, this),
               /* @__PURE__ */ jsxDEV("span", { className: "text-sm text-muted-foreground", children: getImageDimensions(file.width, file.height) }, void 0, false, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-                lineNumber: 204,
+                lineNumber: 215,
                 columnNumber: 19
               }, this)
             ] }, void 0, true, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-              lineNumber: 202,
+              lineNumber: 213,
               columnNumber: 17
             }, this) }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-              lineNumber: 201,
+              lineNumber: 212,
               columnNumber: 15
             }, this)
           ] }, void 0, true, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 179,
+            lineNumber: 190,
             columnNumber: 13
           }, this)
         ]
@@ -397,24 +443,56 @@ function MediaPreview({
       true,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-        lineNumber: 172,
+        lineNumber: 183,
         columnNumber: 11
       },
       this
     ) }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-      lineNumber: 171,
+      lineNumber: 182,
       columnNumber: 9
     }, this)
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-    lineNumber: 77,
+    lineNumber: 87,
     columnNumber: 5
   }, this);
 }
-function ImagePreview({ src, alt, onClick }) {
+function ImagePreview({ src, fallbackUrls = [], alt, onClick }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
+  const [currentSrc, setCurrentSrc] = useState(src);
+  function handleError() {
+    console.warn("[ImagePreview] \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F:", {
+      currentSrc,
+      currentUrlIndex,
+      fallbackUrls,
+      alt
+    });
+    if (currentUrlIndex < fallbackUrls.length) {
+      const nextIndex = currentUrlIndex + 1;
+      setCurrentUrlIndex(nextIndex);
+      const nextUrl = fallbackUrls[currentUrlIndex];
+      console.log("[ImagePreview] \u041F\u0440\u043E\u0431\u0443\u0435\u043C \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 URL:", nextUrl);
+      setCurrentSrc(nextUrl);
+      setIsLoaded(false);
+      setHasError(false);
+    } else {
+      console.error("[ImagePreview] \u0412\u0441\u0435 URL \u0438\u0441\u0447\u0435\u0440\u043F\u0430\u043D\u044B, \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u043C \u0438\u043A\u043E\u043D\u043A\u0443 \u0444\u0430\u0439\u043B\u0430");
+      setHasError(true);
+    }
+  }
+  useEffect(() => {
+    setCurrentSrc(src);
+    setCurrentUrlIndex(0);
+    setIsLoaded(false);
+    setHasError(false);
+  }, [src]);
+  useEffect(() => {
+    setIsLoaded(false);
+    setHasError(false);
+  }, [currentSrc]);
   return /* @__PURE__ */ jsxDEV(
     "div",
     {
@@ -423,25 +501,25 @@ function ImagePreview({ src, alt, onClick }) {
       children: [
         !isLoaded && !hasError && /* @__PURE__ */ jsxDEV("div", { className: "absolute inset-0 flex items-center justify-center bg-secondary", children: /* @__PURE__ */ jsxDEV(ImageIcon, { className: "h-8 w-8 animate-pulse text-muted-foreground/50" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-          lineNumber: 235,
+          lineNumber: 286,
           columnNumber: 11
         }, this) }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-          lineNumber: 234,
+          lineNumber: 285,
           columnNumber: 9
         }, this),
         hasError ? /* @__PURE__ */ jsxDEV("div", { className: "flex h-full items-center justify-center bg-secondary", children: /* @__PURE__ */ jsxDEV(FileIcon, { className: "h-8 w-8 text-muted-foreground/50" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-          lineNumber: 240,
+          lineNumber: 291,
           columnNumber: 11
         }, this) }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-          lineNumber: 239,
+          lineNumber: 290,
           columnNumber: 9
         }, this) : /* @__PURE__ */ jsxDEV(
           "img",
           {
-            src,
+            src: currentSrc,
             alt,
             loading: "lazy",
             className: cn(
@@ -449,13 +527,13 @@ function ImagePreview({ src, alt, onClick }) {
               isLoaded ? "opacity-100" : "opacity-0"
             ),
             onLoad: () => setIsLoaded(true),
-            onError: () => setHasError(true)
+            onError: handleError
           },
           void 0,
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 243,
+            lineNumber: 294,
             columnNumber: 9
           },
           this
@@ -466,7 +544,7 @@ function ImagePreview({ src, alt, onClick }) {
     true,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-      lineNumber: 229,
+      lineNumber: 280,
       columnNumber: 5
     },
     this
@@ -484,11 +562,13 @@ function VideoPreview({
   const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
   const [localThumbnail, setLocalThumbnail] = useState(null);
   const thumbnailGeneratedRef = useRef(false);
+  const [videoBlobUrl, setVideoBlobUrl] = useState(null);
+  const [isLoadingVideo, setIsLoadingVideo] = useState(false);
   const [uploadThumbnail] = useUploadThumbnailMutation();
   const isPendingPreview = previewUrl?.startsWith("__pending__") ?? false;
   const actualPreviewUrl = isPendingPreview && previewUrl ? previewUrl.replace("__pending__", "") : previewUrl;
   useEffect(() => {
-    if (previewUrl || isGeneratingThumbnail || thumbnailGeneratedRef.current || isThumbnailPending(fileId)) {
+    if (previewUrl || isGeneratingThumbnail || thumbnailGeneratedRef.current || isThumbnailPending(fileId) || !originalUrl) {
       return;
     }
     async function generateThumbnail() {
@@ -515,30 +595,89 @@ function VideoPreview({
     }
     generateThumbnail();
   }, [fileId, previewUrl, originalUrl, isGeneratingThumbnail, uploadThumbnail]);
+  useEffect(() => {
+    if (!shouldLoadOriginal || !originalUrl) return;
+    let blobUrl = null;
+    async function loadVideo() {
+      setIsLoadingVideo(true);
+      try {
+        const cached = await getCachedVideo(fileId);
+        if (cached) {
+          const blob2 = await cached.blob();
+          blobUrl = URL.createObjectURL(blob2);
+          setVideoBlobUrl(blobUrl);
+          setIsLoadingVideo(false);
+          return;
+        }
+        const response = await fetch(originalUrl);
+        if (!response.ok) {
+          throw new Error(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0432\u0438\u0434\u0435\u043E: ${response.status}`);
+        }
+        const blob = await response.blob();
+        blobUrl = URL.createObjectURL(blob);
+        setVideoBlobUrl(blobUrl);
+        await cacheVideo(originalUrl, fileId);
+        setIsLoadingVideo(false);
+      } catch (error) {
+        console.error("[VideoPreview] \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0432\u0438\u0434\u0435\u043E:", error);
+        setIsLoadingVideo(false);
+        setVideoBlobUrl(originalUrl);
+      }
+    }
+    loadVideo();
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [shouldLoadOriginal, originalUrl, fileId]);
   function handlePlay() {
     setShouldLoadOriginal(true);
   }
   const displayPreviewUrl = actualPreviewUrl ? actualPreviewUrl.startsWith("data:") ? actualPreviewUrl : actualPreviewUrl.startsWith("http://") || actualPreviewUrl.startsWith("https://") ? actualPreviewUrl : getMediaFileUrl(actualPreviewUrl) : localThumbnail;
   if (shouldLoadOriginal) {
-    return /* @__PURE__ */ jsxDEV("div", { className: "group/video relative aspect-square", children: /* @__PURE__ */ jsxDEV(
-      "video",
-      {
-        src: originalUrl,
-        poster: displayPreviewUrl || void 0,
-        controls: true,
-        className: "h-full w-full object-cover video-controls-on-hover"
-      },
-      void 0,
-      false,
-      {
+    const videoSrc = videoBlobUrl || originalUrl;
+    return /* @__PURE__ */ jsxDEV("div", { className: "group/video relative aspect-square", children: [
+      isLoadingVideo && /* @__PURE__ */ jsxDEV("div", { className: "absolute inset-0 flex items-center justify-center bg-secondary z-10", children: /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col items-center gap-2", children: [
+        /* @__PURE__ */ jsxDEV(Video, { className: "h-8 w-8 animate-pulse text-muted-foreground/50" }, void 0, false, {
+          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
+          lineNumber: 473,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ jsxDEV("span", { className: "text-xs text-muted-foreground", children: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0432\u0438\u0434\u0435\u043E..." }, void 0, false, {
+          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
+          lineNumber: 474,
+          columnNumber: 15
+        }, this)
+      ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-        lineNumber: 356,
-        columnNumber: 9
-      },
-      this
-    ) }, void 0, false, {
+        lineNumber: 472,
+        columnNumber: 13
+      }, this) }, void 0, false, {
+        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
+        lineNumber: 471,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV(
+        "video",
+        {
+          src: videoSrc,
+          poster: displayPreviewUrl || void 0,
+          controls: true,
+          className: "h-full w-full object-cover video-controls-on-hover"
+        },
+        void 0,
+        false,
+        {
+          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
+          lineNumber: 478,
+          columnNumber: 9
+        },
+        this
+      )
+    ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-      lineNumber: 355,
+      lineNumber: 469,
       columnNumber: 7
     }, this);
   }
@@ -551,20 +690,20 @@ function VideoPreview({
         children: [
           /* @__PURE__ */ jsxDEV(Skeleton, { className: "h-full w-full rounded-none" }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 373,
+            lineNumber: 495,
             columnNumber: 9
           }, this),
           /* @__PURE__ */ jsxDEV("div", { className: "absolute inset-0 flex items-center justify-center", children: /* @__PURE__ */ jsxDEV("div", { className: "rounded-full bg-white/20 p-4 backdrop-blur-sm animate-pulse", children: /* @__PURE__ */ jsxDEV(Video, { className: "h-8 w-8 text-white" }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 376,
+            lineNumber: 498,
             columnNumber: 13
           }, this) }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 375,
+            lineNumber: 497,
             columnNumber: 11
           }, this) }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 374,
+            lineNumber: 496,
             columnNumber: 9
           }, this)
         ]
@@ -573,7 +712,7 @@ function VideoPreview({
       true,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-        lineNumber: 369,
+        lineNumber: 491,
         columnNumber: 7
       },
       this
@@ -588,21 +727,21 @@ function VideoPreview({
         children: /* @__PURE__ */ jsxDEV("div", { className: "absolute inset-0 flex flex-col items-center justify-center gap-3", children: [
           /* @__PURE__ */ jsxDEV("div", { className: "rounded-full bg-white/20 p-6 backdrop-blur-sm", children: /* @__PURE__ */ jsxDEV(Video, { className: "h-12 w-12 text-white" }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 392,
+            lineNumber: 514,
             columnNumber: 13
           }, this) }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 391,
+            lineNumber: 513,
             columnNumber: 11
           }, this),
           /* @__PURE__ */ jsxDEV("p", { className: "text-sm text-muted-foreground", children: "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u0434\u043B\u044F \u0432\u043E\u0441\u043F\u0440\u043E\u0438\u0437\u0432\u0435\u0434\u0435\u043D\u0438\u044F" }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 394,
+            lineNumber: 516,
             columnNumber: 11
           }, this)
         ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-          lineNumber: 390,
+          lineNumber: 512,
           columnNumber: 9
         }, this)
       },
@@ -610,7 +749,7 @@ function VideoPreview({
       false,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-        lineNumber: 386,
+        lineNumber: 508,
         columnNumber: 7
       },
       this
@@ -633,7 +772,13 @@ function VideoPreview({
               isPreviewLoaded ? "opacity-100" : "opacity-0"
             ),
             onLoad: () => setIsPreviewLoaded(true),
-            onError: () => {
+            onError: (e) => {
+              console.warn("[VideoPreview] \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u043F\u0440\u0435\u0432\u044C\u044E:", {
+                fileId,
+                filename,
+                displayPreviewUrl,
+                error: e
+              });
               setHasPreviewError(true);
             }
           },
@@ -641,23 +786,23 @@ function VideoPreview({
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-            lineNumber: 406,
+            lineNumber: 528,
             columnNumber: 7
           },
           this
         ),
         !isPreviewLoaded && /* @__PURE__ */ jsxDEV("div", { className: "absolute inset-0 flex items-center justify-center bg-secondary", children: /* @__PURE__ */ jsxDEV(Video, { className: "h-8 w-8 animate-pulse text-muted-foreground/50" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-          lineNumber: 421,
+          lineNumber: 549,
           columnNumber: 11
         }, this) }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-          lineNumber: 420,
+          lineNumber: 548,
           columnNumber: 9
         }, this),
         /* @__PURE__ */ jsxDEV("div", { className: "absolute inset-0 bg-black/0 transition-colors hover:bg-black/10" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-          lineNumber: 425,
+          lineNumber: 553,
           columnNumber: 7
         }, this)
       ]
@@ -666,7 +811,7 @@ function VideoPreview({
     true,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-      lineNumber: 402,
+      lineNumber: 524,
       columnNumber: 5
     },
     this
@@ -676,12 +821,12 @@ function AudioPreview({ originalUrl, filename }) {
   return /* @__PURE__ */ jsxDEV("div", { className: "flex aspect-video flex-col items-center justify-center gap-3 bg-secondary p-4", children: [
     /* @__PURE__ */ jsxDEV(AudioLines, { className: "h-12 w-12 text-primary" }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-      lineNumber: 440,
+      lineNumber: 568,
       columnNumber: 7
     }, this),
     /* @__PURE__ */ jsxDEV("p", { className: "text-xs text-muted-foreground text-center max-w-full truncate", children: filename }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-      lineNumber: 441,
+      lineNumber: 569,
       columnNumber: 7
     }, this),
     /* @__PURE__ */ jsxDEV(
@@ -695,14 +840,14 @@ function AudioPreview({ originalUrl, filename }) {
       false,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-        lineNumber: 444,
+        lineNumber: 572,
         columnNumber: 7
       },
       this
     )
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-    lineNumber: 439,
+    lineNumber: 567,
     columnNumber: 5
   }, this);
 }
@@ -715,7 +860,7 @@ function TypeIcon({ type }) {
   const { icon: Icon } = config[type];
   return /* @__PURE__ */ jsxDEV(Icon, { className: "h-4 w-4 text-muted-foreground" }, void 0, false, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-preview.tsx",
-    lineNumber: 467,
+    lineNumber: 595,
     columnNumber: 10
   }, this);
 }
@@ -829,9 +974,9 @@ function MessageItem({
             className: "h-8 w-8 shrink-0 text-primary opacity-0 transition-opacity hover:text-primary/80 hover:bg-primary/20 group-hover:opacity-100",
             onClick: () => onEditPrompt(request.prompt),
             title: "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u0440\u043E\u043C\u043F\u0442",
-            children: /* @__PURE__ */ jsxDEV("span", { className: "text-lg", children: "\u2728" }, void 0, false, {
+            children: /* @__PURE__ */ jsxDEV(Copy, { className: "text-muted-foreground" }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 116,
+              lineNumber: 117,
               columnNumber: 29
             }, this)
           },
@@ -839,7 +984,7 @@ function MessageItem({
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-            lineNumber: 108,
+            lineNumber: 109,
             columnNumber: 25
           },
           this
@@ -855,7 +1000,7 @@ function MessageItem({
             title: "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C \u0437\u0430\u043F\u0440\u043E\u0441 \u043A \u043D\u0435\u0439\u0440\u043E\u043D\u043A\u0435",
             children: /* @__PURE__ */ jsxDEV(RefreshCcw, { className: "h-4 w-4" }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 129,
+              lineNumber: 131,
               columnNumber: 29
             }, this)
           },
@@ -863,14 +1008,14 @@ function MessageItem({
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-            lineNumber: 121,
+            lineNumber: 123,
             columnNumber: 25
           },
           this
         )
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-        lineNumber: 105,
+        lineNumber: 106,
         columnNumber: 17
       }, this),
       /* @__PURE__ */ jsxDEV("div", { className: "max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-3 shadow-sm", children: [
@@ -886,7 +1031,7 @@ function MessageItem({
             false,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 135,
+              lineNumber: 137,
               columnNumber: 25
             },
             this
@@ -902,74 +1047,129 @@ function MessageItem({
             false,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 144,
+              lineNumber: 146,
               columnNumber: 29
             },
             this
           )
         ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-          lineNumber: 134,
+          lineNumber: 136,
           columnNumber: 21
         }, this),
-        request.inputFiles && request.inputFiles.length > 0 && /* @__PURE__ */ jsxDEV("div", { className: "mt-2 flex flex-wrap gap-2", children: request.inputFiles.map((fileUrl, index) => {
-          if (!fileUrl) {
-            return null;
-          }
-          const isDataUrl = fileUrl.startsWith("data:");
-          const isHttpUrl = fileUrl.startsWith("http://") || fileUrl.startsWith("https://");
-          if (!isDataUrl && !isHttpUrl) {
-            return null;
-          }
-          const isVideo = isDataUrl ? isVideoDataUrl(fileUrl) : false;
-          return /* @__PURE__ */ jsxDEV(
-            "div",
-            {
-              className: "h-16 w-16 overflow-hidden rounded-lg border border-primary-foreground/20",
-              children: isVideo ? /* @__PURE__ */ jsxDEV(
-                "video",
-                {
-                  src: fileUrl,
-                  className: "h-full w-full object-cover"
-                },
-                void 0,
-                false,
-                {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                  lineNumber: 185,
-                  columnNumber: 45
-                },
-                this
-              ) : /* @__PURE__ */ jsxDEV(
-                "img",
-                {
-                  src: fileUrl,
-                  alt: `\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u043D\u044B\u0439 \u0444\u0430\u0439\u043B ${index + 1}`,
-                  className: "h-full w-full object-cover",
-                  crossOrigin: "anonymous"
-                },
-                void 0,
-                false,
-                {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                  lineNumber: 191,
-                  columnNumber: 45
-                },
-                this
-              )
-            },
-            index,
-            false,
-            {
-              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 180,
-              columnNumber: 37
-            },
-            this
-          );
-        }) }, void 0, false, {
+        (request.inputFiles && request.inputFiles.length > 0 || request.files && request.files.length > 0 && (!request.inputFiles || request.inputFiles.length === 0)) && /* @__PURE__ */ jsxDEV("div", { className: "mt-2 flex flex-wrap gap-2", children: [
+          request.inputFiles?.map((fileUrl, index) => {
+            if (!fileUrl) {
+              return null;
+            }
+            const isDataUrl = fileUrl.startsWith("data:");
+            const isHttpUrl = fileUrl.startsWith("http://") || fileUrl.startsWith("https://");
+            let finalUrl = fileUrl;
+            if (!isDataUrl && !isHttpUrl && fileUrl) {
+              finalUrl = getMediaFileUrl(fileUrl);
+            } else if (!isDataUrl && !isHttpUrl) {
+              return null;
+            }
+            const isVideo = isDataUrl ? isVideoDataUrl(fileUrl) : fileUrl.match(/\.(mp4|webm|mov)$/i) !== null;
+            return /* @__PURE__ */ jsxDEV(
+              "div",
+              {
+                className: "h-16 w-16 overflow-hidden rounded-lg border border-primary-foreground/20",
+                children: isVideo ? /* @__PURE__ */ jsxDEV(
+                  "video",
+                  {
+                    src: finalUrl,
+                    className: "h-full w-full object-cover"
+                  },
+                  void 0,
+                  false,
+                  {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
+                    lineNumber: 195,
+                    columnNumber: 45
+                  },
+                  this
+                ) : /* @__PURE__ */ jsxDEV(
+                  "img",
+                  {
+                    src: finalUrl,
+                    alt: `\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u043D\u044B\u0439 \u0444\u0430\u0439\u043B ${index + 1}`,
+                    className: "h-full w-full object-cover",
+                    crossOrigin: "anonymous"
+                  },
+                  void 0,
+                  false,
+                  {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
+                    lineNumber: 201,
+                    columnNumber: 45
+                  },
+                  this
+                )
+              },
+              index,
+              false,
+              {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
+                lineNumber: 190,
+                columnNumber: 37
+              },
+              this
+            );
+          }),
+          (!request.inputFiles || request.inputFiles.length === 0) && request.files.map((file) => {
+            const previewUrl = file.url || (file.path ? getMediaFileUrl(file.path) : null);
+            if (!previewUrl) return null;
+            const isVideo = file.type === "VIDEO";
+            return /* @__PURE__ */ jsxDEV(
+              "div",
+              {
+                className: "h-16 w-16 overflow-hidden rounded-lg border border-primary-foreground/20",
+                children: isVideo ? /* @__PURE__ */ jsxDEV(
+                  "video",
+                  {
+                    src: previewUrl,
+                    className: "h-full w-full object-cover"
+                  },
+                  void 0,
+                  false,
+                  {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
+                    lineNumber: 226,
+                    columnNumber: 49
+                  },
+                  this
+                ) : /* @__PURE__ */ jsxDEV(
+                  "img",
+                  {
+                    src: previewUrl,
+                    alt: file.filename,
+                    className: "h-full w-full object-cover",
+                    crossOrigin: "anonymous"
+                  },
+                  void 0,
+                  false,
+                  {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
+                    lineNumber: 232,
+                    columnNumber: 49
+                  },
+                  this
+                )
+              },
+              file.id,
+              false,
+              {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
+                lineNumber: 221,
+                columnNumber: 41
+              },
+              this
+            );
+          })
+        ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-          lineNumber: 154,
+          lineNumber: 157,
           columnNumber: 25
         }, this),
         /* @__PURE__ */ jsxDEV("div", { className: "mt-1 flex items-center justify-end gap-2 text-xs text-primary-foreground/70", children: [
@@ -980,7 +1180,7 @@ function MessageItem({
               providerName
             ] }, void 0, true, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 208,
+              lineNumber: 249,
               columnNumber: 37
             }, this),
             request.seed && /* @__PURE__ */ jsxDEV("span", { className: "text-primary-foreground/50", children: [
@@ -988,32 +1188,32 @@ function MessageItem({
               request.seed
             ] }, void 0, true, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 213,
+              lineNumber: 254,
               columnNumber: 37
             }, this)
           ] }, void 0, true, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-            lineNumber: 205,
+            lineNumber: 246,
             columnNumber: 29
           }, this),
           /* @__PURE__ */ jsxDEV("span", { children: formatTime(request.createdAt) }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-            lineNumber: 219,
+            lineNumber: 260,
             columnNumber: 25
           }, this)
         ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-          lineNumber: 203,
+          lineNumber: 244,
           columnNumber: 21
         }, this)
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-        lineNumber: 133,
+        lineNumber: 135,
         columnNumber: 17
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-      lineNumber: 103,
+      lineNumber: 104,
       columnNumber: 13
     }, this),
     /* @__PURE__ */ jsxDEV("div", { className: "flex justify-start", children: /* @__PURE__ */ jsxDEV("div", { className: "max-w-[80%] space-y-3", children: [
@@ -1024,70 +1224,41 @@ function MessageItem({
           children: [
             /* @__PURE__ */ jsxDEV(StatusBadge, { status: request.status }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 235,
+              lineNumber: 276,
               columnNumber: 29
             }, this),
             request.status === "FAILED" && request.errorMessage && /* @__PURE__ */ jsxDEV("div", { className: "mt-2 flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-destructive", children: [
               /* @__PURE__ */ jsxDEV(AlertCircle, { className: "mt-0.5 h-4 w-4 shrink-0" }, void 0, false, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                lineNumber: 241,
+                lineNumber: 282,
                 columnNumber: 41
               }, this),
               /* @__PURE__ */ jsxDEV("p", { className: "min-w-0 flex-1 text-xs whitespace-pre-wrap break-all overflow-x-auto", children: request.errorMessage }, void 0, false, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                lineNumber: 242,
+                lineNumber: 283,
                 columnNumber: 41
               }, this)
             ] }, void 0, true, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 240,
+              lineNumber: 281,
               columnNumber: 37
             }, this),
-            (request.status === "PENDING" || request.status === "PROCESSING") && /* @__PURE__ */ jsxDEV("div", { className: "mt-3 space-y-3", children: [
-              /* @__PURE__ */ jsxDEV(Skeleton, { className: "aspect-square w-48 rounded-xl" }, void 0, false, {
-                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                lineNumber: 253,
-                columnNumber: 37
-              }, this),
-              /* @__PURE__ */ jsxDEV(
-                "div",
-                {
-                  hidden: true,
-                  className: "flex items-center gap-2 text-slate-400",
-                  children: [
-                    /* @__PURE__ */ jsxDEV(Loader2, { className: "h-4 w-4 animate-spin" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                      lineNumber: 258,
-                      columnNumber: 41
-                    }, this),
-                    /* @__PURE__ */ jsxDEV("span", { className: "text-sm", children: request.status === "PENDING" ? "\u041F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0430" : "\u0413\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u044F" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                      lineNumber: 259,
-                      columnNumber: 41
-                    }, this)
-                  ]
-                },
-                void 0,
-                true,
-                {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                  lineNumber: 254,
-                  columnNumber: 37
-                },
-                this
-              )
-            ] }, void 0, true, {
+            (request.status === "PENDING" || request.status === "PROCESSING") && /* @__PURE__ */ jsxDEV("div", { className: "mt-3 space-y-3", children: /* @__PURE__ */ jsxDEV(Skeleton, { className: "aspect-square w-48 rounded-xl" }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 251,
+              lineNumber: 294,
+              columnNumber: 37
+            }, this) }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
+              lineNumber: 292,
               columnNumber: 33
             }, this),
             request.status === "COMPLETED" && request.files.length === 0 && /* @__PURE__ */ jsxDEV("div", { className: "mt-2 rounded-lg bg-primary/10 p-3 text-primary", children: /* @__PURE__ */ jsxDEV("p", { className: "text-sm", children: "\u26A0\uFE0F \u0413\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u044F \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u0430, \u043D\u043E \u0444\u0430\u0439\u043B\u044B \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u044B" }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 272,
+              lineNumber: 302,
               columnNumber: 41
             }, this) }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 271,
+              lineNumber: 301,
               columnNumber: 37
             }, this),
             request.completedAt && /* @__PURE__ */ jsxDEV("p", { className: "mt-2 text-xs text-slate-500", children: [
@@ -1095,7 +1266,7 @@ function MessageItem({
               formatTime(request.completedAt)
             ] }, void 0, true, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 281,
+              lineNumber: 311,
               columnNumber: 33
             }, this)
           ]
@@ -1104,7 +1275,7 @@ function MessageItem({
         true,
         {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-          lineNumber: 231,
+          lineNumber: 272,
           columnNumber: 25
         },
         this
@@ -1130,7 +1301,7 @@ function MessageItem({
                       false,
                       {
                         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                        lineNumber: 302,
+                        lineNumber: 332,
                         columnNumber: 53
                       },
                       this
@@ -1140,7 +1311,7 @@ function MessageItem({
                   false,
                   {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                    lineNumber: 299,
+                    lineNumber: 329,
                     columnNumber: 49
                   },
                   this
@@ -1154,25 +1325,31 @@ function MessageItem({
                       variant: "ghost",
                       className: "h-8 w-8 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-primary hover:bg-primary/10 group-hover:opacity-100",
                       onClick: () => {
-                        if (!file.path)
-                          return;
-                        loadingEffectForAttachFile();
-                        const fileUrl = getMediaFileUrl(
+                        const fileUrl = file.path ? getMediaFileUrl(
                           file.path
-                        );
+                        ) : file.url;
+                        if (!fileUrl) {
+                          console.warn(
+                            "[MessageItem] \u041D\u0435\u0442 file.path \u0438 file.url"
+                          );
+                          alert("\u041E\u0448\u0438\u0431\u043A\u0430: \u0443 \u0444\u0430\u0439\u043B\u0430 \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u043F\u0443\u0442\u044C \u0438\u043B\u0438 URL. \u041D\u0435\u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u0444\u0430\u0439\u043B.");
+                          return;
+                        }
+                        loadingEffectForAttachFile();
                         onAttachFile(
                           fileUrl,
-                          file.filename
+                          file.filename,
+                          file.url || void 0
                         );
                       },
                       title: "\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u043A \u043F\u0440\u043E\u043C\u043F\u0442\u0443",
                       children: attachingFile ? /* @__PURE__ */ jsxDEV(Loader2, { className: "h-4 w-4 animate-spin" }, void 0, false, {
                         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                        lineNumber: 335,
+                        lineNumber: 375,
                         columnNumber: 69
                       }, this) : /* @__PURE__ */ jsxDEV(Paperclip, { className: "h-4 w-4" }, void 0, false, {
                         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                        lineNumber: 337,
+                        lineNumber: 377,
                         columnNumber: 69
                       }, this)
                     },
@@ -1180,7 +1357,7 @@ function MessageItem({
                     false,
                     {
                       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                      lineNumber: 312,
+                      lineNumber: 342,
                       columnNumber: 61
                     },
                     this
@@ -1200,7 +1377,7 @@ function MessageItem({
                       title: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0444\u0430\u0439\u043B",
                       children: /* @__PURE__ */ jsxDEV(Trash2, { className: "h-4 w-4" }, void 0, false, {
                         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                        lineNumber: 356,
+                        lineNumber: 396,
                         columnNumber: 57
                       }, this)
                     },
@@ -1208,7 +1385,7 @@ function MessageItem({
                     false,
                     {
                       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                      lineNumber: 342,
+                      lineNumber: 382,
                       columnNumber: 53
                     },
                     this
@@ -1226,7 +1403,7 @@ function MessageItem({
                       title: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043D\u0430 \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D",
                       children: /* @__PURE__ */ jsxDEV(Maximize2, { className: "h-4 w-4" }, void 0, false, {
                         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                        lineNumber: 372,
+                        lineNumber: 412,
                         columnNumber: 61
                       }, this)
                     },
@@ -1234,14 +1411,14 @@ function MessageItem({
                     false,
                     {
                       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                      lineNumber: 360,
+                      lineNumber: 400,
                       columnNumber: 57
                     },
                     this
                   )
                 ] }, void 0, true, {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                  lineNumber: 308,
+                  lineNumber: 338,
                   columnNumber: 49
                 }, this)
               ]
@@ -1250,14 +1427,14 @@ function MessageItem({
             true,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-              lineNumber: 295,
+              lineNumber: 325,
               columnNumber: 45
             },
             this
           );
         }) }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-          lineNumber: 292,
+          lineNumber: 322,
           columnNumber: 33
         }, this),
         request.completedAt && /* @__PURE__ */ jsxDEV("p", { className: "text-xs text-slate-500", children: [
@@ -1266,21 +1443,21 @@ function MessageItem({
           formatTime(request.completedAt)
         ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-          lineNumber: 382,
+          lineNumber: 422,
           columnNumber: 37
         }, this)
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-        lineNumber: 291,
+        lineNumber: 321,
         columnNumber: 29
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-      lineNumber: 226,
+      lineNumber: 267,
       columnNumber: 17
     }, this) }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-      lineNumber: 225,
+      lineNumber: 266,
       columnNumber: 13
     }, this),
     fullscreenVideo && /* @__PURE__ */ jsxDEV(
@@ -1299,14 +1476,14 @@ function MessageItem({
                 fullscreenVideo.filename
               ] }, void 0, true, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                lineNumber: 402,
+                lineNumber: 442,
                 columnNumber: 25
               }, this),
               /* @__PURE__ */ jsxDEV("div", { className: "relative", children: [
                 /* @__PURE__ */ jsxDEV(
                   "video",
                   {
-                    src: fullscreenVideo.path ? getMediaFileUrl(fullscreenVideo.path) : "",
+                    src: getOriginalFileUrl(fullscreenVideo) || "",
                     controls: true,
                     autoPlay: true,
                     className: "max-h-[90vh] w-full"
@@ -1315,7 +1492,7 @@ function MessageItem({
                   false,
                   {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                    lineNumber: 406,
+                    lineNumber: 446,
                     columnNumber: 29
                   },
                   this
@@ -1327,17 +1504,17 @@ function MessageItem({
                       size: "icon",
                       variant: "secondary",
                       onClick: () => {
-                        if (!fullscreenVideo.path) return;
-                        downloadFile(
-                          getMediaFileUrl(
-                            fullscreenVideo.path
-                          ),
-                          fullscreenVideo.filename
-                        );
+                        const downloadUrl = getOriginalFileUrl(fullscreenVideo);
+                        if (!downloadUrl) {
+                          console.warn("[MessageItem] \u041D\u0435\u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u0430\u0439\u043B: \u043D\u0435\u0442 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u044C\u043D\u043E\u0433\u043E URL", fullscreenVideo);
+                          return;
+                        }
+                        downloadFile(downloadUrl, fullscreenVideo.filename);
                       },
+                      title: "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u0430\u0439\u043B",
                       children: /* @__PURE__ */ jsxDEV(Download, { className: "h-4 w-4" }, void 0, false, {
                         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                        lineNumber: 431,
+                        lineNumber: 466,
                         columnNumber: 37
                       }, this)
                     },
@@ -1345,7 +1522,7 @@ function MessageItem({
                     false,
                     {
                       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                      lineNumber: 418,
+                      lineNumber: 453,
                       columnNumber: 33
                     },
                     this
@@ -1358,7 +1535,7 @@ function MessageItem({
                       onClick: () => setFullscreenVideo(null),
                       children: /* @__PURE__ */ jsxDEV(X, { className: "h-4 w-4" }, void 0, false, {
                         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                        lineNumber: 438,
+                        lineNumber: 473,
                         columnNumber: 37
                       }, this)
                     },
@@ -1366,19 +1543,19 @@ function MessageItem({
                     false,
                     {
                       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                      lineNumber: 433,
+                      lineNumber: 468,
                       columnNumber: 33
                     },
                     this
                   )
                 ] }, void 0, true, {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                  lineNumber: 417,
+                  lineNumber: 452,
                   columnNumber: 29
                 }, this)
               ] }, void 0, true, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-                lineNumber: 405,
+                lineNumber: 445,
                 columnNumber: 25
               }, this)
             ]
@@ -1387,7 +1564,7 @@ function MessageItem({
           true,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-            lineNumber: 398,
+            lineNumber: 438,
             columnNumber: 21
           },
           this
@@ -1397,14 +1574,14 @@ function MessageItem({
       false,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-        lineNumber: 394,
+        lineNumber: 434,
         columnNumber: 17
       },
       this
     )
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-item.tsx",
-    lineNumber: 101,
+    lineNumber: 102,
     columnNumber: 9
   }, this);
 }
@@ -1440,15 +1617,45 @@ function MessageList({
   isLoading,
   onEditPrompt,
   onAttachFile,
-  onRepeatRequest
+  onRepeatRequest,
+  onScrollStateChange,
+  onScrollToBottomRef
 }) {
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const [inputPanelHeight, setInputPanelHeight] = useState(0);
   const requestsStatusKey = useMemo(
     () => requests.map((r) => `${r.id}-${r.status}`).join("|"),
     [requests]
   );
   const [showScrollButton, setShowScrollButton] = useState(false);
+  useEffect(() => {
+    onScrollStateChange?.(showScrollButton);
+  }, [showScrollButton, onScrollStateChange]);
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
+  useEffect(() => {
+    onScrollToBottomRef?.(scrollToBottom);
+  }, [scrollToBottom, onScrollToBottomRef]);
+  useEffect(() => {
+    const inputPanel = document.getElementById("chat-input");
+    if (!inputPanel) return;
+    const updateInputPanelHeight = () => {
+      const height = inputPanel.offsetHeight;
+      setInputPanelHeight(height);
+    };
+    updateInputPanelHeight();
+    const resizeObserver = new ResizeObserver(() => {
+      updateInputPanelHeight();
+    });
+    resizeObserver.observe(inputPanel);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
   const handleScroll = useCallback(() => {
     if (scrollRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
@@ -1464,41 +1671,31 @@ function MessageList({
     }
   }, [handleScroll]);
   useEffect(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({
-            behavior: "smooth"
-          });
-        }
-      });
-    });
+    const timeoutId = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 0);
+    return () => clearTimeout(timeoutId);
   }, [requests.length, requestsStatusKey]);
-  const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  };
   if (isLoading) {
     return /* @__PURE__ */ jsxDEV("div", { className: "flex-1 p-4", children: [
       /* @__PURE__ */ jsxDEV(MessageSkeleton, {}, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-        lineNumber: 84,
+        lineNumber: 119,
         columnNumber: 17
       }, this),
       /* @__PURE__ */ jsxDEV(MessageSkeleton, {}, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-        lineNumber: 85,
+        lineNumber: 120,
         columnNumber: 17
       }, this),
       /* @__PURE__ */ jsxDEV(MessageSkeleton, {}, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-        lineNumber: 86,
+        lineNumber: 121,
         columnNumber: 17
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-      lineNumber: 83,
+      lineNumber: 118,
       columnNumber: 13
     }, this);
   }
@@ -1506,96 +1703,84 @@ function MessageList({
     return /* @__PURE__ */ jsxDEV("div", { className: "flex flex-1 flex-col items-center justify-center p-8 text-center", children: [
       /* @__PURE__ */ jsxDEV("div", { className: "mb-4 rounded-full bg-secondary p-6", children: /* @__PURE__ */ jsxDEV("span", { className: "text-4xl", children: "\u{1F3A8}" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-        lineNumber: 95,
+        lineNumber: 130,
         columnNumber: 21
       }, this) }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-        lineNumber: 94,
+        lineNumber: 129,
         columnNumber: 17
       }, this),
       /* @__PURE__ */ jsxDEV("h3", { className: "mb-2 text-xl font-semibold text-white", children: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u044E" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-        lineNumber: 97,
+        lineNumber: 132,
         columnNumber: 17
       }, this),
       /* @__PURE__ */ jsxDEV("p", { className: "max-w-md text-slate-400", children: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043F\u0440\u043E\u043C\u043F\u0442 \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C, \u0447\u0442\u043E\u0431\u044B \u0441\u0433\u0435\u043D\u0435\u0440\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435, \u0432\u0438\u0434\u0435\u043E \u0438\u043B\u0438 \u0430\u0443\u0434\u0438\u043E \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E AI" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-        lineNumber: 100,
+        lineNumber: 135,
         columnNumber: 17
       }, this),
       /* @__PURE__ */ jsxDEV("div", { className: "mt-4", children: /* @__PURE__ */ jsxDEV(ModelBadge, { model: chatModel }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-        lineNumber: 105,
+        lineNumber: 140,
         columnNumber: 21
       }, this) }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-        lineNumber: 104,
+        lineNumber: 139,
         columnNumber: 17
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-      lineNumber: 93,
+      lineNumber: 128,
       columnNumber: 13
     }, this);
   }
-  return /* @__PURE__ */ jsxDEV("div", { className: "relative flex-1 overflow-hidden", children: [
-    /* @__PURE__ */ jsxDEV(ScrollArea, { className: "h-full bg-background", ref: scrollRef, children: /* @__PURE__ */ jsxDEV("div", { className: "space-y-6 p-4", children: [
-      requests.map((request) => /* @__PURE__ */ jsxDEV(
-        MessageItem,
-        {
-          request,
-          onEditPrompt,
-          onAttachFile,
-          onRepeatRequest
-        },
-        request.id,
-        false,
-        {
+  const bottomPadding = inputPanelHeight > 0 ? inputPanelHeight + 24 + 16 : 300;
+  return /* @__PURE__ */ jsxDEV("div", { className: "relative flex-1 overflow-hidden min-h-0 mx-0", children: /* @__PURE__ */ jsxDEV(ScrollArea, { className: "h-full bg-background", ref: scrollRef, children: /* @__PURE__ */ jsxDEV(
+    "div",
+    {
+      className: "space-y-6 p-4",
+      style: { paddingBottom: `${bottomPadding}px` },
+      children: [
+        requests.map((request) => /* @__PURE__ */ jsxDEV(
+          MessageItem,
+          {
+            request,
+            onEditPrompt,
+            onAttachFile,
+            onRepeatRequest
+          },
+          request.id,
+          false,
+          {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
+            lineNumber: 160,
+            columnNumber: 25
+          },
+          this
+        )),
+        /* @__PURE__ */ jsxDEV("div", { ref: messagesEndRef }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-          lineNumber: 116,
-          columnNumber: 25
-        },
-        this
-      )),
-      /* @__PURE__ */ jsxDEV("div", { ref: messagesEndRef }, void 0, false, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-        lineNumber: 125,
-        columnNumber: 21
-      }, this)
-    ] }, void 0, true, {
-      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-      lineNumber: 114,
-      columnNumber: 17
-    }, this) }, void 0, false, {
-      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-      lineNumber: 113,
-      columnNumber: 13
-    }, this),
-    showScrollButton && /* @__PURE__ */ jsxDEV(
-      Button,
-      {
-        size: "icon",
-        variant: "secondary",
-        className: "absolute bottom-4 right-8 z-10 h-10 w-10 rounded-full bg-secondary/80 text-foreground shadow-lg backdrop-blur-sm hover:bg-secondary",
-        onClick: scrollToBottom,
-        children: /* @__PURE__ */ jsxDEV(ChevronDown, { className: "h-6 w-6" }, void 0, false, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-          lineNumber: 136,
+          lineNumber: 169,
           columnNumber: 21
         }, this)
-      },
-      void 0,
-      false,
-      {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-        lineNumber: 130,
-        columnNumber: 17
-      },
-      this
-    )
-  ] }, void 0, true, {
+      ]
+    },
+    void 0,
+    true,
+    {
+      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
+      lineNumber: 155,
+      columnNumber: 17
+    },
+    this
+  ) }, void 0, false, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
-    lineNumber: 112,
+    lineNumber: 154,
+    columnNumber: 13
+  }, this) }, void 0, false, {
+    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/message-list.tsx",
+    lineNumber: 153,
     columnNumber: 9
   }, this);
 }
@@ -1607,9 +1792,8 @@ function MediaFullscreenView({
   isPinned = false,
   onTogglePin
 }) {
-  if (file.type === "VIDEO" && !file.path) return null;
-  if (file.type === "IMAGE" && !file.path && !file.url) return null;
-  const fileUrl = file.type === "VIDEO" ? getMediaFileUrl(file.path) : file.path ? getMediaFileUrl(file.path) : file.url || "";
+  const fileUrl = getOriginalFileUrl(file);
+  if (!fileUrl) return null;
   useEffect(() => {
     function handleEscape(e) {
       if (e.key === "Escape") {
@@ -1620,7 +1804,12 @@ function MediaFullscreenView({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [onClose]);
   function handleDownload() {
-    downloadFile(fileUrl, file.filename);
+    const downloadUrl = getOriginalFileUrl(file);
+    if (!downloadUrl) {
+      console.warn("[MediaFullscreenView] \u041D\u0435\u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u0430\u0439\u043B: \u043D\u0435\u0442 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u044C\u043D\u043E\u0433\u043E URL", file);
+      return;
+    }
+    downloadFile(downloadUrl, file.filename);
   }
   return /* @__PURE__ */ jsxDEV(
     "div",
@@ -1644,7 +1833,7 @@ function MediaFullscreenView({
               false,
               {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                lineNumber: 66,
+                lineNumber: 64,
                 columnNumber: 21
               },
               this
@@ -1661,29 +1850,29 @@ function MediaFullscreenView({
               false,
               {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                lineNumber: 75,
+                lineNumber: 73,
                 columnNumber: 25
               },
               this
             ) }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-              lineNumber: 74,
+              lineNumber: 72,
               columnNumber: 21
             }, this),
             file.type === "AUDIO" && /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col items-center gap-4 rounded-xl bg-secondary p-8 shadow-2xl border border-border", children: [
               /* @__PURE__ */ jsxDEV("audio", { src: fileUrl, controls: true }, void 0, false, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                lineNumber: 86,
+                lineNumber: 84,
                 columnNumber: 25
               }, this),
               /* @__PURE__ */ jsxDEV("p", { className: "text-foreground font-medium", children: file.filename }, void 0, false, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                lineNumber: 87,
+                lineNumber: 85,
                 columnNumber: 25
               }, this)
             ] }, void 0, true, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-              lineNumber: 85,
+              lineNumber: 83,
               columnNumber: 21
             }, this),
             /* @__PURE__ */ jsxDEV("div", { className: "absolute right-2 top-2 flex gap-2", children: [
@@ -1694,13 +1883,13 @@ function MediaFullscreenView({
                   variant: "secondary",
                   onClick: (e) => {
                     e.stopPropagation();
-                    onAttachFile(fileUrl, file.filename);
+                    onAttachFile(fileUrl, file.filename, file.url || void 0);
                   },
                   className: "h-8 w-8 hover:bg-primary hover:text-primary-foreground",
                   title: "\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u043A \u043F\u0440\u043E\u043C\u043F\u0442\u0443",
                   children: /* @__PURE__ */ jsxDEV(Paperclip, { className: "h-4 w-4" }, void 0, false, {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                    lineNumber: 105,
+                    lineNumber: 104,
                     columnNumber: 29
                   }, this)
                 },
@@ -1708,7 +1897,7 @@ function MediaFullscreenView({
                 false,
                 {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                  lineNumber: 95,
+                  lineNumber: 93,
                   columnNumber: 25
                 },
                 this
@@ -1726,7 +1915,7 @@ function MediaFullscreenView({
                   title: "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C \u0437\u0430\u043F\u0440\u043E\u0441",
                   children: /* @__PURE__ */ jsxDEV(RefreshCcw, { className: "h-4 w-4" }, void 0, false, {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                    lineNumber: 120,
+                    lineNumber: 119,
                     columnNumber: 29
                   }, this)
                 },
@@ -1734,7 +1923,7 @@ function MediaFullscreenView({
                 false,
                 {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                  lineNumber: 110,
+                  lineNumber: 109,
                   columnNumber: 25
                 },
                 this
@@ -1752,7 +1941,7 @@ function MediaFullscreenView({
                   title: "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u0430\u0439\u043B",
                   children: /* @__PURE__ */ jsxDEV(Download, { className: "h-4 w-4" }, void 0, false, {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                    lineNumber: 133,
+                    lineNumber: 132,
                     columnNumber: 25
                   }, this)
                 },
@@ -1760,7 +1949,7 @@ function MediaFullscreenView({
                 false,
                 {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                  lineNumber: 123,
+                  lineNumber: 122,
                   columnNumber: 21
                 },
                 this
@@ -1785,7 +1974,7 @@ function MediaFullscreenView({
                     false,
                     {
                       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                      lineNumber: 151,
+                      lineNumber: 150,
                       columnNumber: 29
                     },
                     this
@@ -1795,7 +1984,7 @@ function MediaFullscreenView({
                 false,
                 {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                  lineNumber: 137,
+                  lineNumber: 136,
                   columnNumber: 25
                 },
                 this
@@ -1813,7 +2002,7 @@ function MediaFullscreenView({
                   title: "\u0417\u0430\u043A\u0440\u044B\u0442\u044C",
                   children: /* @__PURE__ */ jsxDEV(X, { className: "h-4 w-4" }, void 0, false, {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                    lineNumber: 168,
+                    lineNumber: 167,
                     columnNumber: 25
                   }, this)
                 },
@@ -1821,34 +2010,34 @@ function MediaFullscreenView({
                 false,
                 {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                  lineNumber: 158,
+                  lineNumber: 157,
                   columnNumber: 21
                 },
                 this
               )
             ] }, void 0, true, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-              lineNumber: 92,
+              lineNumber: 90,
               columnNumber: 17
             }, this),
             /* @__PURE__ */ jsxDEV("div", { className: "absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-4", children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center justify-between text-white", children: [
               /* @__PURE__ */ jsxDEV("span", { className: "font-medium", children: file.filename }, void 0, false, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                lineNumber: 175,
+                lineNumber: 174,
                 columnNumber: 25
               }, this),
               file.size && /* @__PURE__ */ jsxDEV("span", { className: "text-sm text-slate-300", children: formatFileSize(file.size) }, void 0, false, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-                lineNumber: 177,
+                lineNumber: 176,
                 columnNumber: 29
               }, this)
             ] }, void 0, true, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-              lineNumber: 174,
+              lineNumber: 173,
               columnNumber: 21
             }, this) }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-              lineNumber: 173,
+              lineNumber: 172,
               columnNumber: 17
             }, this)
           ]
@@ -1857,7 +2046,7 @@ function MediaFullscreenView({
         true,
         {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-          lineNumber: 61,
+          lineNumber: 59,
           columnNumber: 13
         },
         this
@@ -1867,39 +2056,236 @@ function MediaFullscreenView({
     false,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-fullscreen-view.tsx",
-      lineNumber: 57,
+      lineNumber: 55,
       columnNumber: 9
     },
     this
   );
 }
-const MODEL_RATES = {
-  "NANO_BANANA_OPENROUTER": 0.05,
-  "NANO_BANANA_PRO_KIEAI": 0.09,
-  "NANO_BANANA_PRO_LAOZHANG": 0.05,
-  "IMAGEN4_KIEAI": 0.02,
-  "IMAGEN4_ULTRA_KIEAI": 0.06,
-  "SEEDREAM_4_5": 0.0325,
-  "SEEDREAM_4_5_EDIT": 0.0325,
-  "KLING_2_5_TURBO_PRO": 0.42,
-  "KLING_2_6": 0.55,
-  "VEO_3_1_FAST": 0.3,
-  // kie.ai
-  "VEO_3_1": 1.25,
-  "ELEVENLABS_MULTILINGUAL_V2": 0.05,
-  "MIDJOURNEY": 0.5,
-  "SORA_2": 0.3
-};
-function calculateRequestCost(request) {
-  if (!request.model || request.status === "FAILED") {
+function GalleryFileCard({
+  file,
+  onClick,
+  onAttachFile,
+  onRepeatRequest,
+  onDeleteFile,
+  onTogglePin,
+  isDeleting,
+  attachingFile,
+  onLoadingEffect,
+  isPinned,
+  isVideo
+}) {
+  function handleAttach(e) {
+    e.stopPropagation();
+    if (!onAttachFile) return;
+    const fileUrl = file.path ? getMediaFileUrl(file.path) : file.url;
+    if (!fileUrl) {
+      console.warn("[MediaGallery] \u041D\u0435\u0442 file.path \u0438 file.url");
+      alert("\u041E\u0448\u0438\u0431\u043A\u0430: \u0443 \u0444\u0430\u0439\u043B\u0430 \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u043F\u0443\u0442\u044C \u0438\u043B\u0438 URL. \u041D\u0435\u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u0444\u0430\u0439\u043B.");
+      return;
+    }
+    onLoadingEffect();
+    onAttachFile(
+      fileUrl,
+      file.filename,
+      file.type === "IMAGE" ? file.url || void 0 : void 0
+    );
+  }
+  return /* @__PURE__ */ jsxDEV(
+    "div",
+    {
+      className: "group relative cursor-pointer transition-transform hover:scale-105",
+      onClick: (e) => {
+        e.stopPropagation();
+        onClick(file);
+      },
+      role: "button",
+      tabIndex: 0,
+      onKeyDown: (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick(file);
+        }
+      },
+      children: [
+        /* @__PURE__ */ jsxDEV("div", { onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ jsxDEV(
+          MediaPreview,
+          {
+            file,
+            className: "h-full w-full"
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+            lineNumber: 85,
+            columnNumber: 17
+          },
+          this
+        ) }, void 0, false, {
+          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+          lineNumber: 84,
+          columnNumber: 13
+        }, this),
+        onAttachFile && /* @__PURE__ */ jsxDEV(
+          Button,
+          {
+            size: "icon",
+            variant: "ghost",
+            className: "absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100",
+            onClick: handleAttach,
+            title: "\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u043A \u043F\u0440\u043E\u043C\u043F\u0442\u0443",
+            children: attachingFile ? /* @__PURE__ */ jsxDEV(Loader2, { className: "h-3.5 w-3.5 animate-spin" }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+              lineNumber: 101,
+              columnNumber: 25
+            }, this) : /* @__PURE__ */ jsxDEV(Paperclip, { className: "h-3.5 w-3.5" }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+              lineNumber: 103,
+              columnNumber: 25
+            }, this)
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+            lineNumber: 93,
+            columnNumber: 17
+          },
+          this
+        ),
+        onRepeatRequest && /* @__PURE__ */ jsxDEV(
+          Button,
+          {
+            size: "icon",
+            variant: "ghost",
+            className: "absolute left-8 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100",
+            onClick: (e) => {
+              e.stopPropagation();
+              onRepeatRequest(file.requestId);
+            },
+            title: "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C \u0437\u0430\u043F\u0440\u043E\u0441",
+            children: /* @__PURE__ */ jsxDEV(RefreshCcw, { className: "h-3.5 w-3.5" }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+              lineNumber: 120,
+              columnNumber: 21
+            }, this)
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+            lineNumber: 110,
+            columnNumber: 17
+          },
+          this
+        ),
+        isVideo && /* @__PURE__ */ jsxDEV(
+          Button,
+          {
+            size: "icon",
+            variant: "ghost",
+            className: "absolute left-1 top-8 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-blue-400 hover:bg-blue-600/20 group-hover:opacity-100",
+            onClick: (e) => {
+              e.stopPropagation();
+              onClick(file);
+            },
+            title: "\u0420\u0430\u0437\u0432\u0435\u0440\u043D\u0443\u0442\u044C \u0432\u0438\u0434\u0435\u043E",
+            children: /* @__PURE__ */ jsxDEV(Maximize2, { className: "h-3.5 w-3.5" }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+              lineNumber: 136,
+              columnNumber: 21
+            }, this)
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+            lineNumber: 126,
+            columnNumber: 17
+          },
+          this
+        ),
+        onTogglePin && /* @__PURE__ */ jsxDEV(
+          Button,
+          {
+            size: "icon",
+            variant: "ghost",
+            className: `absolute right-7 top-1 h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100 ${isPinned ? "text-yellow-400 hover:text-yellow-300 hover:bg-yellow-600/20" : "text-slate-400 hover:text-yellow-400 hover:bg-yellow-600/20"}`,
+            onClick: (e) => {
+              e.stopPropagation();
+              onTogglePin(file.id);
+            },
+            title: isPinned ? "\u041E\u0442\u043A\u0440\u0435\u043F\u0438\u0442\u044C" : "\u0417\u0430\u043A\u0440\u0435\u043F\u0438\u0442\u044C",
+            children: /* @__PURE__ */ jsxDEV(Pin, { className: `h-3.5 w-3.5 ${isPinned ? "fill-current" : ""}` }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+              lineNumber: 156,
+              columnNumber: 21
+            }, this)
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+            lineNumber: 142,
+            columnNumber: 17
+          },
+          this
+        ),
+        /* @__PURE__ */ jsxDEV(
+          Button,
+          {
+            size: "icon",
+            variant: "ghost",
+            className: "absolute right-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-red-400 hover:bg-red-600/20 group-hover:opacity-100",
+            onClick: (e) => onDeleteFile(e, file.id),
+            disabled: isDeleting,
+            title: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0444\u0430\u0439\u043B",
+            children: /* @__PURE__ */ jsxDEV(Trash2, { className: "h-3.5 w-3.5" }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+              lineNumber: 169,
+              columnNumber: 17
+            }, this)
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+            lineNumber: 161,
+            columnNumber: 13
+          },
+          this
+        )
+      ]
+    },
+    void 0,
+    true,
+    {
+      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/gallery-file-card.tsx",
+      lineNumber: 69,
+      columnNumber: 9
+    },
+    this
+  );
+}
+function calculateRequestCost(request, pricingMap) {
+  if (request.status === "FAILED") {
     return 0;
   }
-  const rate = MODEL_RATES[request.model] || 0;
-  return rate;
+  if (typeof request.costUsd === "number" && !Number.isNaN(request.costUsd)) {
+    return request.costUsd;
+  }
+  if (pricingMap && request.model) {
+    const pricing = pricingMap[request.model];
+    if (pricing && typeof pricing.usd === "number") {
+      return pricing.usd;
+    }
+  }
+  return 0;
 }
-function calculateTotalChatCost(requests) {
+function calculateTotalChatCost(requests, pricingMap) {
   return requests.reduce((total, request) => {
-    return total + calculateRequestCost(request);
+    return total + calculateRequestCost(request, pricingMap);
   }, 0);
 }
 function formatCost(cost) {
@@ -1928,14 +2314,10 @@ function MediaGallery({
   const [pinnedImageIds, setPinnedImageIds] = useState(
     /* @__PURE__ */ new Set()
   );
-  const pinnedImageIdsRef = useRef(/* @__PURE__ */ new Set());
   const loadingEffectForAttachFile = useMemo(
     () => createLoadingEffectForAttachFile(setAttachingFile),
     []
   );
-  useEffect(() => {
-    pinnedImageIdsRef.current = pinnedImageIds;
-  }, [pinnedImageIds]);
   useEffect(() => {
     if (chatId === void 0) return;
     const storageKey = `pinned-images-chat-${chatId}`;
@@ -1945,14 +2327,11 @@ function MediaGallery({
         const ids = JSON.parse(stored);
         const newSet = new Set(ids);
         setPinnedImageIds(newSet);
-        pinnedImageIdsRef.current = newSet;
       } catch (error) {
         console.error("Error loading pinned images:", error);
       }
     } else {
-      const newSet = /* @__PURE__ */ new Set();
-      setPinnedImageIds(newSet);
-      pinnedImageIdsRef.current = newSet;
+      setPinnedImageIds(/* @__PURE__ */ new Set());
     }
   }, [chatId]);
   useEffect(() => {
@@ -1980,10 +2359,11 @@ function MediaGallery({
     { id: chatId, limit: 1e3 },
     { skip: chatId === void 0 }
   );
+  const { data: pricingMap } = useGetPricingQuery();
   const totalCost = useMemo(() => {
     if (!chatData?.requests) return 0;
-    return calculateTotalChatCost(chatData.requests);
-  }, [chatData?.requests]);
+    return calculateTotalChatCost(chatData.requests, pricingMap);
+  }, [chatData?.requests, pricingMap]);
   useEffect(() => {
     if (!filesData?.data) {
       return;
@@ -1991,7 +2371,7 @@ function MediaGallery({
     if (page === 1) {
       setAccumulatedFiles((prev) => {
         const newFilesIds = new Set(filesData.data.map((f) => f.id));
-        const currentPinnedIds = pinnedImageIdsRef.current;
+        const currentPinnedIds = pinnedImageIds;
         const preservedPinnedFiles = prev.filter(
           (f) => currentPinnedIds.has(f.id) && !newFilesIds.has(f.id)
         );
@@ -1999,11 +2379,18 @@ function MediaGallery({
       });
     } else {
       setAccumulatedFiles((prev) => {
+        new Set(filesData.data.map((f) => f.id));
         const existingIds = new Set(prev.map((f) => f.id));
         const newFiles = filesData.data.filter(
           (f) => !existingIds.has(f.id)
         );
-        return [...prev, ...newFiles];
+        const updatedFilesMap = new Map(
+          filesData.data.map((f) => [f.id, f])
+        );
+        const updatedFiles = prev.map((existingFile) => {
+          return updatedFilesMap.get(existingFile.id) || existingFile;
+        });
+        return [...updatedFiles, ...newFiles];
       });
     }
   }, [filesData, page]);
@@ -2011,7 +2398,7 @@ function MediaGallery({
     if (!chatData?.requests || pinnedImageIds.size === 0) return;
     setAccumulatedFiles((prev) => {
       const existingIds = new Set(prev.map((f) => f.id));
-      const currentPinnedIds = pinnedImageIdsRef.current;
+      const currentPinnedIds = pinnedImageIds;
       const newPinnedFiles = [];
       chatData.requests.forEach((request) => {
         request.files.forEach((file) => {
@@ -2024,7 +2411,6 @@ function MediaGallery({
       return [...newPinnedFiles, ...prev];
     });
   }, [chatData, pinnedImageIds]);
-  const allFiles = useMemo(() => accumulatedFiles, [accumulatedFiles]);
   function togglePinImage(fileId) {
     setPinnedImageIds((prev) => {
       const newPinned = new Set(prev);
@@ -2047,7 +2433,7 @@ function MediaGallery({
     const videos = [];
     const pinned = [];
     const unpinned = [];
-    allFiles.forEach((file) => {
+    accumulatedFiles.forEach((file) => {
       if (file.type === "VIDEO") {
         videos.push(file);
       } else if (file.type === "IMAGE") {
@@ -2063,13 +2449,7 @@ function MediaGallery({
       pinnedImages: pinned,
       unpinnedImages: unpinned
     };
-  }, [allFiles, pinnedImageIds]);
-  const visibleVideoFiles = useMemo(() => videoFiles, [videoFiles]);
-  const visiblePinnedImages = useMemo(() => pinnedImages, [pinnedImages]);
-  const visibleUnpinnedImages = useMemo(
-    () => unpinnedImages,
-    [unpinnedImages]
-  );
+  }, [accumulatedFiles, pinnedImageIds]);
   useEffect(() => {
     if (!loadMoreTriggerRef.current || isFetching) {
       return;
@@ -2144,7 +2524,7 @@ function MediaGallery({
       columnNumber: 13
     }, this);
   }
-  if (allFiles.length === 0) {
+  if (accumulatedFiles.length === 0) {
     return /* @__PURE__ */ jsxDEV("div", { className: "flex h-full w-[30%] flex-col border-l border-border bg-background", children: [
       /* @__PURE__ */ jsxDEV("div", { className: PANEL_HEADER_CLASSES, children: /* @__PURE__ */ jsxDEV("h2", { className: PANEL_HEADER_TITLE_CLASSES, children: "\u041C\u0435\u0434\u0438\u0430\u0444\u0430\u0439\u043B\u044B" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
@@ -2182,7 +2562,7 @@ function MediaGallery({
           children: [
             /* @__PURE__ */ jsxDEV("h2", { className: PANEL_HEADER_TITLE_CLASSES, children: [
               "\u041C\u0435\u0434\u0438\u0430\u0444\u0430\u0439\u043B\u044B (",
-              allFiles.length,
+              accumulatedFiles.length,
               ")"
             ] }, void 0, true, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
@@ -2258,176 +2638,22 @@ function MediaGallery({
             },
             this
           ),
-          isPinnedExpanded && /* @__PURE__ */ jsxDEV("div", { className: "grid grid-cols-3 gap-2 mt-2", children: visiblePinnedImages.map((file) => /* @__PURE__ */ jsxDEV(
-            "div",
+          isPinnedExpanded && /* @__PURE__ */ jsxDEV("div", { className: "grid grid-cols-3 gap-2 mt-2", children: pinnedImages.map((file) => /* @__PURE__ */ jsxDEV(
+            GalleryFileCard,
             {
-              className: "group relative cursor-pointer transition-transform hover:scale-105",
-              onClick: (e) => {
-                e.stopPropagation();
-                handleFileClick(file);
-              },
-              role: "button",
-              tabIndex: 0,
-              onKeyDown: (e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleFileClick(file);
-                }
-              },
-              children: [
-                /* @__PURE__ */ jsxDEV(
-                  "div",
-                  {
-                    onClick: (e) => e.stopPropagation(),
-                    children: /* @__PURE__ */ jsxDEV(
-                      MediaPreview,
-                      {
-                        file,
-                        className: "h-full w-full"
-                      },
-                      void 0,
-                      false,
-                      {
-                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                        lineNumber: 408,
-                        columnNumber: 53
-                      },
-                      this
-                    )
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 403,
-                    columnNumber: 49
-                  },
-                  this
-                ),
-                onAttachFile && /* @__PURE__ */ jsxDEV(
-                  Button,
-                  {
-                    size: "icon",
-                    variant: "ghost",
-                    className: "absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100",
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      if (!file.path)
-                        return;
-                      loadingEffectForAttachFile();
-                      const fileUrl = getMediaFileUrl(
-                        file.path
-                      );
-                      onAttachFile(
-                        fileUrl,
-                        file.filename
-                      );
-                    },
-                    title: "\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u043A \u043F\u0440\u043E\u043C\u043F\u0442\u0443",
-                    children: attachingFile ? /* @__PURE__ */ jsxDEV(Loader2, { className: "h-3.5 w-3.5 animate-spin" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 436,
-                      columnNumber: 61
-                    }, this) : /* @__PURE__ */ jsxDEV(Paperclip, { className: "h-3.5 w-3.5" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 438,
-                      columnNumber: 61
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 415,
-                    columnNumber: 53
-                  },
-                  this
-                ),
-                onRepeatRequest && /* @__PURE__ */ jsxDEV(
-                  Button,
-                  {
-                    size: "icon",
-                    variant: "ghost",
-                    className: "absolute left-8 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100",
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      onRepeatRequest(
-                        file.requestId
-                      );
-                    },
-                    title: "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C \u0437\u0430\u043F\u0440\u043E\u0441",
-                    children: /* @__PURE__ */ jsxDEV(RefreshCcw, { className: "h-3.5 w-3.5" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 456,
-                      columnNumber: 57
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 444,
-                    columnNumber: 53
-                  },
-                  this
-                ),
-                /* @__PURE__ */ jsxDEV(
-                  Button,
-                  {
-                    size: "icon",
-                    variant: "ghost",
-                    className: "absolute right-7 top-1 h-6 w-6 text-yellow-400 opacity-0 transition-opacity hover:text-yellow-300 hover:bg-yellow-600/20 group-hover:opacity-100",
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      togglePinImage(file.id);
-                    },
-                    title: "\u041E\u0442\u043A\u0440\u0435\u043F\u0438\u0442\u044C",
-                    children: /* @__PURE__ */ jsxDEV(Pin, { className: "h-3.5 w-3.5 fill-current" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 470,
-                      columnNumber: 53
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 460,
-                    columnNumber: 49
-                  },
-                  this
-                ),
-                /* @__PURE__ */ jsxDEV(
-                  Button,
-                  {
-                    size: "icon",
-                    variant: "ghost",
-                    className: "absolute right-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-red-400 hover:bg-red-600/20 group-hover:opacity-100",
-                    onClick: (e) => handleDeleteFile(
-                      e,
-                      file.id
-                    ),
-                    disabled: isDeleting,
-                    title: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0444\u0430\u0439\u043B",
-                    children: /* @__PURE__ */ jsxDEV(Trash2, { className: "h-3.5 w-3.5" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 486,
-                      columnNumber: 53
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 473,
-                    columnNumber: 49
-                  },
-                  this
-                )
-              ]
+              file,
+              onClick: handleFileClick,
+              onAttachFile,
+              onRepeatRequest,
+              onDeleteFile: handleDeleteFile,
+              onTogglePin: togglePinImage,
+              isDeleting,
+              attachingFile,
+              onLoadingEffect: loadingEffectForAttachFile,
+              isPinned: true
             },
             file.id,
-            true,
+            false,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
               lineNumber: 384,
@@ -2454,7 +2680,7 @@ function MediaGallery({
                 /* @__PURE__ */ jsxDEV("div", { className: "flex gap-2 items-center", children: [
                   /* @__PURE__ */ jsxDEV(ImageIcon, { className: "h-4 w-4" }, void 0, false, {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 505,
+                    lineNumber: 413,
                     columnNumber: 41
                   }, this),
                   /* @__PURE__ */ jsxDEV("span", { children: [
@@ -2463,12 +2689,12 @@ function MediaGallery({
                     ")"
                   ] }, void 0, true, {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 506,
+                    lineNumber: 414,
                     columnNumber: 41
                   }, this)
                 ] }, void 0, true, {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                  lineNumber: 504,
+                  lineNumber: 412,
                   columnNumber: 37
                 }, this),
                 /* @__PURE__ */ jsxDEV(
@@ -2480,7 +2706,7 @@ function MediaGallery({
                   false,
                   {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 511,
+                    lineNumber: 419,
                     columnNumber: 37
                   },
                   this
@@ -2491,195 +2717,41 @@ function MediaGallery({
             true,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-              lineNumber: 498,
+              lineNumber: 406,
               columnNumber: 33
             },
             this
           ),
-          isImageExpanded && /* @__PURE__ */ jsxDEV("div", { className: "grid grid-cols-3 gap-2 mt-2", children: visibleUnpinnedImages.map((file) => /* @__PURE__ */ jsxDEV(
-            "div",
+          isImageExpanded && /* @__PURE__ */ jsxDEV("div", { className: "grid grid-cols-3 gap-2 mt-2", children: unpinnedImages.map((file) => /* @__PURE__ */ jsxDEV(
+            GalleryFileCard,
             {
-              className: "group relative cursor-pointer transition-transform hover:scale-105",
-              onClick: (e) => {
-                e.stopPropagation();
-                handleFileClick(file);
-              },
-              role: "button",
-              tabIndex: 0,
-              onKeyDown: (e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleFileClick(file);
-                }
-              },
-              children: [
-                /* @__PURE__ */ jsxDEV(
-                  "div",
-                  {
-                    onClick: (e) => e.stopPropagation(),
-                    children: /* @__PURE__ */ jsxDEV(
-                      MediaPreview,
-                      {
-                        file,
-                        className: "h-full w-full"
-                      },
-                      void 0,
-                      false,
-                      {
-                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                        lineNumber: 544,
-                        columnNumber: 53
-                      },
-                      this
-                    )
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 539,
-                    columnNumber: 49
-                  },
-                  this
-                ),
-                onAttachFile && /* @__PURE__ */ jsxDEV(
-                  Button,
-                  {
-                    size: "icon",
-                    variant: "ghost",
-                    className: "absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100",
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      if (!file.path)
-                        return;
-                      loadingEffectForAttachFile();
-                      const fileUrl = getMediaFileUrl(
-                        file.path
-                      );
-                      onAttachFile(
-                        fileUrl,
-                        file.filename
-                      );
-                    },
-                    title: "\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u043A \u043F\u0440\u043E\u043C\u043F\u0442\u0443",
-                    children: attachingFile ? /* @__PURE__ */ jsxDEV(Loader2, { className: "h-3.5 w-3.5 animate-spin" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 572,
-                      columnNumber: 61
-                    }, this) : /* @__PURE__ */ jsxDEV(Paperclip, { className: "h-3.5 w-3.5" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 574,
-                      columnNumber: 61
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 551,
-                    columnNumber: 53
-                  },
-                  this
-                ),
-                onRepeatRequest && /* @__PURE__ */ jsxDEV(
-                  Button,
-                  {
-                    size: "icon",
-                    variant: "ghost",
-                    className: "absolute left-8 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100",
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      onRepeatRequest(
-                        file.requestId
-                      );
-                    },
-                    title: "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C \u0437\u0430\u043F\u0440\u043E\u0441",
-                    children: /* @__PURE__ */ jsxDEV(RefreshCcw, { className: "h-3.5 w-3.5" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 592,
-                      columnNumber: 57
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 580,
-                    columnNumber: 53
-                  },
-                  this
-                ),
-                /* @__PURE__ */ jsxDEV(
-                  Button,
-                  {
-                    size: "icon",
-                    variant: "ghost",
-                    className: "absolute right-7 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-yellow-400 hover:bg-yellow-600/20 group-hover:opacity-100",
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      togglePinImage(file.id);
-                    },
-                    title: "\u0417\u0430\u043A\u0440\u0435\u043F\u0438\u0442\u044C",
-                    children: /* @__PURE__ */ jsxDEV(Pin, { className: "h-3.5 w-3.5" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 606,
-                      columnNumber: 53
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 596,
-                    columnNumber: 49
-                  },
-                  this
-                ),
-                /* @__PURE__ */ jsxDEV(
-                  Button,
-                  {
-                    size: "icon",
-                    variant: "ghost",
-                    className: "absolute right-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-red-400 hover:bg-red-600/20 group-hover:opacity-100",
-                    onClick: (e) => handleDeleteFile(
-                      e,
-                      file.id
-                    ),
-                    disabled: isDeleting,
-                    title: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0444\u0430\u0439\u043B",
-                    children: /* @__PURE__ */ jsxDEV(Trash2, { className: "h-3.5 w-3.5" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 622,
-                      columnNumber: 53
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 609,
-                    columnNumber: 49
-                  },
-                  this
-                )
-              ]
+              file,
+              onClick: handleFileClick,
+              onAttachFile,
+              onRepeatRequest,
+              onDeleteFile: handleDeleteFile,
+              onTogglePin: togglePinImage,
+              isDeleting,
+              attachingFile,
+              onLoadingEffect: loadingEffectForAttachFile,
+              isPinned: false
             },
             file.id,
-            true,
+            false,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-              lineNumber: 520,
+              lineNumber: 428,
               columnNumber: 45
             },
             this
           )) }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-            lineNumber: 518,
+            lineNumber: 426,
             columnNumber: 37
           }, this)
         ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-          lineNumber: 497,
+          lineNumber: 405,
           columnNumber: 29
         }, this),
         videoFiles.length > 0 && /* @__PURE__ */ jsxDEV("div", { children: [
@@ -2692,7 +2764,7 @@ function MediaGallery({
                 /* @__PURE__ */ jsxDEV("div", { className: "flex gap-2 items-center", children: [
                   /* @__PURE__ */ jsxDEV(VideoIcon, { className: "h-4 w-4" }, void 0, false, {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 641,
+                    lineNumber: 457,
                     columnNumber: 41
                   }, this),
                   /* @__PURE__ */ jsxDEV("span", { children: [
@@ -2701,12 +2773,12 @@ function MediaGallery({
                     ")"
                   ] }, void 0, true, {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 642,
+                    lineNumber: 458,
                     columnNumber: 41
                   }, this)
                 ] }, void 0, true, {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                  lineNumber: 640,
+                  lineNumber: 456,
                   columnNumber: 37
                 }, this),
                 /* @__PURE__ */ jsxDEV(
@@ -2718,7 +2790,7 @@ function MediaGallery({
                   false,
                   {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 645,
+                    lineNumber: 461,
                     columnNumber: 37
                   },
                   this
@@ -2729,190 +2801,40 @@ function MediaGallery({
             true,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-              lineNumber: 634,
+              lineNumber: 450,
               columnNumber: 33
             },
             this
           ),
-          isVideoExpanded && /* @__PURE__ */ jsxDEV("div", { className: "grid grid-cols-3 gap-2 mt-2", children: visibleVideoFiles.map((file) => /* @__PURE__ */ jsxDEV(
-            "div",
+          isVideoExpanded && /* @__PURE__ */ jsxDEV("div", { className: "grid grid-cols-3 gap-2 mt-2", children: videoFiles.map((file) => /* @__PURE__ */ jsxDEV(
+            GalleryFileCard,
             {
-              className: "group relative cursor-pointer transition-transform hover:scale-105",
-              onClick: (e) => {
-                e.stopPropagation();
-                handleFileClick(file);
-              },
-              role: "button",
-              tabIndex: 0,
-              onKeyDown: (e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleFileClick(file);
-                }
-              },
-              children: [
-                /* @__PURE__ */ jsxDEV(
-                  "div",
-                  {
-                    onClick: (e) => e.stopPropagation(),
-                    children: /* @__PURE__ */ jsxDEV(
-                      MediaPreview,
-                      {
-                        file,
-                        className: "h-full w-full"
-                      },
-                      void 0,
-                      false,
-                      {
-                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                        lineNumber: 678,
-                        columnNumber: 53
-                      },
-                      this
-                    )
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 673,
-                    columnNumber: 49
-                  },
-                  this
-                ),
-                onAttachFile && /* @__PURE__ */ jsxDEV(
-                  Button,
-                  {
-                    size: "icon",
-                    variant: "ghost",
-                    className: "absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100",
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      if (!file.path)
-                        return;
-                      const fileUrl = getMediaFileUrl(
-                        file.path
-                      );
-                      onAttachFile(
-                        fileUrl,
-                        file.filename
-                      );
-                    },
-                    title: "\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u043A \u043F\u0440\u043E\u043C\u043F\u0442\u0443",
-                    children: /* @__PURE__ */ jsxDEV(Paperclip, { className: "h-3.5 w-3.5" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 704,
-                      columnNumber: 57
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 685,
-                    columnNumber: 53
-                  },
-                  this
-                ),
-                /* @__PURE__ */ jsxDEV(
-                  Button,
-                  {
-                    size: "icon",
-                    variant: "ghost",
-                    className: "absolute left-1 top-8 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-blue-400 hover:bg-blue-600/20 group-hover:opacity-100",
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      handleFileClick(file);
-                    },
-                    title: "\u0420\u0430\u0437\u0432\u0435\u0440\u043D\u0443\u0442\u044C \u0432\u0438\u0434\u0435\u043E",
-                    children: /* @__PURE__ */ jsxDEV(Maximize2, { className: "h-3.5 w-3.5" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 718,
-                      columnNumber: 53
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 708,
-                    columnNumber: 49
-                  },
-                  this
-                ),
-                onRepeatRequest && /* @__PURE__ */ jsxDEV(
-                  Button,
-                  {
-                    size: "icon",
-                    variant: "ghost",
-                    className: "absolute left-8 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100",
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      onRepeatRequest(
-                        file.requestId
-                      );
-                    },
-                    title: "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C \u0437\u0430\u043F\u0440\u043E\u0441",
-                    children: /* @__PURE__ */ jsxDEV(RefreshCcw, { className: "h-3.5 w-3.5" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 734,
-                      columnNumber: 57
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 722,
-                    columnNumber: 53
-                  },
-                  this
-                ),
-                /* @__PURE__ */ jsxDEV(
-                  Button,
-                  {
-                    size: "icon",
-                    variant: "ghost",
-                    className: "absolute right-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-red-400 hover:bg-red-600/20 group-hover:opacity-100",
-                    onClick: (e) => handleDeleteFile(
-                      e,
-                      file.id
-                    ),
-                    disabled: isDeleting,
-                    title: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0444\u0430\u0439\u043B",
-                    children: /* @__PURE__ */ jsxDEV(Trash2, { className: "h-3.5 w-3.5" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 751,
-                      columnNumber: 53
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 738,
-                    columnNumber: 49
-                  },
-                  this
-                )
-              ]
+              file,
+              onClick: handleFileClick,
+              onAttachFile,
+              onRepeatRequest,
+              onDeleteFile: handleDeleteFile,
+              isDeleting,
+              attachingFile,
+              onLoadingEffect: loadingEffectForAttachFile,
+              isVideo: true
             },
             file.id,
-            true,
+            false,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-              lineNumber: 654,
+              lineNumber: 470,
               columnNumber: 45
             },
             this
           )) }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-            lineNumber: 652,
+            lineNumber: 468,
             columnNumber: 37
           }, this)
         ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-          lineNumber: 633,
+          lineNumber: 449,
           columnNumber: 29
         }, this),
         filesData?.pagination && filesData.pagination.page < filesData.pagination.totalPages && /* @__PURE__ */ jsxDEV(
@@ -2922,11 +2844,11 @@ function MediaGallery({
             className: "flex h-20 items-center justify-center",
             children: isFetching ? /* @__PURE__ */ jsxDEV("div", { className: "text-xs text-slate-400", children: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430..." }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-              lineNumber: 769,
+              lineNumber: 497,
               columnNumber: 41
             }, this) : /* @__PURE__ */ jsxDEV("div", { className: "h-1 w-1 rounded-full bg-slate-600" }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-              lineNumber: 773,
+              lineNumber: 501,
               columnNumber: 41
             }, this)
           },
@@ -2934,7 +2856,7 @@ function MediaGallery({
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-            lineNumber: 764,
+            lineNumber: 492,
             columnNumber: 33
           },
           this
@@ -2954,7 +2876,7 @@ function MediaGallery({
       columnNumber: 13
     }, this),
     selectedFile && /* @__PURE__ */ jsxDEV(Fragment, { children: [
-      selectedFile.type === "VIDEO" && selectedFile.path && /* @__PURE__ */ jsxDEV(
+      selectedFile.type === "VIDEO" && /* @__PURE__ */ jsxDEV(
         Dialog,
         {
           open: !!selectedFile,
@@ -2970,14 +2892,14 @@ function MediaGallery({
                   selectedFile.filename
                 ] }, void 0, true, {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                  lineNumber: 796,
+                  lineNumber: 524,
                   columnNumber: 33
                 }, this),
                 /* @__PURE__ */ jsxDEV("div", { className: "relative", children: [
                   /* @__PURE__ */ jsxDEV(
                     "video",
                     {
-                      src: getMediaFileUrl(selectedFile.path),
+                      src: getOriginalFileUrl(selectedFile) || "",
                       controls: true,
                       autoPlay: true,
                       className: "max-h-[90vh] w-full"
@@ -2986,7 +2908,7 @@ function MediaGallery({
                     false,
                     {
                       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                      lineNumber: 800,
+                      lineNumber: 528,
                       columnNumber: 37
                     },
                     this
@@ -3007,7 +2929,7 @@ function MediaGallery({
                         title: "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C \u0437\u0430\u043F\u0440\u043E\u0441",
                         children: /* @__PURE__ */ jsxDEV(RefreshCcw, { className: "h-4 w-4" }, void 0, false, {
                           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                          lineNumber: 820,
+                          lineNumber: 548,
                           columnNumber: 49
                         }, this)
                       },
@@ -3015,7 +2937,7 @@ function MediaGallery({
                       false,
                       {
                         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                        lineNumber: 808,
+                        lineNumber: 536,
                         columnNumber: 45
                       },
                       this
@@ -3026,18 +2948,17 @@ function MediaGallery({
                         size: "icon",
                         variant: "secondary",
                         onClick: () => {
-                          if (!selectedFile.path) return;
-                          downloadFile(
-                            getMediaFileUrl(
-                              selectedFile.path
-                            ),
-                            selectedFile.filename
-                          );
+                          const downloadUrl = getOriginalFileUrl(selectedFile);
+                          if (!downloadUrl) {
+                            console.warn("[MediaGallery] \u041D\u0435\u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u0430\u0439\u043B: \u043D\u0435\u0442 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u044C\u043D\u043E\u0433\u043E URL", selectedFile);
+                            return;
+                          }
+                          downloadFile(downloadUrl, selectedFile.filename);
                         },
                         title: "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u0430\u0439\u043B",
                         children: /* @__PURE__ */ jsxDEV(Download, { className: "h-4 w-4" }, void 0, false, {
                           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                          lineNumber: 837,
+                          lineNumber: 564,
                           columnNumber: 45
                         }, this)
                       },
@@ -3045,7 +2966,7 @@ function MediaGallery({
                       false,
                       {
                         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                        lineNumber: 823,
+                        lineNumber: 551,
                         columnNumber: 41
                       },
                       this
@@ -3058,7 +2979,7 @@ function MediaGallery({
                         onClick: () => setSelectedFile(null),
                         children: /* @__PURE__ */ jsxDEV(X, { className: "h-4 w-4" }, void 0, false, {
                           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                          lineNumber: 846,
+                          lineNumber: 573,
                           columnNumber: 45
                         }, this)
                       },
@@ -3066,19 +2987,19 @@ function MediaGallery({
                       false,
                       {
                         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                        lineNumber: 839,
+                        lineNumber: 566,
                         columnNumber: 41
                       },
                       this
                     )
                   ] }, void 0, true, {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                    lineNumber: 806,
+                    lineNumber: 534,
                     columnNumber: 37
                   }, this)
                 ] }, void 0, true, {
                   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-                  lineNumber: 799,
+                  lineNumber: 527,
                   columnNumber: 33
                 }, this)
               ]
@@ -3087,7 +3008,7 @@ function MediaGallery({
             true,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-              lineNumber: 792,
+              lineNumber: 520,
               columnNumber: 29
             },
             this
@@ -3097,7 +3018,7 @@ function MediaGallery({
         false,
         {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-          lineNumber: 786,
+          lineNumber: 514,
           columnNumber: 25
         },
         this
@@ -3116,14 +3037,14 @@ function MediaGallery({
         false,
         {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-          lineNumber: 855,
+          lineNumber: 582,
           columnNumber: 25
         },
         this
       )
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/media-gallery.tsx",
-      lineNumber: 783,
+      lineNumber: 511,
       columnNumber: 17
     }, this)
   ] }, void 0, true, {
@@ -3148,7 +3069,6 @@ function MediaChatPage() {
     limit: 10
   }, {
     // Всегда обновлять при монтировании или изменении аргументов
-    // Это критично для правильной работы при смене чата
     refetchOnMountOrArgChange: true,
     skip: false
   });
@@ -3165,40 +3085,17 @@ function MediaChatPage() {
   const [updateChat] = useUpdateChatMutation();
   const [generateMedia] = useGenerateMediaMutation();
   const [getRequestTrigger] = useLazyGetRequestQuery();
-  const {
-    isTestMode
-  } = useTestMode();
+  useTestMode();
   const [currentModel, setCurrentModel] = useState("NANO_BANANA_PRO_KIEAI");
-  const [pollingRequestId, setPollingRequestId] = useState(null);
   const [pendingMessage, setPendingMessage] = useState(null);
   const chatInputRef = useRef(null);
   const isInitialLoadRef = useRef(true);
-  const previousChatIdRef = useRef(chatIdNum);
-  useEffect(() => {
-    if (previousChatIdRef.current !== chatIdNum) {
-      console.log("[Chat] \u0421\u043C\u0435\u043D\u0430 \u0447\u0430\u0442\u0430:", {
-        previous: previousChatIdRef.current,
-        current: chatIdNum
-      });
-      isInitialLoadRef.current = true;
-      previousChatIdRef.current = chatIdNum;
-      setPollingRequestId(null);
-      setPendingMessage(null);
-      refetch();
-    }
-  }, [chatIdNum, refetch]);
-  useEffect(() => {
-    const handleFocus = () => {
-      console.log("[Chat] \u{1F504} \u041E\u043A\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u043B\u043E \u0444\u043E\u043A\u0443\u0441, \u043E\u0431\u043D\u043E\u0432\u043B\u044F\u0435\u043C \u0434\u0430\u043D\u043D\u044B\u0435 \u0447\u0430\u0442\u0430");
-      refetch().catch((error) => {
-        console.error("[Chat] \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0438 \u0447\u0430\u0442\u0430 \u043F\u043E\u0441\u043B\u0435 \u0444\u043E\u043A\u0443\u0441\u0430:", error);
-      });
-    };
-    window.addEventListener("focus", handleFocus);
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, [refetch]);
+  useRef(chatIdNum);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const scrollToBottomRef = useRef(null);
+  const {
+    data: models
+  } = useGetModelsQuery();
   useEffect(() => {
     const activeChatForSync = chat;
     if (!activeChatForSync) return;
@@ -3227,17 +3124,6 @@ function MediaChatPage() {
       }
     }
   }
-  const shouldSkipPolling = !pollingRequestId || isTestMode;
-  const {
-    data: pollingRequest
-  } = useGetRequestQuery(pollingRequestId, {
-    skip: shouldSkipPolling,
-    // Не опрашиваем в тестовом режиме
-    pollingInterval: isTestMode ? 0 : 3e3,
-    // Опрос каждые 3 секунды (увеличено с 1.5 для снижения нагрузки на память)
-    // Принудительно обновляем данные при каждом запросе
-    refetchOnMountOrArgChange: true
-  });
   function handleAddPendingMessage(prompt) {
     const pending = {
       id: `pending-${Date.now()}`,
@@ -3261,7 +3147,7 @@ function MediaChatPage() {
     });
   }
   function handleRequestCreated(requestId) {
-    console.log("[Chat] \u2705 \u041D\u043E\u0432\u044B\u0439 \u0437\u0430\u043F\u0440\u043E\u0441 \u0441\u043E\u0437\u0434\u0430\u043D, \u043E\u0431\u043D\u043E\u0432\u043B\u044F\u0435\u043C \u0447\u0430\u0442 \u0438 \u0437\u0430\u043F\u0443\u0441\u043A\u0430\u0435\u043C polling:", {
+    console.log("[Chat] \u2705 \u041D\u043E\u0432\u044B\u0439 \u0437\u0430\u043F\u0440\u043E\u0441 \u0441\u043E\u0437\u0434\u0430\u043D, SSE \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u043E\u0431\u043D\u043E\u0432\u0438\u0442 UI:", {
       requestId
     });
     setPendingMessage((prev) => {
@@ -3274,143 +3160,35 @@ function MediaChatPage() {
     refetch().catch((error) => {
       console.error("[Chat] \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0438 \u0447\u0430\u0442\u0430:", error);
     });
-    if (isTestMode) {
-      console.log("[Chat] \u{1F9EA} \u0422\u0435\u0441\u0442\u043E\u0432\u044B\u0439 \u0440\u0435\u0436\u0438\u043C: polling \u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D \u0434\u043B\u044F \u043D\u043E\u0432\u043E\u0433\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0430");
-      return;
-    }
-    setPollingRequestId(requestId);
   }
-  useEffect(() => {
-    if (isTestMode && pollingRequestId !== null) {
-      console.log("[Chat] \u{1F9EA} \u0422\u0435\u0441\u0442\u043E\u0432\u044B\u0439 \u0440\u0435\u0436\u0438\u043C \u0432\u043A\u043B\u044E\u0447\u0435\u043D: \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u0435\u043C polling");
-      setPollingRequestId(null);
-    }
-  }, [isTestMode, pollingRequestId]);
-  const previousStatusRef = useRef(null);
-  const previousFilesCountRef = useRef(null);
-  const pollingStartTimeRef = useRef(null);
-  const maxPollingTime = 5 * 60 * 1e3;
-  useEffect(() => {
-    if (pollingRequestId && !pollingStartTimeRef.current) {
-      pollingStartTimeRef.current = Date.now();
-    }
-  }, [pollingRequestId]);
-  useEffect(() => {
-    if (pollingRequest) {
-      if (pollingRequest.id !== pollingRequestId) {
-        console.log("[Chat] \u26A0\uFE0F pollingRequest.id \u043D\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u0435\u0442 \u0441 pollingRequestId, \u0438\u0433\u043D\u043E\u0440\u0438\u0440\u0443\u0435\u043C:", {
-          pollingRequestId: pollingRequest.id,
-          expectedId: pollingRequestId
-        });
-        return;
-      }
-      const currentStatus = pollingRequest.status;
-      const previousStatus = previousStatusRef.current;
-      const currentFilesCount = pollingRequest.files?.length || 0;
-      const previousFilesCount = previousFilesCountRef.current;
-      if (pollingStartTimeRef.current) {
-        const pollingDuration = Date.now() - pollingStartTimeRef.current;
-        if (pollingDuration > maxPollingTime) {
-          console.warn("[Chat] \u26A0\uFE0F Polling \u043F\u0440\u0435\u0432\u044B\u0441\u0438\u043B \u043C\u0430\u043A\u0441\u0438\u043C\u0430\u043B\u044C\u043D\u043E\u0435 \u0432\u0440\u0435\u043C\u044F, \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u0435\u043C");
-          setPollingRequestId(null);
-          pollingStartTimeRef.current = null;
-          previousStatusRef.current = null;
-          previousFilesCountRef.current = null;
-          refetch();
-          return;
-        }
-      }
-      const statusChanged = previousStatus !== currentStatus;
-      const filesCountChanged = previousFilesCount !== null && previousFilesCount !== currentFilesCount;
-      const isFirstRequest = previousStatus === null;
-      console.log("[Chat] Polling request \u0441\u0442\u0430\u0442\u0443\u0441:", {
-        id: pollingRequest.id,
-        status: currentStatus,
-        previousStatus,
-        statusChanged,
-        filesCount: currentFilesCount,
-        previousFilesCount,
-        filesCountChanged,
-        isFirstRequest,
-        errorMessage: pollingRequest.errorMessage || null
-      });
-      setPendingMessage((prev) => {
-        if (!prev) return prev;
-        if (!pollingRequestId || prev.requestId !== pollingRequestId) {
-          return prev;
-        }
-        const isProcessing = currentStatus === "PROCESSING";
-        const isFailed = currentStatus === "FAILED";
-        const nextStatus = isProcessing ? "PROCESSING" : isFailed ? "FAILED" : prev.status;
-        const nextError = isFailed && (pollingRequest.errorMessage || true) ? pollingRequest.errorMessage || "\u0413\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u044F \u043D\u0435 \u0443\u0434\u0430\u043B\u0430\u0441\u044C. \u0414\u0435\u0442\u0430\u043B\u0438 \u043E\u0448\u0438\u0431\u043A\u0438 \u043D\u0435 \u043F\u0440\u0435\u0434\u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u044B \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u043E\u043C." : prev.errorMessage;
-        if (nextStatus === prev.status && nextError === prev.errorMessage) {
-          return prev;
-        }
-        return {
-          ...prev,
-          status: nextStatus,
-          errorMessage: nextError
-        };
-      });
-      const shouldUpdate = isFirstRequest || statusChanged || filesCountChanged || currentStatus === "PROCESSING" && previousStatus === "PROCESSING" && Date.now() % 3e3 < 1500;
-      if (shouldUpdate) {
-        console.log("[Chat] \u041E\u0431\u043D\u043E\u0432\u043B\u044F\u0435\u043C \u0447\u0430\u0442");
-        refetch().catch((error) => {
-          console.error("[Chat] \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0438 \u0447\u0430\u0442\u0430:", error);
-        });
-      }
-      if (currentStatus === "COMPLETED" || currentStatus === "FAILED") {
-        console.log("[Chat] \u0417\u0430\u043F\u0440\u043E\u0441 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D, \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u0435\u043C polling");
-        setPollingRequestId(null);
-        pollingStartTimeRef.current = null;
-        previousStatusRef.current = null;
-        previousFilesCountRef.current = null;
-        setTimeout(() => {
-          refetch().catch((error) => {
-            console.error("[Chat] \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u0444\u0438\u043D\u0430\u043B\u044C\u043D\u043E\u043C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0438 \u0447\u0430\u0442\u0430:", error);
-          });
-        }, 500);
-        setTimeout(() => {
-          refetch().catch((error) => {
-            console.error("[Chat] \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u0434\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u043C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0438 \u0447\u0430\u0442\u0430:", error);
-          });
-        }, 1500);
-      } else {
-        previousStatusRef.current = currentStatus;
-        previousFilesCountRef.current = currentFilesCount;
-      }
-    }
-  }, [pollingRequest, pollingRequestId, refetch, maxPollingTime]);
   const activeRequests = useMemo(() => chat?.requests || [], [chat?.requests]);
   useEffect(() => {
     if (!pendingMessage?.requestId) return;
     const requestAppeared = activeRequests.some((r) => r.id === pendingMessage.requestId);
-    const pollingMatched = pollingRequest && pollingRequest.id === pendingMessage.requestId;
-    pollingMatched && (pollingRequest.status === "COMPLETED" || pollingRequest.status === "FAILED");
     if (requestAppeared) {
       console.log("[Chat] \u{1F504} \u0417\u0430\u043F\u0440\u043E\u0441 \u043D\u0430\u0439\u0434\u0435\u043D, \u0443\u0431\u0438\u0440\u0430\u0435\u043C pending-\u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435");
       setPendingMessage(null);
     }
-  }, [activeRequests, pendingMessage, pollingRequest]);
+  }, [activeRequests, pendingMessage]);
   if (isChatLoading && !chat) {
     return /* @__PURE__ */ jsxDEV("div", { className: "flex h-screen bg-background", children: [
       /* @__PURE__ */ jsxDEV(ChatSidebar, {}, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 378,
+        lineNumber: 189,
         columnNumber: 17
       }, this),
       /* @__PURE__ */ jsxDEV("div", { className: "flex flex-1 items-center justify-center", children: /* @__PURE__ */ jsxDEV(Loader2, { className: "h-8 w-8 animate-spin text-primary" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 380,
+        lineNumber: 191,
         columnNumber: 21
       }, this) }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 379,
+        lineNumber: 190,
         columnNumber: 17
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 377,
+      lineNumber: 188,
       columnNumber: 12
     }, this);
   }
@@ -3418,28 +3196,28 @@ function MediaChatPage() {
     return /* @__PURE__ */ jsxDEV("div", { className: "flex h-screen bg-background", children: [
       /* @__PURE__ */ jsxDEV(ChatSidebar, {}, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 388,
+        lineNumber: 199,
         columnNumber: 17
       }, this),
       /* @__PURE__ */ jsxDEV("div", { className: "flex flex-1 flex-col items-center justify-center text-center", children: [
         /* @__PURE__ */ jsxDEV("p", { className: "text-xl text-destructive", children: "\u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0447\u0430\u0442\u0430" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-          lineNumber: 390,
+          lineNumber: 201,
           columnNumber: 21
         }, this),
         /* @__PURE__ */ jsxDEV("p", { className: "text-sm text-muted-foreground mt-2", children: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0447\u0430\u0442. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u0441 \u0441\u0435\u0440\u0432\u0435\u0440\u043E\u043C." }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-          lineNumber: 391,
+          lineNumber: 204,
           columnNumber: 21
         }, this)
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 389,
+        lineNumber: 200,
         columnNumber: 17
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 387,
+      lineNumber: 198,
       columnNumber: 12
     }, this);
   }
@@ -3447,28 +3225,28 @@ function MediaChatPage() {
     return /* @__PURE__ */ jsxDEV("div", { className: "flex h-screen bg-background", children: [
       /* @__PURE__ */ jsxDEV(ChatSidebar, {}, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 402,
+        lineNumber: 215,
         columnNumber: 17
       }, this),
       /* @__PURE__ */ jsxDEV("div", { className: "flex flex-1 flex-col items-center justify-center text-center", children: [
         /* @__PURE__ */ jsxDEV("p", { className: "text-xl text-muted-foreground", children: "\u0427\u0430\u0442 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-          lineNumber: 404,
+          lineNumber: 217,
           columnNumber: 21
         }, this),
         /* @__PURE__ */ jsxDEV("p", { className: "text-sm text-muted-foreground", children: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0447\u0430\u0442 \u0438\u0437 \u0441\u043F\u0438\u0441\u043A\u0430 \u0438\u043B\u0438 \u0441\u043E\u0437\u0434\u0430\u0439\u0442\u0435 \u043D\u043E\u0432\u044B\u0439" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-          lineNumber: 405,
+          lineNumber: 220,
           columnNumber: 21
         }, this)
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 403,
+        lineNumber: 216,
         columnNumber: 17
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 401,
+      lineNumber: 214,
       columnNumber: 12
     }, this);
   }
@@ -3477,16 +3255,8 @@ function MediaChatPage() {
   }
   const activeChat = chat;
   const sortedRequests = [...activeChat.requests || []].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  const requestsWithPolling = sortedRequests.map((request) => {
-    if (pollingRequest && pollingRequestId && request.id === pollingRequest.id && request.id === pollingRequestId) {
-      return pollingRequest;
-    }
-    return request;
-  });
-  const hasPendingInList = pendingMessage && !requestsWithPolling.some(
-    (r) => pendingMessage.requestId ? r.id === pendingMessage.requestId : false
-    // Пока нет requestId - реального запроса точно нет в списке
-  );
+  const requestsWithPolling = sortedRequests;
+  const hasPendingInList = pendingMessage && !requestsWithPolling.some((r) => pendingMessage.requestId ? r.id === pendingMessage.requestId : false);
   const pendingAsRequest = hasPendingInList && pendingMessage ? {
     id: -1,
     // Временный ID
@@ -3501,12 +3271,18 @@ function MediaChatPage() {
     seed: null,
     files: []
   } : null;
-  const finalRequests = pendingAsRequest ? [...requestsWithPolling, pendingAsRequest] : requestsWithPolling;
+  const finalRequests = pendingAsRequest ? [...sortedRequests, pendingAsRequest] : sortedRequests;
   function handleEditPrompt(prompt) {
     chatInputRef.current?.setPrompt(prompt);
   }
-  async function handleAttachFile(fileUrl, filename) {
-    await chatInputRef.current?.addFileFromUrl(fileUrl, filename);
+  async function handleAttachFile(fileUrl, filename, imgbbUrl) {
+    try {
+      await chatInputRef.current?.addFileFromUrl(fileUrl, filename, imgbbUrl);
+    } catch (error) {
+      console.error("[Chat] \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u0430:", error);
+      const errorMessage = error instanceof Error ? error.message : "\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u0430";
+      alert(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u0430: ${errorMessage}`);
+    }
   }
   async function handleRepeatRequest(request, model) {
     const selectedModel = model || request.model;
@@ -3535,41 +3311,43 @@ function MediaChatPage() {
     }
   }
   const showUpdatingIndicator = isChatFetching && !isChatLoading;
-  return /* @__PURE__ */ jsxDEV("div", { className: "flex h-screen bg-background", children: [
+  return /* @__PURE__ */ jsxDEV("div", { className: "flex h-[calc(100vh-3.5rem)] bg-background", children: [
     /* @__PURE__ */ jsxDEV(ChatSidebar, {}, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 517,
+      lineNumber: 322,
       columnNumber: 13
     }, this),
-    /* @__PURE__ */ jsxDEV("div", { className: "flex flex-1 flex-col", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "relative flex flex-1 flex-col", children: [
       /* @__PURE__ */ jsxDEV(ChatHeader, { name: activeChat.name, model: currentModel, showUpdating: showUpdatingIndicator }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 522,
+        lineNumber: 327,
         columnNumber: 17
       }, this),
-      /* @__PURE__ */ jsxDEV(MessageList, { requests: finalRequests, chatModel: currentModel, onEditPrompt: handleEditPrompt, onAttachFile: handleAttachFile, onRepeatRequest: handleRepeatRequest }, void 0, false, {
+      /* @__PURE__ */ jsxDEV(MessageList, { requests: finalRequests, chatModel: currentModel, onEditPrompt: handleEditPrompt, onAttachFile: handleAttachFile, onRepeatRequest: handleRepeatRequest, onScrollStateChange: setShowScrollButton, onScrollToBottomRef: (scrollFn) => {
+        scrollToBottomRef.current = scrollFn;
+      } }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 525,
+        lineNumber: 330,
         columnNumber: 17
       }, this),
-      /* @__PURE__ */ jsxDEV(ChatInput, { ref: chatInputRef, chatId: chatIdNum, currentModel, onModelChange: handleModelChange, onRequestCreated: handleRequestCreated, onPendingMessage: handleAddPendingMessage, onSendError: handleSendError }, void 0, false, {
+      /* @__PURE__ */ jsxDEV(ChatInput, { ref: chatInputRef, chatId: chatIdNum, currentModel, onModelChange: handleModelChange, onRequestCreated: handleRequestCreated, onPendingMessage: handleAddPendingMessage, onSendError: handleSendError, scrollToBottom: () => scrollToBottomRef.current?.(), showScrollButton }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 528,
+        lineNumber: 335,
         columnNumber: 17
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 520,
+      lineNumber: 325,
       columnNumber: 13
     }, this),
     /* @__PURE__ */ jsxDEV(MediaGallery, { chatId: chatIdNum, onAttachFile: handleAttachFile, onRepeatRequest: handleRepeatRequestById }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 532,
+      lineNumber: 339,
       columnNumber: 13
     }, this)
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-    lineNumber: 515,
+    lineNumber: 320,
     columnNumber: 10
   }, this);
 }
@@ -3585,46 +3363,46 @@ function ChatHeader({
   return /* @__PURE__ */ jsxDEV("div", { className: cn(PANEL_HEADER_CLASSES, "bg-background"), children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-3", children: [
     /* @__PURE__ */ jsxDEV("span", { className: "text-2xl", children: getModelIcon(model) }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 551,
+      lineNumber: 358,
       columnNumber: 17
     }, this),
     /* @__PURE__ */ jsxDEV("div", { className: "flex-1", children: [
       /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2", children: [
         /* @__PURE__ */ jsxDEV("h1", { className: "font-semibold text-foreground", children: name }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-          lineNumber: 554,
+          lineNumber: 361,
           columnNumber: 25
         }, this),
         showUpdating && /* @__PURE__ */ jsxDEV(Loader2, { className: "h-4 w-4 animate-spin text-muted-foreground" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-          lineNumber: 555,
+          lineNumber: 364,
           columnNumber: 42
         }, this)
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 553,
+        lineNumber: 360,
         columnNumber: 21
       }, this),
       /* @__PURE__ */ jsxDEV("p", { className: "text-xs text-muted-foreground", children: modelInfo?.name || model }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 557,
+        lineNumber: 366,
         columnNumber: 21
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 552,
+      lineNumber: 359,
       columnNumber: 17
     }, this)
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-    lineNumber: 550,
+    lineNumber: 357,
     columnNumber: 13
   }, this) }, void 0, false, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
-    lineNumber: 549,
+    lineNumber: 356,
     columnNumber: 10
   }, this);
 }
 
 export { MediaChatPage as component };
-//# sourceMappingURL=_chatId-kac774j7.mjs.map
+//# sourceMappingURL=_chatId-BuJzWMqB.mjs.map

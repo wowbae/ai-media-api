@@ -1,9 +1,9 @@
 import { jsxDEV, Fragment } from 'react/jsx-dev-runtime';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { C as ChatSidebar } from './chat-input-BHukpy2u.mjs';
+import { C as ChatSidebar } from './chat-input-BK5on2xW.mjs';
 import { Loader2, Sparkles } from 'lucide-react';
-import { a as useGetChatsQuery, b as useCreateChatMutation } from './router-ZQUnxrzB.mjs';
+import { u as useGetChatsQuery, a as useCreateChatMutation } from './router-EhyTjV9k.mjs';
 import '@radix-ui/react-scroll-area';
 import '@radix-ui/react-dropdown-menu';
 import '@radix-ui/react-dialog';
@@ -51,7 +51,7 @@ function MediaIndexPage() {
       console.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u0447\u0430\u0442\u0430:", error);
     }
   }
-  return /* @__PURE__ */ jsxDEV("div", { className: "flex h-screen bg-slate-900", children: [
+  return /* @__PURE__ */ jsxDEV("div", { className: "flex h-screen bg-background", children: [
     /* @__PURE__ */ jsxDEV(ChatSidebar, {}, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/index.tsx?tsr-split=component",
       lineNumber: 45,
@@ -194,4 +194,4 @@ function ModelCard({
 }
 
 export { MediaIndexPage as component };
-//# sourceMappingURL=index-VU-lT-Ng.mjs.map
+//# sourceMappingURL=index-BKcM3vPO.mjs.map

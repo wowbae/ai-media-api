@@ -1,86 +1,62 @@
-import { createRouter, createRootRoute, createFileRoute, lazyRouteComponent, HeadContent, Scripts, useNavigate, Link } from '@tanstack/react-router';
+import { createRouter, createRootRoute, createFileRoute, lazyRouteComponent, useLocation, HeadContent, Scripts, useNavigate, Link } from '@tanstack/react-router';
 import { jsxDEV, Fragment } from 'react/jsx-dev-runtime';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { configureStore, createSlice } from '@reduxjs/toolkit';
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { setupListeners } from '@reduxjs/toolkit/query';
-import { Coins } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Loader2, UserPlus, LogIn, LinkIcon, Zap, RefreshCw } from 'lucide-react';
 
-const appCss = "/assets/styles-cUhZYHd5.css";
-const dataAPI = createApi({
-  reducerPath: "userAPI",
-  baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:4000/",
-    prepareHeaders: (headers, { getState }) => {
-      const token = getState().auth.token;
-      if (token) {
-        headers.set("authorization", `Bearer ${token}`);
-      }
-      return headers;
+const appCss = "/assets/styles-BId-3JM_.css";
+function createAuthHeaders(headers, { getState }) {
+  const token = getState().auth.token;
+  if (token) {
+    headers.set("authorization", `Bearer ${token}`);
+  }
+  return headers;
+}
+function handleSessionTimeout() {
+  localStorage.removeItem("token");
+}
+const config = {
+  apiUrl: "http://localhost:4000/api/media"
+};
+const API_BASE_URL = config.apiUrl;
+async function baseQueryWithErrorHandling(args, api, extraOptions, baseUrl) {
+  const result = await fetchBaseQuery({
+    baseUrl: baseUrl || API_BASE_URL,
+    prepareHeaders: createAuthHeaders
+  })(args, api, extraOptions);
+  if (result.error && "status" in result.error && result.error.status === 401) {
+    const url = typeof args === "string" ? args : args?.url || "";
+    if (!url.includes("/auth/me")) {
+      handleSessionTimeout();
     }
-  }),
-  refetchOnFocus: true,
-  refetchOnReconnect: true,
-  tagTypes: ["User"],
-  endpoints: (build) => ({
-    getData: build.query({
-      query: (path) => {
-        return {
-          url: `${path}`,
-          method: "GET"
-        };
-      },
-      async onQueryStarted(_, { dispatch, queryFulfilled }) {
-      },
-      providesTags: ["User"]
-    }),
-    postData: build.mutation({
-      query: (data) => ({
-        url: `${data.path}`,
-        method: "POST",
-        body: data.body
-      }),
-      invalidatesTags: ["User"]
-    })
-  })
-});
-const { useGetDataQuery, usePostDataMutation } = dataAPI;
-const API_BASE_URL = "http://localhost:4000/api/media";
+  }
+  return result;
+}
 const baseApi = createApi({
   reducerPath: "mediaApi",
-  baseQuery: fetchBaseQuery({
-    baseUrl: API_BASE_URL,
-    prepareHeaders: (headers, { getState }) => {
-      const token = getState().auth.token;
-      if (token) {
-        headers.set("authorization", `Bearer ${token}`);
-      }
-      return headers;
-    }
-  }),
+  baseQuery: baseQueryWithErrorHandling,
   tagTypes: ["Chat", "Request", "File", "Model"],
-  // Настройки для оптимистичного обновления
   keepUnusedDataFor: 60,
-  // Хранить неиспользуемые данные 60 секунд
-  // Показывать кешированные данные сразу, обновлять в фоне если старше 10 секунд
   refetchOnMountOrArgChange: 10,
   refetchOnFocus: true,
-  // Обновлять при фокусе окна для актуальности данных
   refetchOnReconnect: true,
-  // Обновлять при восстановлении соединения
   endpoints: () => ({})
 });
 const initialState = {
   user: null,
-  token: localStorage.getItem("token"),
-  isAuthenticated: !!localStorage.getItem("token")
+  token: null,
+  isAuthenticated: false
 };
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    setCredentials: (state, { payload: { user, token } }) => {
+    setCredentials: (state, {
+      payload: { user, token }
+    }) => {
       state.user = user;
       state.token = token;
       state.isAuthenticated = true;
@@ -167,6 +143,18 @@ function removeFileFromRequest(draft, fileId) {
 const mediaEndpoints = baseApi.injectEndpoints({
   endpoints: (build) => ({
     // ==================== Чаты ====================
+    // Цены моделей
+    getPricing: build.query({
+      query: () => "/pricing",
+      transformResponse: (response) => response.data,
+      providesTags: [{ type: "Model", id: "PRICING" }]
+    }),
+    // Остаток кредитов Kie.ai (GET api.kie.ai/api/v1/chat/credit)
+    getKieCredits: build.query({
+      query: () => "/kie-credits",
+      transformResponse: (response) => response.success ? response.credits : null,
+      providesTags: [{ type: "Model", id: "KIE_CREDITS" }]
+    }),
     // Получить все чаты
     getChats: build.query({
       query: () => "/chats",
@@ -519,6 +507,8 @@ const mediaEndpoints = baseApi.injectEndpoints({
 const {
   useGetChatsQuery,
   useGetChatQuery,
+  useGetPricingQuery,
+  useGetKieCreditsQuery,
   useCreateChatMutation,
   useUpdateChatMutation,
   useDeleteChatMutation,
@@ -547,15 +537,15 @@ const modelsEndpoints = baseApi.injectEndpoints({
   overrideExisting: false
 });
 const { useGetModelsQuery } = modelsEndpoints;
-const store = configureStore({
-  reducer: {
-    [dataAPI.reducerPath]: dataAPI.reducer,
-    [baseApi.reducerPath]: baseApi.reducer,
-    auth: authReducer
-  },
-  middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(dataAPI.middleware).concat(baseApi.middleware)
-});
-setupListeners(store.dispatch);
+function transformPrismaUserToReduxUser(prismaUser) {
+  return {
+    id: prismaUser.id,
+    email: prismaUser.email,
+    role: prismaUser.role,
+    balance: prismaUser.tokenBalance,
+    telegramId: prismaUser.telegramId ?? void 0
+  };
+}
 const authEndpoints = baseApi.injectEndpoints({
   endpoints: (build) => ({
     login: build.mutation({
@@ -563,6 +553,10 @@ const authEndpoints = baseApi.injectEndpoints({
         url: "../auth/login",
         method: "POST",
         body: credentials
+      }),
+      transformResponse: (response) => ({
+        token: response.token,
+        user: transformPrismaUserToReduxUser(response.user)
       })
     }),
     register: build.mutation({
@@ -570,118 +564,400 @@ const authEndpoints = baseApi.injectEndpoints({
         url: "../auth/register",
         method: "POST",
         body: credentials
+      }),
+      transformResponse: (response) => ({
+        token: response.token,
+        user: transformPrismaUserToReduxUser(response.user)
       })
     }),
     getMe: build.query({
-      query: () => "../auth/me"
+      query: () => "../auth/me",
+      transformResponse: (response) => transformPrismaUserToReduxUser(response.user)
     })
   })
 });
 const { useLoginMutation, useRegisterMutation, useGetMeQuery } = authEndpoints;
-const TokenBalance = () => {
+const store = configureStore({
+  reducer: {
+    [baseApi.reducerPath]: baseApi.reducer,
+    auth: authReducer
+  },
+  middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(baseApi.middleware)
+});
+setupListeners(store.dispatch);
+function KieCredits() {
   const user = useSelector(selectCurrentUser);
-  const { data: me } = useGetMeQuery(void 0, { pollingInterval: 3e4, skip: !user });
-  const balance = me?.balance ?? user?.balance ?? 0;
+  const { data: credits, isLoading, isError, refetch, isFetching } = useGetKieCreditsQuery(void 0, {
+    skip: !user,
+    pollingInterval: 6e4
+  });
   if (!user) return null;
-  return /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2 px-3 py-1 bg-slate-800 rounded-full border border-slate-700", children: [
-    /* @__PURE__ */ jsxDEV(Coins, { className: "w-4 h-4 text-yellow-500" }, void 0, false, {
-      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/TokenBalance.tsx",
-      lineNumber: 20,
-      columnNumber: 13
-    }, void 0),
-    /* @__PURE__ */ jsxDEV("span", { className: "text-sm font-medium text-white", children: balance }, void 0, false, {
-      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/TokenBalance.tsx",
-      lineNumber: 21,
-      columnNumber: 13
-    }, void 0)
-  ] }, void 0, true, {
-    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/TokenBalance.tsx",
-    lineNumber: 19,
-    columnNumber: 9
-  }, void 0);
-};
+  return /* @__PURE__ */ jsxDEV(
+    "div",
+    {
+      className: "flex items-center gap-2 px-3 py-1 bg-slate-800 rounded-full border border-slate-700",
+      title: "\u041A\u0440\u0435\u0434\u0438\u0442\u044B Kie.ai (\u043E\u0431\u043D\u043E\u0432\u043B\u044F\u044E\u0442\u0441\u044F \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438)",
+      children: [
+        /* @__PURE__ */ jsxDEV(Zap, { className: "w-4 h-4 text-amber-400" }, void 0, false, {
+          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/KieCredits.tsx",
+          lineNumber: 22,
+          columnNumber: 13
+        }, this),
+        isLoading ? /* @__PURE__ */ jsxDEV("span", { className: "text-sm text-slate-400", children: "\u2014" }, void 0, false, {
+          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/KieCredits.tsx",
+          lineNumber: 24,
+          columnNumber: 17
+        }, this) : isError ? /* @__PURE__ */ jsxDEV("span", { className: "text-sm text-red-400", title: "\u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438", children: "\u2014" }, void 0, false, {
+          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/KieCredits.tsx",
+          lineNumber: 26,
+          columnNumber: 17
+        }, this) : /* @__PURE__ */ jsxDEV("span", { className: "text-sm font-medium text-white", children: credits ?? 0 }, void 0, false, {
+          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/KieCredits.tsx",
+          lineNumber: 28,
+          columnNumber: 17
+        }, this),
+        /* @__PURE__ */ jsxDEV(
+          "button",
+          {
+            type: "button",
+            onClick: () => refetch(),
+            disabled: isFetching,
+            className: "p-0.5 rounded hover:bg-slate-600 disabled:opacity-50",
+            title: "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043A\u0440\u0435\u0434\u0438\u0442\u044B",
+            "aria-label": "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043A\u0440\u0435\u0434\u0438\u0442\u044B Kie.ai",
+            children: /* @__PURE__ */ jsxDEV(RefreshCw, { className: `w-3.5 h-3.5 text-slate-400 ${isFetching ? "animate-spin" : ""}` }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/KieCredits.tsx",
+              lineNumber: 38,
+              columnNumber: 17
+            }, this)
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/KieCredits.tsx",
+            lineNumber: 30,
+            columnNumber: 13
+          },
+          this
+        )
+      ]
+    },
+    void 0,
+    true,
+    {
+      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/KieCredits.tsx",
+      lineNumber: 18,
+      columnNumber: 9
+    },
+    this
+  );
+}
+const TELEGRAM_BOT_USERNAME = "wowbae_bot";
+function generateTelegramBotLink(userId) {
+  const payload = `id${userId}`;
+  return `https://t.me/${TELEGRAM_BOT_USERNAME}?start=${payload}`;
+}
+function openTelegramBot(userId) {
+  const link = generateTelegramBotLink(userId);
+  console.log("Opening Telegram bot link:", link);
+  console.log("Bot username:", TELEGRAM_BOT_USERNAME);
+  try {
+    window.open(link, "_blank", "noopener,noreferrer");
+  } catch (error) {
+    console.error("Error opening Telegram link:", error);
+    window.location.href = link;
+  }
+}
 const Header = () => {
+  const [isMounted, setIsMounted] = useState(false);
   const isAuthenticated = useSelector(selectIsAuthenticated);
+  const user = useSelector(selectCurrentUser);
   const dispatch = useDispatch();
+  const location = useLocation();
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  const isOnMediaPage = location.pathname.startsWith("/media");
+  function handleTelegramLink(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log("Telegram button clicked", { user, userId: user?.id });
+    if (!user) {
+      console.warn("User not found in Redux store");
+      return;
+    }
+    if (user.id) {
+      openTelegramBot(user.id);
+    } else {
+      console.warn("User ID not found in user object:", user);
+    }
+  }
   const handleLogout = () => {
     dispatch(logout());
     window.location.href = "/login";
   };
-  return /* @__PURE__ */ jsxDEV("header", { className: "sticky top-0 z-50 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur supports-[backdrop-filter]:bg-slate-950/60", children: /* @__PURE__ */ jsxDEV("div", { className: "container flex h-14 max-w-screen-2xl items-center", children: [
-    /* @__PURE__ */ jsxDEV("div", { className: "mr-4 hidden md:flex", children: /* @__PURE__ */ jsxDEV(Link, { to: "/", className: "mr-6 flex items-center space-x-2", children: /* @__PURE__ */ jsxDEV("span", { className: "hidden font-bold text-white sm:inline-block", children: "AI Media" }, void 0, false, {
+  return /* @__PURE__ */ jsxDEV("header", { className: "fixed top-0 z-50 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur supports-[backdrop-filter]:bg-slate-950/60", children: /* @__PURE__ */ jsxDEV("div", { className: "flex h-14 w-full items-center justify-between px-4", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2", children: /* @__PURE__ */ jsxDEV(
+      "img",
+      {
+        src: "/logo.png",
+        alt: "Logo",
+        className: "h-8 w-auto rounded-lg"
+      },
+      void 0,
+      false,
+      {
+        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
+        lineNumber: 49,
+        columnNumber: 21
+      },
+      void 0
+    ) }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-      lineNumber: 22,
-      columnNumber: 26
-    }, void 0) }, void 0, false, {
-      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-      lineNumber: 21,
-      columnNumber: 21
-    }, void 0) }, void 0, false, {
-      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-      lineNumber: 20,
+      lineNumber: 48,
       columnNumber: 17
     }, void 0),
-    /* @__PURE__ */ jsxDEV("div", { className: "flex flex-1 items-center justify-between space-x-2 md:justify-end", children: [
-      /* @__PURE__ */ jsxDEV("div", { className: "w-full flex-1 md:w-auto md:flex-none" }, void 0, false, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-        lineNumber: 26,
-        columnNumber: 21
-      }, void 0),
-      /* @__PURE__ */ jsxDEV("nav", { className: "flex items-center gap-2", children: isAuthenticated ? /* @__PURE__ */ jsxDEV(Fragment, { children: [
-        /* @__PURE__ */ jsxDEV(TokenBalance, {}, void 0, false, {
+    /* @__PURE__ */ jsxDEV(
+      "nav",
+      {
+        className: "flex items-center gap-2",
+        suppressHydrationWarning: true,
+        children: !isMounted ? /* @__PURE__ */ jsxDEV(Fragment, { children: [
+          /* @__PURE__ */ jsxDEV(
+            Link,
+            {
+              to: "/login",
+              className: "text-sm font-medium text-white hover:text-cyan-400 px-3",
+              children: "Login"
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
+              lineNumber: 62,
+              columnNumber: 29
+            },
+            void 0
+          ),
+          /* @__PURE__ */ jsxDEV(
+            Link,
+            {
+              to: "/register",
+              className: "text-sm font-medium text-white hover:text-cyan-400 px-3",
+              children: "Register"
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
+              lineNumber: 68,
+              columnNumber: 29
+            },
+            void 0
+          )
+        ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-          lineNumber: 32,
-          columnNumber: 33
-        }, void 0),
-        /* @__PURE__ */ jsxDEV(Link, { to: "/media", className: "text-sm font-medium text-white hover:text-cyan-400 px-3", children: "Generate" }, void 0, false, {
+          lineNumber: 61,
+          columnNumber: 25
+        }, void 0) : isAuthenticated ? /* @__PURE__ */ jsxDEV(Fragment, { children: [
+          /* @__PURE__ */ jsxDEV(KieCredits, {}, void 0, false, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
+            lineNumber: 77,
+            columnNumber: 29
+          }, void 0),
+          !isOnMediaPage && /* @__PURE__ */ jsxDEV(
+            Link,
+            {
+              to: "/media",
+              className: "text-sm font-medium text-white hover:text-cyan-400 px-3",
+              children: "Generate"
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
+              lineNumber: 79,
+              columnNumber: 33
+            },
+            void 0
+          ),
+          /* @__PURE__ */ jsxDEV(
+            "button",
+            {
+              onClick: handleTelegramLink,
+              className: "flex items-center gap-1 text-sm font-medium text-white hover:text-cyan-400 px-3",
+              title: "\u041F\u0440\u0438\u0432\u044F\u0437\u0430\u0442\u044C Telegram \u0433\u0440\u0443\u043F\u043F\u0443",
+              children: [
+                /* @__PURE__ */ jsxDEV(LinkIcon, { className: "h-4 w-4" }, void 0, false, {
+                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
+                  lineNumber: 91,
+                  columnNumber: 33
+                }, void 0),
+                /* @__PURE__ */ jsxDEV("span", { className: "hidden sm:inline", children: "Telegram" }, void 0, false, {
+                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
+                  lineNumber: 92,
+                  columnNumber: 33
+                }, void 0)
+              ]
+            },
+            void 0,
+            true,
+            {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
+              lineNumber: 86,
+              columnNumber: 29
+            },
+            void 0
+          ),
+          /* @__PURE__ */ jsxDEV(
+            "button",
+            {
+              onClick: handleLogout,
+              className: "text-sm font-medium text-gray-400 hover:text-white px-3",
+              children: "Logout"
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
+              lineNumber: 96,
+              columnNumber: 29
+            },
+            void 0
+          )
+        ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-          lineNumber: 33,
-          columnNumber: 33
-        }, void 0),
-        /* @__PURE__ */ jsxDEV("button", { onClick: handleLogout, className: "text-sm font-medium text-gray-400 hover:text-white px-3", children: "Logout" }, void 0, false, {
+          lineNumber: 76,
+          columnNumber: 25
+        }, void 0) : /* @__PURE__ */ jsxDEV(Fragment, { children: [
+          /* @__PURE__ */ jsxDEV(
+            Link,
+            {
+              to: "/login",
+              className: "text-sm font-medium text-white hover:text-cyan-400 px-3",
+              children: "Login"
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
+              lineNumber: 105,
+              columnNumber: 29
+            },
+            void 0
+          ),
+          /* @__PURE__ */ jsxDEV(
+            Link,
+            {
+              to: "/register",
+              className: "text-sm font-medium text-white hover:text-cyan-400 px-3",
+              children: "Register"
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
+              lineNumber: 111,
+              columnNumber: 29
+            },
+            void 0
+          )
+        ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-          lineNumber: 36,
-          columnNumber: 33
+          lineNumber: 104,
+          columnNumber: 25
         }, void 0)
-      ] }, void 0, true, {
+      },
+      void 0,
+      false,
+      {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-        lineNumber: 31,
-        columnNumber: 29
-      }, void 0) : /* @__PURE__ */ jsxDEV(Fragment, { children: [
-        /* @__PURE__ */ jsxDEV(Link, { to: "/login", className: "text-sm font-medium text-white hover:text-cyan-400 px-3", children: "Login" }, void 0, false, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-          lineNumber: 42,
-          columnNumber: 33
-        }, void 0),
-        /* @__PURE__ */ jsxDEV(Link, { to: "/register", className: "text-sm font-medium text-white hover:text-cyan-400 px-3", children: "Register" }, void 0, false, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-          lineNumber: 45,
-          columnNumber: 33
-        }, void 0)
-      ] }, void 0, true, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-        lineNumber: 41,
-        columnNumber: 29
-      }, void 0) }, void 0, false, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-        lineNumber: 29,
-        columnNumber: 21
-      }, void 0)
-    ] }, void 0, true, {
-      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-      lineNumber: 25,
-      columnNumber: 17
-    }, void 0)
+        lineNumber: 55,
+        columnNumber: 17
+      },
+      void 0
+    )
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-    lineNumber: 19,
+    lineNumber: 47,
     columnNumber: 13
   }, void 0) }, void 0, false, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/Header.tsx",
-    lineNumber: 18,
+    lineNumber: 46,
     columnNumber: 9
   }, void 0);
 };
+function useSSESubscription() {
+  const dispatch = useDispatch();
+  const eventSourceRef = useRef(null);
+  useRef(null);
+  useEffect(() => {
+    {
+      return;
+    }
+  }, [dispatch]);
+  return {
+    isConnected: false,
+    readyState: eventSourceRef.current?.readyState
+  };
+}
+function AuthInitializer() {
+  const dispatch = useDispatch();
+  const location = useLocation();
+  const hasCheckedRef = useRef(false);
+  const token = null;
+  useSSESubscription();
+  const isPublicRoute = location.pathname === "/login" || location.pathname === "/register";
+  const { data: user, isSuccess, error } = useGetMeQuery(void 0, {
+    skip: !token
+    // Пропускаем запрос если нет токена
+  });
+  useEffect(() => {
+    if (hasCheckedRef.current) return;
+    hasCheckedRef.current = true;
+    if (!isPublicRoute) {
+      handleSessionTimeout();
+      return;
+    }
+  }, [token, isPublicRoute]);
+  useEffect(() => {
+    if (error && "status" in error && error.status === 401) {
+      dispatch(logout());
+      if (!isPublicRoute) {
+        handleSessionTimeout();
+      }
+    }
+  }, [error, dispatch, isPublicRoute]);
+  useEffect(() => {
+  }, [isSuccess, user, token, dispatch]);
+  return null;
+}
+const THEME_STORAGE_KEY = "theme";
+function useTheme() {
+  const [theme, setTheme] = useState(() => {
+    return "dark";
+  });
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }
+  }, [theme, isMounted]);
+  function setDarkTheme() {
+    setTheme("dark");
+  }
+  return {
+    theme,
+    setDarkTheme,
+    isDarkTheme: true,
+    // Всегда true, так как только dark тема
+    isMounted
+    // Экспортируем для компонентов, которые нуждаются в проверке монтирования
+  };
+}
 const Route$5 = createRootRoute({
   head: () => ({
     meta: [
@@ -707,10 +983,9 @@ const Route$5 = createRootRoute({
         children: `
                     (function() {
                         try {
-                            var theme = localStorage.getItem('theme');
-                            if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                                document.documentElement.classList.add('dark');
-                            }
+                            // \u0412\u0441\u0435\u0433\u0434\u0430 \u0443\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u0435\u043C dark \u0442\u0435\u043C\u0443 \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E
+                            document.documentElement.classList.add('dark');
+                            localStorage.setItem('theme', 'dark');
                         } catch (e) {}
                     })();
                 `
@@ -721,74 +996,86 @@ const Route$5 = createRootRoute({
   notFoundComponent: NotFoundComponent
 });
 function NotFoundComponent() {
-  return /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white", children: [
+  return /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col items-center justify-center min-h-screen bg-background text-foreground", children: [
     /* @__PURE__ */ jsxDEV("h1", { className: "text-6xl font-bold mb-4", children: "404" }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
-      lineNumber: 53,
+      lineNumber: 54,
       columnNumber: 13
     }, this),
-    /* @__PURE__ */ jsxDEV("p", { className: "text-xl text-gray-400 mb-8", children: "\u0421\u0442\u0440\u0430\u043D\u0438\u0446\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430" }, void 0, false, {
+    /* @__PURE__ */ jsxDEV("p", { className: "text-xl text-muted-foreground mb-8", children: "\u0421\u0442\u0440\u0430\u043D\u0438\u0446\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430" }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
-      lineNumber: 54,
+      lineNumber: 55,
       columnNumber: 13
     }, this),
     /* @__PURE__ */ jsxDEV(
       "a",
       {
         href: "/",
-        className: "px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-lg transition-colors",
+        className: "px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg transition-colors",
         children: "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043D\u0430 \u0433\u043B\u0430\u0432\u043D\u0443\u044E"
       },
       void 0,
       false,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
-        lineNumber: 55,
+        lineNumber: 56,
         columnNumber: 13
       },
       this
     )
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
-    lineNumber: 52,
+    lineNumber: 53,
     columnNumber: 9
   }, this);
 }
 function RootDocument({ children }) {
+  useTheme();
+  const location = useLocation();
+  const shouldShowHeader = !location.pathname.startsWith("/login") && !location.pathname.startsWith("/register");
   return /* @__PURE__ */ jsxDEV(Provider, { store, children: /* @__PURE__ */ jsxDEV("html", { lang: "en", suppressHydrationWarning: true, children: [
     /* @__PURE__ */ jsxDEV("head", { children: /* @__PURE__ */ jsxDEV(HeadContent, {}, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
-      lineNumber: 70,
+      lineNumber: 78,
       columnNumber: 21
     }, this) }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
-      lineNumber: 69,
+      lineNumber: 77,
       columnNumber: 17
     }, this),
     /* @__PURE__ */ jsxDEV("body", { suppressHydrationWarning: true, children: [
-      /* @__PURE__ */ jsxDEV(Header, {}, void 0, false, {
+      /* @__PURE__ */ jsxDEV(AuthInitializer, {}, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
-        lineNumber: 73,
+        lineNumber: 81,
         columnNumber: 21
       }, this),
-      children,
+      shouldShowHeader && /* @__PURE__ */ jsxDEV(Header, {}, void 0, false, {
+        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
+        lineNumber: 82,
+        columnNumber: 42
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { className: shouldShowHeader ? "pt-14" : "", children }, void 0, false, {
+        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
+        lineNumber: 83,
+        columnNumber: 21
+      }, this),
       /* @__PURE__ */ jsxDEV(Scripts, {}, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
-        lineNumber: 86,
+        lineNumber: 97,
         columnNumber: 21
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
-      lineNumber: 72,
+      lineNumber: 80,
       columnNumber: 17
     }, this)
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
-    lineNumber: 68,
+    lineNumber: 76,
     columnNumber: 13
   }, this) }, void 0, false, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/__root.tsx",
-    lineNumber: 67,
+    lineNumber: 75,
     columnNumber: 9
   }, this);
 }
@@ -796,34 +1083,67 @@ const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [register, { isLoading, error }] = useRegisterMutation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setPasswordError("");
     if (password !== confirmPassword) {
-      alert("Passwords don't match");
+      setPasswordError("\u041F\u0430\u0440\u043E\u043B\u0438 \u043D\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u044E\u0442");
       return;
     }
     try {
       const { token, user } = await register({ email, password }).unwrap();
       dispatch(setCredentials({ token, user }));
-      navigate({ to: "/" });
+      navigate({ to: "/media" });
     } catch (err) {
       console.error("Registration failed", err);
     }
   };
-  return /* @__PURE__ */ jsxDEV("div", { className: "flex min-h-screen items-center justify-center bg-gray-900 text-white", children: /* @__PURE__ */ jsxDEV("div", { className: "w-full max-w-md p-8 bg-gray-800 rounded-lg shadow-lg", children: [
-    /* @__PURE__ */ jsxDEV("h2", { className: "text-2xl font-bold mb-6 text-center", children: "Register" }, void 0, false, {
+  return /* @__PURE__ */ jsxDEV("div", { className: "flex min-h-screen items-center justify-center bg-background", children: /* @__PURE__ */ jsxDEV("div", { className: "w-full max-w-md p-8", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "mb-8 text-center", children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "mb-6 flex justify-center", children: /* @__PURE__ */ jsxDEV(
+        "img",
+        {
+          src: "/logo.png",
+          alt: "Logo",
+          className: "h-24 w-24 rounded-lg"
+        },
+        void 0,
+        false,
+        {
+          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
+          lineNumber: 40,
+          columnNumber: 25
+        },
+        void 0
+      ) }, void 0, false, {
+        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
+        lineNumber: 39,
+        columnNumber: 21
+      }, void 0),
+      /* @__PURE__ */ jsxDEV("h2", { className: "text-3xl font-bold text-white mb-2", children: "\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044F" }, void 0, false, {
+        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
+        lineNumber: 46,
+        columnNumber: 21
+      }, void 0),
+      /* @__PURE__ */ jsxDEV("p", { className: "text-slate-400", children: "\u0421\u043E\u0437\u0434\u0430\u0439\u0442\u0435 \u043D\u043E\u0432\u044B\u0439 \u0430\u043A\u043A\u0430\u0443\u043D\u0442 \u0434\u043B\u044F \u043D\u0430\u0447\u0430\u043B\u0430 \u0440\u0430\u0431\u043E\u0442\u044B" }, void 0, false, {
+        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
+        lineNumber: 49,
+        columnNumber: 21
+      }, void 0)
+    ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-      lineNumber: 36,
+      lineNumber: 38,
       columnNumber: 17
     }, void 0),
     /* @__PURE__ */ jsxDEV("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
       /* @__PURE__ */ jsxDEV("div", { children: [
-        /* @__PURE__ */ jsxDEV("label", { className: "block text-sm font-medium mb-1", children: "Email" }, void 0, false, {
+        /* @__PURE__ */ jsxDEV("label", { className: "block text-sm font-medium mb-2 text-white", children: "Email" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-          lineNumber: 39,
+          lineNumber: 55,
           columnNumber: 25
         }, void 0),
         /* @__PURE__ */ jsxDEV(
@@ -832,27 +1152,28 @@ const Register = () => {
             type: "email",
             value: email,
             onChange: (e) => setEmail(e.target.value),
-            className: "w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500",
+            className: "w-full p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors",
+            placeholder: "your@email.com",
             required: true
           },
           void 0,
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-            lineNumber: 40,
+            lineNumber: 58,
             columnNumber: 25
           },
           void 0
         )
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-        lineNumber: 38,
+        lineNumber: 54,
         columnNumber: 21
       }, void 0),
       /* @__PURE__ */ jsxDEV("div", { children: [
-        /* @__PURE__ */ jsxDEV("label", { className: "block text-sm font-medium mb-1", children: "Password" }, void 0, false, {
+        /* @__PURE__ */ jsxDEV("label", { className: "block text-sm font-medium mb-2 text-white", children: "\u041F\u0430\u0440\u043E\u043B\u044C" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-          lineNumber: 49,
+          lineNumber: 68,
           columnNumber: 25
         }, void 0),
         /* @__PURE__ */ jsxDEV(
@@ -861,27 +1182,28 @@ const Register = () => {
             type: "password",
             value: password,
             onChange: (e) => setPassword(e.target.value),
-            className: "w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500",
+            className: "w-full p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors",
+            placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
             required: true
           },
           void 0,
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-            lineNumber: 50,
+            lineNumber: 71,
             columnNumber: 25
           },
           void 0
         )
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-        lineNumber: 48,
+        lineNumber: 67,
         columnNumber: 21
       }, void 0),
       /* @__PURE__ */ jsxDEV("div", { children: [
-        /* @__PURE__ */ jsxDEV("label", { className: "block text-sm font-medium mb-1", children: "Confirm Password" }, void 0, false, {
+        /* @__PURE__ */ jsxDEV("label", { className: "block text-sm font-medium mb-2 text-white", children: "\u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 \u043F\u0430\u0440\u043E\u043B\u044C" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-          lineNumber: 59,
+          lineNumber: 81,
           columnNumber: 25
         }, void 0),
         /* @__PURE__ */ jsxDEV(
@@ -890,26 +1212,32 @@ const Register = () => {
             type: "password",
             value: confirmPassword,
             onChange: (e) => setConfirmPassword(e.target.value),
-            className: "w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500",
+            className: "w-full p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors",
+            placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
             required: true
           },
           void 0,
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-            lineNumber: 60,
+            lineNumber: 84,
             columnNumber: 25
           },
           void 0
         )
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-        lineNumber: 58,
+        lineNumber: 80,
         columnNumber: 21
       }, void 0),
-      error && /* @__PURE__ */ jsxDEV("div", { className: "text-red-500 text-sm text-center", children: "Registration failed. Please try again." }, void 0, false, {
+      passwordError && /* @__PURE__ */ jsxDEV("div", { className: "rounded-lg bg-red-500/10 border border-red-500/50 p-3 text-red-400 text-sm text-center", children: passwordError }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-        lineNumber: 69,
+        lineNumber: 94,
+        columnNumber: 25
+      }, void 0),
+      error && /* @__PURE__ */ jsxDEV("div", { className: "rounded-lg bg-red-500/10 border border-red-500/50 p-3 text-red-400 text-sm text-center", children: "\u041E\u0448\u0438\u0431\u043A\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0435 \u0440\u0430\u0437." }, void 0, false, {
+        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
+        lineNumber: 99,
         columnNumber: 25
       }, void 0),
       /* @__PURE__ */ jsxDEV(
@@ -917,43 +1245,79 @@ const Register = () => {
         {
           type: "submit",
           disabled: isLoading,
-          className: "w-full py-2 px-4 bg-green-600 hover:bg-green-700 rounded font-medium disabled:opacity-50",
-          children: isLoading ? "Registering..." : "Register"
+          className: "w-full inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed",
+          children: isLoading ? /* @__PURE__ */ jsxDEV(Fragment, { children: [
+            /* @__PURE__ */ jsxDEV(Loader2, { className: "h-5 w-5 animate-spin" }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
+              lineNumber: 110,
+              columnNumber: 33
+            }, void 0),
+            "\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044F..."
+          ] }, void 0, true, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
+            lineNumber: 109,
+            columnNumber: 29
+          }, void 0) : /* @__PURE__ */ jsxDEV(Fragment, { children: [
+            /* @__PURE__ */ jsxDEV(UserPlus, { className: "h-5 w-5" }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
+              lineNumber: 115,
+              columnNumber: 33
+            }, void 0),
+            "\u0417\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u043E\u0432\u0430\u0442\u044C\u0441\u044F"
+          ] }, void 0, true, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
+            lineNumber: 114,
+            columnNumber: 29
+          }, void 0)
         },
         void 0,
         false,
         {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-          lineNumber: 73,
+          lineNumber: 103,
           columnNumber: 21
         },
         void 0
       ),
-      /* @__PURE__ */ jsxDEV("div", { className: "text-center text-sm mt-4", children: [
-        "Already have an account?",
-        " ",
-        /* @__PURE__ */ jsxDEV(Link, { to: "/login", className: "text-blue-400 hover:underline", children: "Login" }, void 0, false, {
+      /* @__PURE__ */ jsxDEV("div", { className: "text-center text-sm mt-6", children: [
+        /* @__PURE__ */ jsxDEV("span", { className: "text-slate-400", children: "\u0423\u0436\u0435 \u0435\u0441\u0442\u044C \u0430\u043A\u043A\u0430\u0443\u043D\u0442? " }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-          lineNumber: 82,
+          lineNumber: 121,
           columnNumber: 25
-        }, void 0)
+        }, void 0),
+        /* @__PURE__ */ jsxDEV(
+          Link,
+          {
+            to: "/login",
+            className: "text-cyan-400 hover:text-cyan-300 hover:underline transition-colors",
+            children: "\u0412\u043E\u0439\u0442\u0438"
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
+            lineNumber: 122,
+            columnNumber: 25
+          },
+          void 0
+        )
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-        lineNumber: 80,
+        lineNumber: 120,
         columnNumber: 21
       }, void 0)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-      lineNumber: 37,
+      lineNumber: 53,
       columnNumber: 17
     }, void 0)
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-    lineNumber: 35,
+    lineNumber: 37,
     columnNumber: 13
   }, void 0) }, void 0, false, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/register.tsx",
-    lineNumber: 34,
+    lineNumber: 36,
     columnNumber: 9
   }, void 0);
 };
@@ -971,22 +1335,53 @@ const Login = () => {
     try {
       const { token, user } = await login({ email, password }).unwrap();
       dispatch(setCredentials({ token, user }));
-      navigate({ to: "/" });
+      navigate({ to: "/media" });
     } catch (err) {
       console.error("Login failed", err);
     }
   };
-  return /* @__PURE__ */ jsxDEV("div", { className: "flex min-h-screen items-center justify-center bg-gray-900 text-white", children: /* @__PURE__ */ jsxDEV("div", { className: "w-full max-w-md p-8 bg-gray-800 rounded-lg shadow-lg", children: [
-    /* @__PURE__ */ jsxDEV("h2", { className: "text-2xl font-bold mb-6 text-center", children: "Login" }, void 0, false, {
+  return /* @__PURE__ */ jsxDEV("div", { className: "flex min-h-screen items-center justify-center bg-background", children: /* @__PURE__ */ jsxDEV("div", { className: "w-full max-w-md p-8", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "mb-8 text-center", children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "mb-6 flex justify-center", children: /* @__PURE__ */ jsxDEV(
+        "img",
+        {
+          src: "/logo.png",
+          alt: "Logo",
+          className: "h-20 w-20 rounded-lg"
+        },
+        void 0,
+        false,
+        {
+          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
+          lineNumber: 31,
+          columnNumber: 25
+        },
+        void 0
+      ) }, void 0, false, {
+        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
+        lineNumber: 30,
+        columnNumber: 21
+      }, void 0),
+      /* @__PURE__ */ jsxDEV("h2", { className: "text-3xl font-bold text-white mb-2", children: "\u0412\u0445\u043E\u0434" }, void 0, false, {
+        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
+        lineNumber: 37,
+        columnNumber: 21
+      }, void 0),
+      /* @__PURE__ */ jsxDEV("p", { className: "text-slate-400", children: "\u0412\u043E\u0439\u0434\u0438\u0442\u0435 \u0432 \u0441\u0432\u043E\u0439 \u0430\u043A\u043A\u0430\u0443\u043D\u0442" }, void 0, false, {
+        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
+        lineNumber: 38,
+        columnNumber: 21
+      }, void 0)
+    ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-      lineNumber: 28,
+      lineNumber: 29,
       columnNumber: 17
     }, void 0),
     /* @__PURE__ */ jsxDEV("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
       /* @__PURE__ */ jsxDEV("div", { children: [
-        /* @__PURE__ */ jsxDEV("label", { className: "block text-sm font-medium mb-1", children: "Email" }, void 0, false, {
+        /* @__PURE__ */ jsxDEV("label", { className: "block text-sm font-medium mb-2 text-white", children: "Email" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-          lineNumber: 31,
+          lineNumber: 42,
           columnNumber: 25
         }, void 0),
         /* @__PURE__ */ jsxDEV(
@@ -995,27 +1390,28 @@ const Login = () => {
             type: "email",
             value: email,
             onChange: (e) => setEmail(e.target.value),
-            className: "w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500",
+            className: "w-full p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors",
+            placeholder: "your@email.com",
             required: true
           },
           void 0,
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-            lineNumber: 32,
+            lineNumber: 45,
             columnNumber: 25
           },
           void 0
         )
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-        lineNumber: 30,
+        lineNumber: 41,
         columnNumber: 21
       }, void 0),
       /* @__PURE__ */ jsxDEV("div", { children: [
-        /* @__PURE__ */ jsxDEV("label", { className: "block text-sm font-medium mb-1", children: "Password" }, void 0, false, {
+        /* @__PURE__ */ jsxDEV("label", { className: "block text-sm font-medium mb-2 text-white", children: "\u041F\u0430\u0440\u043E\u043B\u044C" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-          lineNumber: 41,
+          lineNumber: 55,
           columnNumber: 25
         }, void 0),
         /* @__PURE__ */ jsxDEV(
@@ -1024,26 +1420,27 @@ const Login = () => {
             type: "password",
             value: password,
             onChange: (e) => setPassword(e.target.value),
-            className: "w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500",
+            className: "w-full p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors",
+            placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
             required: true
           },
           void 0,
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-            lineNumber: 42,
+            lineNumber: 58,
             columnNumber: 25
           },
           void 0
         )
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-        lineNumber: 40,
+        lineNumber: 54,
         columnNumber: 21
       }, void 0),
-      error && /* @__PURE__ */ jsxDEV("div", { className: "text-red-500 text-sm text-center", children: "Login failed. Please check credentials." }, void 0, false, {
+      error && /* @__PURE__ */ jsxDEV("div", { className: "rounded-lg bg-red-500/10 border border-red-500/50 p-3 text-red-400 text-sm text-center", children: "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 email \u0438\u043B\u0438 \u043F\u0430\u0440\u043E\u043B\u044C. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430." }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-        lineNumber: 51,
+        lineNumber: 68,
         columnNumber: 25
       }, void 0),
       /* @__PURE__ */ jsxDEV(
@@ -1051,58 +1448,94 @@ const Login = () => {
         {
           type: "submit",
           disabled: isLoading,
-          className: "w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 rounded font-medium disabled:opacity-50",
-          children: isLoading ? "Logging in..." : "Login"
+          className: "w-full inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed",
+          children: isLoading ? /* @__PURE__ */ jsxDEV(Fragment, { children: [
+            /* @__PURE__ */ jsxDEV(Loader2, { className: "h-5 w-5 animate-spin" }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
+              lineNumber: 79,
+              columnNumber: 33
+            }, void 0),
+            "\u0412\u0445\u043E\u0434..."
+          ] }, void 0, true, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
+            lineNumber: 78,
+            columnNumber: 29
+          }, void 0) : /* @__PURE__ */ jsxDEV(Fragment, { children: [
+            /* @__PURE__ */ jsxDEV(LogIn, { className: "h-5 w-5" }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
+              lineNumber: 84,
+              columnNumber: 33
+            }, void 0),
+            "\u0412\u043E\u0439\u0442\u0438"
+          ] }, void 0, true, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
+            lineNumber: 83,
+            columnNumber: 29
+          }, void 0)
         },
         void 0,
         false,
         {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-          lineNumber: 55,
+          lineNumber: 72,
           columnNumber: 21
         },
         void 0
       ),
-      /* @__PURE__ */ jsxDEV("div", { className: "text-center text-sm mt-4", children: [
-        "Don't have an account?",
-        " ",
-        /* @__PURE__ */ jsxDEV(Link, { to: "/register", className: "text-blue-400 hover:underline", children: "Register" }, void 0, false, {
+      /* @__PURE__ */ jsxDEV("div", { className: "text-center text-sm mt-6", children: [
+        /* @__PURE__ */ jsxDEV("span", { className: "text-slate-400", children: "\u041D\u0435\u0442 \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430? " }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-          lineNumber: 64,
+          lineNumber: 90,
           columnNumber: 25
-        }, void 0)
+        }, void 0),
+        /* @__PURE__ */ jsxDEV(
+          Link,
+          {
+            to: "/register",
+            className: "text-cyan-400 hover:text-cyan-300 hover:underline transition-colors",
+            children: "\u0417\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u043E\u0432\u0430\u0442\u044C\u0441\u044F"
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
+            lineNumber: 91,
+            columnNumber: 25
+          },
+          void 0
+        )
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-        lineNumber: 62,
+        lineNumber: 89,
         columnNumber: 21
       }, void 0)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-      lineNumber: 29,
+      lineNumber: 40,
       columnNumber: 17
     }, void 0)
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-    lineNumber: 27,
+    lineNumber: 28,
     columnNumber: 13
   }, void 0) }, void 0, false, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/login.tsx",
-    lineNumber: 26,
+    lineNumber: 27,
     columnNumber: 9
   }, void 0);
 };
 const Route$3 = createFileRoute("/login")({
   component: Login
 });
-const $$splitComponentImporter$2 = () => import('./index-CCvDusVv.mjs');
+const $$splitComponentImporter$2 = () => import('./index-vRGhebwl.mjs');
 const Route$2 = createFileRoute("/")({
   component: lazyRouteComponent($$splitComponentImporter$2, "component")
 });
-const $$splitComponentImporter$1 = () => import('./index-VU-lT-Ng.mjs');
+const $$splitComponentImporter$1 = () => import('./index-BKcM3vPO.mjs');
 const Route$1 = createFileRoute("/media/")({
   component: lazyRouteComponent($$splitComponentImporter$1, "component")
 });
-const $$splitComponentImporter = () => import('./_chatId-kac774j7.mjs');
+const $$splitComponentImporter = () => import('./_chatId-BuJzWMqB.mjs');
 const Route = createFileRoute("/media/$chatId")({
   component: lazyRouteComponent($$splitComponentImporter, "component")
 });
@@ -1152,5 +1585,5 @@ const router = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProper
   getRouter
 }, Symbol.toStringTag, { value: "Module" }));
 
-export { Route as R, useGetChatsQuery as a, useCreateChatMutation as b, useDeleteFileMutation as c, useUploadThumbnailMutation as d, useGetModelsQuery as e, useGetFilesQuery as f, useGetChatQuery as g, useUpdateChatMutation as h, useGenerateMediaMutation as i, useLazyGetRequestQuery as j, useGetRequestQuery as k, useDeleteChatMutation as l, useUploadToImgbbMutation as m, useUploadUserMediaMutation as n, useGenerateMediaTestMutation as o, router as r, usePostDataMutation as u };
-//# sourceMappingURL=router-ZQUnxrzB.mjs.map
+export { Route as R, useCreateChatMutation as a, useDeleteFileMutation as b, useUploadThumbnailMutation as c, useGetModelsQuery as d, useGetFilesQuery as e, useGetChatQuery as f, useGetPricingQuery as g, useUpdateChatMutation as h, useGenerateMediaMutation as i, useLazyGetRequestQuery as j, useDeleteChatMutation as k, useUploadToImgbbMutation as l, useUploadUserMediaMutation as m, handleSessionTimeout as n, useGenerateMediaTestMutation as o, router as r, useGetChatsQuery as u };
+//# sourceMappingURL=router-EhyTjV9k.mjs.map

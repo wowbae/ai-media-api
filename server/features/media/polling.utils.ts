@@ -4,7 +4,56 @@ import { prisma } from "prisma/client";
 import { getProviderManager, type TaskStatusResult } from "./providers";
 import { formatErrorMessage } from "./error-utils";
 import { activePollingTasks } from "./polling.service";
-import { saveFilesToDatabase, sendFilesToTelegram, updateFileUrlsInDatabase } from "./database.service";
+import { saveFilesToDatabase, sendFilesToTelegram } from "./database.service";
+import { getSSEService } from "./sse.service";
+
+/**
+ * Отправить SSE уведомление о завершении задачи
+ */
+async function sendSSENotification(
+  requestId: number,
+  chatId: number,
+  status: 'COMPLETED' | 'FAILED' | 'PROCESSING',
+  data?: {
+    filesCount?: number;
+    errorMessage?: string;
+  }
+): Promise<void> {
+  try {
+    // Получаем информацию о запросе для определения userId
+    const request = await prisma.mediaRequest.findUnique({
+      where: { id: requestId },
+      include: { chat: true },
+    });
+
+    if (!request || !request.chat || !request.chat.userId) {
+      console.warn(`[SSE] ⚠️ Request ${requestId} не найден или userId отсутствует для отправки уведомления`);
+      return;
+    }
+
+    const userId = request.chat.userId;
+    const sseService = getSSEService();
+
+    const eventType = status === 'COMPLETED' ? 'REQUEST_COMPLETED' as const : 
+                      status === 'FAILED' ? 'REQUEST_FAILED' as const : 'REQUEST_PROCESSING' as const;
+
+    const event = {
+      type: eventType,
+      requestId,
+      chatId,
+      status,
+      timestamp: new Date().toISOString(),
+      data,
+    };
+
+    const sent = sseService.sendToUser(userId, event);
+    if (!sent) {
+      console.warn(`[SSE] ⚠️ Не удалось отправить уведомление пользователю ${userId}`);
+    }
+  } catch (error) {
+    console.error(`[SSE] ❌ Ошибка отправки уведомления:`, error);
+  }
+}
 
 /**
  * Проверка начального статуса запроса перед началом polling
@@ -147,16 +196,12 @@ async function getTaskResultWithRetry(
  */
 async function saveFilesAndNotify(
   requestId: number,
-  savedFiles: any[],
+  savedFiles: Parameters<typeof saveFilesToDatabase>[1],
   prompt: string
 ): Promise<void> {
-  // Сохраняем файлы в БД
   const savedMediaFiles = await saveFilesToDatabase(requestId, savedFiles, prompt);
-
-  // Отправляем в Telegram
   await sendFilesToTelegram(requestId, savedMediaFiles, prompt);
 
-  // Загружаем изображения на imgbb и обновляем URL в БД
   const { uploadFilesToImgbbAndUpdateDatabase } = await import("./imgbb.service");
   await uploadFilesToImgbbAndUpdateDatabase(savedFiles, requestId, prompt);
 }
@@ -189,6 +234,14 @@ export async function handleTaskCompleted(
   model: MediaModel,
   prompt: string
 ): Promise<void> {
+  // Завершённые запросы не обрабатываем повторно
+  const request = await getRequestWithChat(requestId);
+  if (request?.status === 'COMPLETED') {
+    console.log(`[MediaService] Запрос requestId=${requestId} уже завершён, пропускаем`);
+    activePollingTasks.delete(requestId);
+    return;
+  }
+
   const providerManager = getProviderManager();
   const provider = providerManager.getProvider(model);
 
@@ -198,14 +251,18 @@ export async function handleTaskCompleted(
     );
   }
 
-  // Получаем результат с retry-логикой
   const savedFiles = await getTaskResultWithRetry(provider, taskId, requestId);
 
-  // Сохраняем файлы и отправляем уведомления
-  await saveFilesAndNotify(requestId, savedFiles, prompt);
+  const chatId = request?.chatId;
 
-  // Обновляем статус
+  await saveFilesAndNotify(requestId, savedFiles, prompt);
   await markRequestCompleted(requestId);
+
+  if (chatId) {
+    await sendSSENotification(requestId, chatId, 'COMPLETED', {
+      filesCount: savedFiles.length,
+    });
+  }
 
   console.log(
     `[MediaService] ✅ Async генерация завершена: requestId=${requestId}, файлов: ${savedFiles.length}`,
@@ -236,6 +293,10 @@ export async function handleTaskFailed(
     { error: status.error, provider: providerName, model },
   );
 
+  // Получаем chatId для уведомления
+  const request = await getRequestWithChat(requestId);
+  const chatId = request?.chatId;
+
   await prisma.mediaRequest.update({
     where: { id: requestId },
     data: {
@@ -243,6 +304,13 @@ export async function handleTaskFailed(
       errorMessage: formattedErrorMessage,
     },
   });
+
+  // Отправляем SSE уведомление об ошибке
+  if (chatId) {
+    await sendSSENotification(requestId, chatId, 'FAILED', {
+      errorMessage: formattedErrorMessage,
+    });
+  }
 
   activePollingTasks.delete(requestId);
 }

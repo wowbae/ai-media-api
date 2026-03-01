@@ -9,6 +9,19 @@ export interface AttachedFile {
     imgbbUrl?: string; // URL на imgbb для изображений (загружается при добавлении)
 }
 
+// Извлечение сообщения об ошибке (RTK Query возвращает объект, а не Error)
+function getErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'object' && error !== null) {
+        const err = error as { data?: { error?: string } | string; message?: string };
+        if (typeof err.data === 'object' && typeof err.data?.error === 'string')
+            return err.data.error;
+        if (typeof err.data === 'string') return err.data;
+        if (typeof err.message === 'string') return err.message;
+    }
+    return fallback;
+}
+
 // Конвертация файла в base64
 function fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -117,13 +130,15 @@ export function useChatInputFiles(chatId?: number) {
                         { uploaded: result.uploaded, total: result.total }
                     );
                 } catch (error) {
+                    const errorMessage = getErrorMessage(
+                        error,
+                        'Неизвестная ошибка при загрузке изображений'
+                    );
                     console.error(
                         '[ChatInput] ❌ Ошибка загрузки изображений на imgbb:',
+                        errorMessage,
                         error
                     );
-                    const errorMessage = error instanceof Error 
-                        ? error.message 
-                        : 'Неизвестная ошибка при загрузке изображений';
                     alert(`Ошибка при загрузке изображений: ${errorMessage}`);
                     // Не прерываем процесс, просто не будет imgbbUrl
                     // Файлы можно будет использовать с base64 (fallback)
@@ -169,10 +184,11 @@ export function useChatInputFiles(chatId?: number) {
                         });
                     }
                 } catch (error) {
-                    console.error('[ChatInput] ❌ Ошибка сохранения файлов в БД:', error);
-                    const errorMessage = error instanceof Error 
-                        ? error.message 
-                        : 'Неизвестная ошибка при сохранении файлов';
+                    const errorMessage = getErrorMessage(
+                        error,
+                        'Неизвестная ошибка при сохранении файлов'
+                    );
+                    console.error('[ChatInput] ❌ Ошибка сохранения файлов в БД:', errorMessage, error);
                     alert(`Ошибка при сохранении файлов: ${errorMessage}`);
                 }
             }
@@ -205,10 +221,11 @@ export function useChatInputFiles(chatId?: number) {
                 const newFiles = await processFiles(Array.from(files), true); // true = upload to DB
                 setAttachedFiles((prev) => [...prev, ...newFiles]);
             } catch (error) {
-                console.error('[ChatInput] Ошибка при обработке файлов:', error);
-                const errorMessage = error instanceof Error 
-                    ? error.message 
-                    : 'Неизвестная ошибка при прикреплении файлов';
+                const errorMessage = getErrorMessage(
+                    error,
+                    'Неизвестная ошибка при прикреплении файлов'
+                );
+                console.error('[ChatInput] Ошибка при обработке файлов:', errorMessage, error);
                 alert(`Ошибка при прикреплении файлов: ${errorMessage}`);
             }
 
@@ -265,13 +282,11 @@ export function useChatInputFiles(chatId?: number) {
                 const processedFiles = await processFiles([file], false, true); // false = DON'T upload to DB again, true = skip size check
                 setAttachedFiles((prev) => [...prev, ...processedFiles]);
             } catch (error) {
-                console.error(
-                    '[ChatInput] Ошибка прикрепления файла:',
-                    error
+                const errorMessage = getErrorMessage(
+                    error,
+                    'Неизвестная ошибка при прикреплении файла'
                 );
-                const errorMessage = error instanceof Error 
-                    ? error.message 
-                    : 'Неизвестная ошибка при прикреплении файла';
+                console.error('[ChatInput] Ошибка прикрепления файла:', errorMessage, error);
                 alert(`Ошибка при прикреплении файла: ${errorMessage}`);
             }
         },
@@ -337,10 +352,11 @@ export function useChatInputFiles(chatId?: number) {
                     setAttachedFiles((prev) => [...prev, ...newFiles]);
                 }
             } catch (error) {
-                console.error('[ChatInput] Ошибка при обработке файлов (drag-and-drop):', error);
-                const errorMessage = error instanceof Error 
-                    ? error.message 
-                    : 'Неизвестная ошибка при прикреплении файлов';
+                const errorMessage = getErrorMessage(
+                    error,
+                    'Неизвестная ошибка при прикреплении файлов'
+                );
+                console.error('[ChatInput] Ошибка при обработке файлов (drag-and-drop):', errorMessage, error);
                 alert(`Ошибка при прикреплении файлов: ${errorMessage}`);
             }
         },
@@ -379,10 +395,11 @@ export function useChatInputFiles(chatId?: number) {
                     setAttachedFiles((prev) => [...prev, ...newFiles]);
                 }
             } catch (error) {
-                console.error('[ChatInput] Ошибка при обработке файлов (paste):', error);
-                const errorMessage = error instanceof Error 
-                    ? error.message 
-                    : 'Неизвестная ошибка при прикреплении файлов';
+                const errorMessage = getErrorMessage(
+                    error,
+                    'Неизвестная ошибка при прикреплении файлов'
+                );
+                console.error('[ChatInput] Ошибка при обработке файлов (paste):', errorMessage, error);
                 alert(`Ошибка при прикреплении файлов: ${errorMessage}`);
             }
         },

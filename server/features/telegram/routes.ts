@@ -34,7 +34,7 @@ telegramRouter.post('/groups', async (req: Request, res: Response) => {
         const result = addGroupSchema.safeParse(req.body);
 
         if (!result.success) {
-            return res.status(400).json({ success: false, error: result.error.errors });
+            return res.status(400).json({ success: false, error: result.error.issues });
         }
 
         const { groupId, title } = result.data;

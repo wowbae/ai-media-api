@@ -310,7 +310,7 @@ export function createWavespeedProvider(
 
         return {
           taskId,
-          status: WAVESPEED_STATUS_MAP[status] || "pending",
+          status: (WAVESPEED_STATUS_MAP[status] ?? "pending") as "pending" | "processing",
         };
       } catch (error) {
         console.error("[Wavespeed] Ошибка при создании задачи:", error);

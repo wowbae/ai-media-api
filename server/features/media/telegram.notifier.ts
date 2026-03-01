@@ -530,22 +530,24 @@ async function formatCaption(
 
     // Загружаем модель из связанного запроса
     let modelName: string | null = null;
-    try {
-        const request = await prisma.mediaRequest.findUnique({
-            where: { id: file.requestId },
-            select: { model: true },
-        });
+    if (file.requestId != null) {
+        try {
+            const request = await prisma.mediaRequest.findUnique({
+                where: { id: file.requestId },
+                select: { model: true },
+            });
 
-        if (request?.model) {
-            // Получаем читабельное имя модели из конфига
-            const modelConfig = MEDIA_MODELS[request.model];
-            modelName = modelConfig?.name || request.model;
+            if (request?.model) {
+                // Получаем читабельное имя модели из конфига
+                const modelConfig = MEDIA_MODELS[request.model];
+                modelName = modelConfig?.name || request.model;
+            }
+        } catch (error) {
+            console.warn(
+                '[Telegram] Не удалось загрузить модель для caption:',
+                error
+            );
         }
-    } catch (error) {
-        console.warn(
-            '[Telegram] Не удалось загрузить модель для caption:',
-            error
-        );
     }
 
     // let caption = `🎨 <b>AI Media Generated</b>\n\n`;

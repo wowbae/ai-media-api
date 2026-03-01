@@ -68,10 +68,6 @@ function SelectContent({
         position={position}
         align={align}
         style={props.style}
-        onOpenAutoFocus={(e) => {
-          // Предотвращаем автоматический фокус, который может вызывать клики
-          e.preventDefault();
-        }}
         {...props}
       >
         <SelectScrollUpButton />

@@ -2,17 +2,28 @@ import { jsxDEV, Fragment } from 'react/jsx-dev-runtime';
 import * as React from 'react';
 import React__default, { forwardRef, useState, useEffect, useRef, useMemo, useCallback, useImperativeHandle } from 'react';
 import { useParams, useNavigate, Link } from '@tanstack/react-router';
-import { FlaskConical, Plus, MessageSquare, X, Loader2, Paperclip, Lock, Unlock, Send, MoreVertical, Pencil, Trash2, XIcon, Sparkles, ImageIcon, Video, Music, ChevronUp, ChevronDown, ChevronDownIcon, CheckIcon, ChevronUpIcon } from 'lucide-react';
+import { FlaskConical, Plus, MessageSquare, X, Loader2, Paperclip, Lock, Unlock, Send, ChevronDown, MoreVertical, Pencil, Trash2, XIcon, ChevronDownIcon, CheckIcon, Sparkles, ImageIcon, Video, Music, ChevronUp, ChevronUpIcon } from 'lucide-react';
 import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { a as useGetChatsQuery, b as useCreateChatMutation, l as useDeleteChatMutation, h as useUpdateChatMutation, i as useGenerateMediaMutation, o as useGenerateMediaTestMutation, e as useGetModelsQuery, m as useUploadToImgbbMutation, n as useUploadUserMediaMutation } from './router-ZQUnxrzB.mjs';
+import { u as useGetChatsQuery, a as useCreateChatMutation, k as useDeleteChatMutation, h as useUpdateChatMutation, i as useGenerateMediaMutation, o as useGenerateMediaTestMutation, d as useGetModelsQuery, l as useUploadToImgbbMutation, m as useUploadUserMediaMutation, n as handleSessionTimeout } from './router-EhyTjV9k.mjs';
 import { Slot } from '@radix-ui/react-slot';
 import { cva } from 'class-variance-authority';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import * as SelectPrimitive from '@radix-ui/react-select';
 
+const API_URL = "http://localhost:4000";
+const MEDIA_FILES_URL = `${API_URL}/media-files`;
+function getMediaFileUrl(path) {
+  return `${MEDIA_FILES_URL}/${path}`;
+}
+const constants = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  API_URL,
+  MEDIA_FILES_URL,
+  getMediaFileUrl
+}, Symbol.toStringTag, { value: "Module" }));
 function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
@@ -20,6 +31,15 @@ function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+function getOriginalFileUrl(file) {
+  if (file.path) {
+    return getMediaFileUrl(file.path);
+  }
+  if (file.url) {
+    return file.url;
+  }
+  return null;
 }
 async function downloadFile(url, filename) {
   try {
@@ -155,8 +175,8 @@ function ScrollBar({
       orientation,
       className: cn(
         "flex touch-none select-none transition-colors",
-        orientation === "vertical" && "h-full w-2.5 border-l border-l-transparent p-[1px]",
-        orientation === "horizontal" && "h-2.5 w-full flex-col border-t border-t-transparent p-[1px]",
+        orientation === "vertical" && "h-full w-1.5 border-l border-l-transparent p-[1px]",
+        orientation === "horizontal" && "h-1.5 w-full flex-col border-t border-t-transparent p-[1px]",
         className
       ),
       ...props,
@@ -164,7 +184,7 @@ function ScrollBar({
         ScrollAreaPrimitive.ScrollAreaThumb,
         {
           "data-slot": "scroll-area-thumb",
-          className: "relative flex-1 rounded-full bg-slate-600/50 hover:bg-slate-500/50"
+          className: "relative flex-1 rounded-full bg-muted-foreground/50 hover:bg-foreground/50"
         },
         void 0,
         false,
@@ -243,7 +263,7 @@ function DropdownMenuContent({
       "data-slot": "dropdown-menu-content",
       sideOffset,
       className: cn(
-        "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md",
+        "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-[300px] min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md",
         className
       ),
       ...props
@@ -513,7 +533,9 @@ function ChatSidebar() {
   async function handleCreateChat() {
     if (!newChatName.trim()) return;
     try {
-      const newChat = await createChat({ name: newChatName.trim() }).unwrap();
+      const newChat = await createChat({
+        name: newChatName.trim()
+      }).unwrap();
       setNewChatName("");
       setIsNewChatDialogOpen(false);
       navigate({
@@ -561,7 +583,7 @@ function ChatSidebar() {
     /* @__PURE__ */ jsxDEV("div", { className: PANEL_HEADER_CLASSES, children: [
       /* @__PURE__ */ jsxDEV("h2", { className: PANEL_HEADER_TITLE_CLASSES, children: "AI Media" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-        lineNumber: 137,
+        lineNumber: 147,
         columnNumber: 17
       }, this),
       /* @__PURE__ */ jsxDEV("div", { className: "flex gap-1", children: [
@@ -578,7 +600,7 @@ function ChatSidebar() {
             title: isTestMode ? "\u0422\u0435\u0441\u0442\u043E\u0432\u044B\u0439 \u0440\u0435\u0436\u0438\u043C \u0432\u043A\u043B\u044E\u0447\u0435\u043D (\u0432\u044B\u043A\u043B\u044E\u0447\u0438\u0442\u044C)" : "\u0422\u0435\u0441\u0442\u043E\u0432\u044B\u0439 \u0440\u0435\u0436\u0438\u043C \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D (\u0432\u043A\u043B\u044E\u0447\u0438\u0442\u044C)",
             children: /* @__PURE__ */ jsxDEV(FlaskConical, { className: "h-5 w-5" }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-              lineNumber: 155,
+              lineNumber: 165,
               columnNumber: 25
             }, this)
           },
@@ -586,7 +608,7 @@ function ChatSidebar() {
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-            lineNumber: 139,
+            lineNumber: 149,
             columnNumber: 21
           },
           this
@@ -600,7 +622,7 @@ function ChatSidebar() {
             onClick: () => setIsNewChatDialogOpen(true),
             children: /* @__PURE__ */ jsxDEV(Plus, { className: "h-5 w-5" }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-              lineNumber: 163,
+              lineNumber: 173,
               columnNumber: 25
             }, this)
           },
@@ -608,19 +630,19 @@ function ChatSidebar() {
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-            lineNumber: 157,
+            lineNumber: 167,
             columnNumber: 21
           },
           this
         )
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-        lineNumber: 138,
+        lineNumber: 148,
         columnNumber: 17
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-      lineNumber: 136,
+      lineNumber: 146,
       columnNumber: 13
     }, this),
     /* @__PURE__ */ jsxDEV(ScrollArea, { className: "flex-1", children: /* @__PURE__ */ jsxDEV("div", { className: "p-2 w-64 truncate", children: isChatsLoading ? (
@@ -632,12 +654,12 @@ function ChatSidebar() {
           children: [
             /* @__PURE__ */ jsxDEV(Skeleton, { className: "h-4 w-4 rounded" }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-              lineNumber: 178,
+              lineNumber: 188,
               columnNumber: 33
             }, this),
             /* @__PURE__ */ jsxDEV(Skeleton, { className: "h-4 flex-1" }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-              lineNumber: 179,
+              lineNumber: 189,
               columnNumber: 33
             }, this)
           ]
@@ -646,7 +668,7 @@ function ChatSidebar() {
         true,
         {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-          lineNumber: 174,
+          lineNumber: 184,
           columnNumber: 29
         },
         this
@@ -663,37 +685,37 @@ function ChatSidebar() {
       false,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-        lineNumber: 184,
+        lineNumber: 194,
         columnNumber: 29
       },
       this
     )) : /* @__PURE__ */ jsxDEV("div", { className: "py-8 text-center text-sm text-muted-foreground", children: [
       /* @__PURE__ */ jsxDEV(MessageSquare, { className: "mx-auto mb-2 h-8 w-8 opacity-50" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-        lineNumber: 194,
+        lineNumber: 204,
         columnNumber: 29
       }, this),
       /* @__PURE__ */ jsxDEV("p", { children: "\u041D\u0435\u0442 \u0447\u0430\u0442\u043E\u0432" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-        lineNumber: 195,
+        lineNumber: 205,
         columnNumber: 29
       }, this),
       /* @__PURE__ */ jsxDEV("p", { className: "text-xs", children: "\u0421\u043E\u0437\u0434\u0430\u0439\u0442\u0435 \u043D\u043E\u0432\u044B\u0439 \u0447\u0430\u0442" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-        lineNumber: 196,
+        lineNumber: 206,
         columnNumber: 29
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-      lineNumber: 193,
+      lineNumber: 203,
       columnNumber: 25
     }, this) }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-      lineNumber: 170,
+      lineNumber: 180,
       columnNumber: 17
     }, this) }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-      lineNumber: 169,
+      lineNumber: 179,
       columnNumber: 13
     }, this),
     /* @__PURE__ */ jsxDEV(
@@ -704,11 +726,11 @@ function ChatSidebar() {
         children: /* @__PURE__ */ jsxDEV(DialogContent, { className: "border-border bg-card", children: [
           /* @__PURE__ */ jsxDEV(DialogHeader, { children: /* @__PURE__ */ jsxDEV(DialogTitle, { className: "text-foreground", children: "\u041D\u043E\u0432\u044B\u0439 \u0447\u0430\u0442" }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-            lineNumber: 209,
+            lineNumber: 219,
             columnNumber: 25
           }, this) }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-            lineNumber: 208,
+            lineNumber: 218,
             columnNumber: 21
           }, this),
           /* @__PURE__ */ jsxDEV(
@@ -724,7 +746,7 @@ function ChatSidebar() {
             false,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-              lineNumber: 213,
+              lineNumber: 223,
               columnNumber: 21
             },
             this
@@ -742,7 +764,7 @@ function ChatSidebar() {
               false,
               {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-                lineNumber: 223,
+                lineNumber: 233,
                 columnNumber: 25
               },
               this
@@ -759,19 +781,19 @@ function ChatSidebar() {
               false,
               {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-                lineNumber: 230,
+                lineNumber: 240,
                 columnNumber: 25
               },
               this
             )
           ] }, void 0, true, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-            lineNumber: 222,
+            lineNumber: 232,
             columnNumber: 21
           }, this)
         ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-          lineNumber: 207,
+          lineNumber: 217,
           columnNumber: 17
         }, this)
       },
@@ -779,7 +801,7 @@ function ChatSidebar() {
       false,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-        lineNumber: 203,
+        lineNumber: 213,
         columnNumber: 13
       },
       this
@@ -787,11 +809,11 @@ function ChatSidebar() {
     /* @__PURE__ */ jsxDEV(Dialog, { open: isEditDialogOpen, onOpenChange: setIsEditDialogOpen, children: /* @__PURE__ */ jsxDEV(DialogContent, { className: "border-border bg-card", children: [
       /* @__PURE__ */ jsxDEV(DialogHeader, { children: /* @__PURE__ */ jsxDEV(DialogTitle, { className: "text-foreground", children: "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0447\u0430\u0442" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-        lineNumber: 245,
+        lineNumber: 255,
         columnNumber: 25
       }, this) }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-        lineNumber: 244,
+        lineNumber: 254,
         columnNumber: 21
       }, this),
       /* @__PURE__ */ jsxDEV(
@@ -807,7 +829,7 @@ function ChatSidebar() {
         false,
         {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-          lineNumber: 249,
+          lineNumber: 259,
           columnNumber: 21
         },
         this
@@ -825,7 +847,7 @@ function ChatSidebar() {
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-            lineNumber: 257,
+            lineNumber: 267,
             columnNumber: 25
           },
           this
@@ -842,28 +864,28 @@ function ChatSidebar() {
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-            lineNumber: 264,
+            lineNumber: 274,
             columnNumber: 25
           },
           this
         )
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-        lineNumber: 256,
+        lineNumber: 266,
         columnNumber: 21
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-      lineNumber: 243,
+      lineNumber: 253,
       columnNumber: 17
     }, this) }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-      lineNumber: 242,
+      lineNumber: 252,
       columnNumber: 13
     }, this)
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-    lineNumber: 134,
+    lineNumber: 144,
     columnNumber: 9
   }, this);
 }
@@ -872,7 +894,7 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
     "div",
     {
       className: cn(
-        "group flex items-center gap-2 rounded-lg p-2 transition-colors",
+        "group flex items-center gap-2 rounded-xl py-2 px-3 transition-colors",
         isActive ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
       ),
       children: [
@@ -885,12 +907,12 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
             children: [
               /* @__PURE__ */ jsxDEV(MessageSquare, { className: "h-4 w-4 shrink-0" }, void 0, false, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-                lineNumber: 300,
+                lineNumber: 310,
                 columnNumber: 17
               }, this),
               /* @__PURE__ */ jsxDEV("span", { className: "min-w-0 truncate text-sm", children: chat.name }, void 0, false, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-                lineNumber: 301,
+                lineNumber: 311,
                 columnNumber: 17
               }, this)
             ]
@@ -899,7 +921,7 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
           true,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-            lineNumber: 295,
+            lineNumber: 305,
             columnNumber: 13
           },
           this
@@ -908,7 +930,7 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
           "span",
           {
             className: cn(
-              "shrink-0 text-xs",
+              "shrink-0 text-xs transition-transform duration-200 translate-x-6 group-hover:translate-x-0",
               isActive ? "text-primary" : "text-muted-foreground"
             ),
             children: chat._count.files
@@ -917,7 +939,7 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-            lineNumber: 305,
+            lineNumber: 315,
             columnNumber: 17
           },
           this
@@ -928,10 +950,13 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
             {
               size: "icon",
               variant: "ghost",
-              className: "h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100",
+              className: cn(
+                "h-6 w-6 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
+                isActive && "group-hover:bg-orange-100 dark:group-hover:bg-orange-900/20 hover:bg-orange-200 dark:hover:bg-orange-900/30"
+              ),
               children: /* @__PURE__ */ jsxDEV(MoreVertical, { className: "h-4 w-4" }, void 0, false, {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-                lineNumber: 322,
+                lineNumber: 336,
                 columnNumber: 25
               }, this)
             },
@@ -939,13 +964,13 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
             false,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-              lineNumber: 317,
+              lineNumber: 327,
               columnNumber: 21
             },
             this
           ) }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-            lineNumber: 316,
+            lineNumber: 326,
             columnNumber: 17
           }, this),
           /* @__PURE__ */ jsxDEV(
@@ -962,7 +987,7 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
                     children: [
                       /* @__PURE__ */ jsxDEV(Pencil, { className: "mr-2 h-4 w-4" }, void 0, false, {
                         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-                        lineNumber: 333,
+                        lineNumber: 347,
                         columnNumber: 25
                       }, this),
                       "\u041F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u0442\u044C"
@@ -972,7 +997,7 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
                   true,
                   {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-                    lineNumber: 329,
+                    lineNumber: 343,
                     columnNumber: 21
                   },
                   this
@@ -985,7 +1010,7 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
                     children: [
                       /* @__PURE__ */ jsxDEV(Trash2, { className: "mr-2 h-4 w-4" }, void 0, false, {
                         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-                        lineNumber: 340,
+                        lineNumber: 354,
                         columnNumber: 25
                       }, this),
                       "\u0423\u0434\u0430\u043B\u0438\u0442\u044C"
@@ -995,7 +1020,7 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
                   true,
                   {
                     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-                    lineNumber: 336,
+                    lineNumber: 350,
                     columnNumber: 21
                   },
                   this
@@ -1006,14 +1031,14 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
             true,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-              lineNumber: 325,
+              lineNumber: 339,
               columnNumber: 17
             },
             this
           )
         ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-          lineNumber: 315,
+          lineNumber: 325,
           columnNumber: 13
         }, this)
       ]
@@ -1022,7 +1047,7 @@ function ChatItem({ chat, isActive, onDelete, onEdit }) {
     true,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-sidebar.tsx",
-      lineNumber: 287,
+      lineNumber: 297,
       columnNumber: 9
     },
     this
@@ -1264,17 +1289,18 @@ function SelectContent({
     {
       "data-slot": "select-content",
       className: cn(
-        "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
-        position === "popper" && "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+        "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-[60] max-h-[300px] min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
+        position === "popper" && "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1",
         className
       ),
       position,
       align,
+      style: props.style,
       ...props,
       children: [
         /* @__PURE__ */ jsxDEV(SelectScrollUpButton, {}, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-          lineNumber: 72,
+          lineNumber: 73,
           columnNumber: 9
         }, this),
         /* @__PURE__ */ jsxDEV(
@@ -1290,14 +1316,14 @@ function SelectContent({
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-            lineNumber: 73,
+            lineNumber: 74,
             columnNumber: 9
           },
           this
         ),
         /* @__PURE__ */ jsxDEV(SelectScrollDownButton, {}, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-          lineNumber: 82,
+          lineNumber: 83,
           columnNumber: 9
         }, this)
       ]
@@ -1331,7 +1357,7 @@ function SelectLabel({
     false,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-      lineNumber: 93,
+      lineNumber: 94,
       columnNumber: 5
     },
     this
@@ -1359,11 +1385,11 @@ function SelectItem({
             className: "absolute right-2 flex size-3.5 items-center justify-center",
             children: /* @__PURE__ */ jsxDEV(SelectPrimitive.ItemIndicator, { children: /* @__PURE__ */ jsxDEV(CheckIcon, { className: "size-4" }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-              lineNumber: 120,
+              lineNumber: 121,
               columnNumber: 11
             }, this) }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-              lineNumber: 119,
+              lineNumber: 120,
               columnNumber: 9
             }, this)
           },
@@ -1371,14 +1397,14 @@ function SelectItem({
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-            lineNumber: 115,
+            lineNumber: 116,
             columnNumber: 7
           },
           this
         ),
         /* @__PURE__ */ jsxDEV(SelectPrimitive.ItemText, { children }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-          lineNumber: 123,
+          lineNumber: 124,
           columnNumber: 7
         }, this)
       ]
@@ -1387,7 +1413,7 @@ function SelectItem({
     true,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-      lineNumber: 107,
+      lineNumber: 108,
       columnNumber: 5
     },
     this
@@ -1408,7 +1434,7 @@ function SelectScrollUpButton({
       ...props,
       children: /* @__PURE__ */ jsxDEV(ChevronUpIcon, { className: "size-4" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-        lineNumber: 154,
+        lineNumber: 155,
         columnNumber: 7
       }, this)
     },
@@ -1416,7 +1442,7 @@ function SelectScrollUpButton({
     false,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-      lineNumber: 146,
+      lineNumber: 147,
       columnNumber: 5
     },
     this
@@ -1437,7 +1463,7 @@ function SelectScrollDownButton({
       ...props,
       children: /* @__PURE__ */ jsxDEV(ChevronDownIcon, { className: "size-4" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-        lineNumber: 172,
+        lineNumber: 173,
         columnNumber: 7
       }, this)
     },
@@ -1445,21 +1471,11 @@ function SelectScrollDownButton({
     false,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/ui/select.tsx",
-      lineNumber: 164,
+      lineNumber: 165,
       columnNumber: 5
     },
     this
   );
-}
-function loadMediaSettings() {
-  {
-    return {};
-  }
-}
-function saveMediaSettings(settings) {
-  {
-    return;
-  }
 }
 function loadLockButtonState() {
   {
@@ -1544,18 +1560,20 @@ function Badge({
 }
 const MODEL_ICONS = {
   NANO_BANANA_OPENROUTER: "\u{1F34C}",
+  NANO_BANANA_PRO_KIEAI: "\u{1F34C}",
   MIDJOURNEY: "\u{1F3A8}",
-  VEO_3_1_FAST: "\u{1F3A5}",
+  VEO_3_1_FAST_KIEAI: "\u{1F3A5}",
   NANO_BANANA_PRO_LAOZHANG: "\u{1F34C}",
   SORA_2: "\u{1F30A}",
-  VEO_3_1: "\u{1F3A5}",
-  KLING_2_6: "\u{1F3AC}",
-  KLING_2_5_TURBO_PRO: "\u{1F3AC}",
+  VEO_3_1_KIEAI: "\u{1F3A5}",
+  KLING_2_6_KIEAI: "\u{1F3AC}",
+  KLING_2_5_TURBO_PRO_KIEAI: "\u{1F3AC}",
   IMAGEN4_KIEAI: "\u{1F5BC}\uFE0F",
   IMAGEN4_ULTRA_KIEAI: "\u{1F48E}",
-  SEEDREAM_4_5: "\u{1F30C}",
-  SEEDREAM_4_5_EDIT: "\u{1FA84}",
-  ELEVENLABS_MULTILINGUAL_V2: "\u{1F3A4}"
+  SEEDREAM_4_5_KIEAI: "\u{1F30C}",
+  SEEDREAM_4_5_EDIT_KIEAI: "\u{1FA84}",
+  ELEVENLABS_MULTILINGUAL_V2_KIEAI: "\u{1F3A4}",
+  KLING_VIDEO_O1_WAVESPEED: "\u{1F3A5}"
 };
 const DEFAULT_ICON = "\u2728";
 function getModelIcon(model) {
@@ -1577,6 +1595,10 @@ const PROVIDER_BADGE_CONFIG = {
   kieai: {
     label: "Kie.ai",
     className: "bg-blue-900/50 text-blue-400 border-blue-700/50"
+  },
+  wavespeed: {
+    label: "Wavespeed",
+    className: "bg-cyan-900/50 text-cyan-400 border-cyan-700/50"
   }
 };
 function ProviderBadge({ provider, className }) {
@@ -1595,7 +1617,7 @@ function ProviderBadge({ provider, className }) {
     false,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-      lineNumber: 65,
+      lineNumber: 69,
       columnNumber: 9
     },
     this
@@ -1653,12 +1675,12 @@ function ModelSelector({
         /* @__PURE__ */ jsxDEV(SelectTrigger, { className: "w-[280px] border-border bg-secondary text-foreground rounded-xl", children: /* @__PURE__ */ jsxDEV(SelectValue, { placeholder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043C\u043E\u0434\u0435\u043B\u044C", children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2 w-full", children: [
           /* @__PURE__ */ jsxDEV("span", { children: getModelIcon(value) }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-            lineNumber: 148,
+            lineNumber: 152,
             columnNumber: 25
           }, this),
           /* @__PURE__ */ jsxDEV("span", { className: "truncate", children: currentModel?.name || value }, void 0, false, {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-            lineNumber: 149,
+            lineNumber: 153,
             columnNumber: 25
           }, this),
           currentModel?.provider && currentModel.provider in PROVIDER_BADGE_CONFIG && /* @__PURE__ */ jsxDEV(
@@ -1670,257 +1692,272 @@ function ModelSelector({
             false,
             {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-              lineNumber: 154,
+              lineNumber: 158,
               columnNumber: 33
             },
             this
           )
         ] }, void 0, true, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-          lineNumber: 147,
+          lineNumber: 151,
           columnNumber: 21
         }, this) }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-          lineNumber: 146,
+          lineNumber: 150,
           columnNumber: 17
         }, this) }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-          lineNumber: 145,
+          lineNumber: 149,
           columnNumber: 13
         }, this),
-        /* @__PURE__ */ jsxDEV(SelectContent, { className: "border-border bg-card", children: isLoading ? /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2 p-2 text-slate-400", children: [
-          /* @__PURE__ */ jsxDEV(Sparkles, { className: "h-4 w-4 animate-pulse" }, void 0, false, {
+        /* @__PURE__ */ jsxDEV(
+          SelectContent,
+          {
+            side: "top",
+            sideOffset: 8,
+            position: "popper",
+            collisionPadding: 20,
+            avoidCollisions: true,
+            className: "border-border bg-card data-[side=top]:animate-none!",
+            children: isLoading ? /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2 p-2 text-slate-400", children: [
+              /* @__PURE__ */ jsxDEV(Sparkles, { className: "h-4 w-4 animate-pulse" }, void 0, false, {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                lineNumber: 178,
+                columnNumber: 25
+              }, this),
+              /* @__PURE__ */ jsxDEV("span", { children: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u043C\u043E\u0434\u0435\u043B\u0435\u0439..." }, void 0, false, {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                lineNumber: 179,
+                columnNumber: 25
+              }, this)
+            ] }, void 0, true, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+              lineNumber: 177,
+              columnNumber: 21
+            }, this) : /* @__PURE__ */ jsxDEV(Fragment, { children: [
+              imageModels.length > 0 && /* @__PURE__ */ jsxDEV(SelectGroup, { children: [
+                /* @__PURE__ */ jsxDEV(SelectLabel, { className: "flex items-center gap-2 text-muted-foreground", children: [
+                  /* @__PURE__ */ jsxDEV(ImageIcon, { className: "h-4 w-4" }, void 0, false, {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                    lineNumber: 187,
+                    columnNumber: 37
+                  }, this),
+                  /* @__PURE__ */ jsxDEV("span", { children: "\u0418\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F" }, void 0, false, {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                    lineNumber: 188,
+                    columnNumber: 37
+                  }, this)
+                ] }, void 0, true, {
+                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                  lineNumber: 186,
+                  columnNumber: 33
+                }, this),
+                imageModels.map((model) => /* @__PURE__ */ jsxDEV(
+                  SelectItem,
+                  {
+                    value: model.key,
+                    className: "text-muted-foreground focus:bg-secondary focus:text-foreground pl-6",
+                    children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2 w-full min-w-[200px]", children: [
+                      /* @__PURE__ */ jsxDEV("span", { children: getModelIcon(model.key) }, void 0, false, {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                        lineNumber: 197,
+                        columnNumber: 45
+                      }, this),
+                      /* @__PURE__ */ jsxDEV("span", { children: model.name }, void 0, false, {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                        lineNumber: 200,
+                        columnNumber: 45
+                      }, this),
+                      model.provider && model.provider in PROVIDER_BADGE_CONFIG && /* @__PURE__ */ jsxDEV(
+                        ProviderBadge,
+                        {
+                          provider: model.provider
+                        },
+                        void 0,
+                        false,
+                        {
+                          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                          lineNumber: 204,
+                          columnNumber: 53
+                        },
+                        this
+                      )
+                    ] }, void 0, true, {
+                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                      lineNumber: 196,
+                      columnNumber: 41
+                    }, this)
+                  },
+                  model.key,
+                  false,
+                  {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                    lineNumber: 191,
+                    columnNumber: 37
+                  },
+                  this
+                ))
+              ] }, void 0, true, {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                lineNumber: 185,
+                columnNumber: 29
+              }, this),
+              videoModels.length > 0 && /* @__PURE__ */ jsxDEV(SelectGroup, { children: [
+                /* @__PURE__ */ jsxDEV(SelectLabel, { className: "flex items-center gap-2 text-muted-foreground", children: [
+                  /* @__PURE__ */ jsxDEV(Video, { className: "h-4 w-4" }, void 0, false, {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                    lineNumber: 220,
+                    columnNumber: 37
+                  }, this),
+                  /* @__PURE__ */ jsxDEV("span", { children: "\u0412\u0438\u0434\u0435\u043E" }, void 0, false, {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                    lineNumber: 221,
+                    columnNumber: 37
+                  }, this)
+                ] }, void 0, true, {
+                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                  lineNumber: 219,
+                  columnNumber: 33
+                }, this),
+                videoModels.map((model) => /* @__PURE__ */ jsxDEV(
+                  SelectItem,
+                  {
+                    value: model.key,
+                    className: "text-muted-foreground focus:bg-secondary focus:text-foreground pl-6",
+                    children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2 w-full min-w-[200px]", children: [
+                      /* @__PURE__ */ jsxDEV("span", { children: getModelIcon(model.key) }, void 0, false, {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                        lineNumber: 230,
+                        columnNumber: 45
+                      }, this),
+                      /* @__PURE__ */ jsxDEV("span", { children: model.name }, void 0, false, {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                        lineNumber: 233,
+                        columnNumber: 45
+                      }, this),
+                      model.provider && model.provider in PROVIDER_BADGE_CONFIG && /* @__PURE__ */ jsxDEV(
+                        ProviderBadge,
+                        {
+                          provider: model.provider
+                        },
+                        void 0,
+                        false,
+                        {
+                          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                          lineNumber: 237,
+                          columnNumber: 53
+                        },
+                        this
+                      )
+                    ] }, void 0, true, {
+                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                      lineNumber: 229,
+                      columnNumber: 41
+                    }, this)
+                  },
+                  model.key,
+                  false,
+                  {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                    lineNumber: 224,
+                    columnNumber: 37
+                  },
+                  this
+                ))
+              ] }, void 0, true, {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                lineNumber: 218,
+                columnNumber: 29
+              }, this),
+              audioModels.length > 0 && /* @__PURE__ */ jsxDEV(SelectGroup, { children: [
+                /* @__PURE__ */ jsxDEV(SelectLabel, { className: "flex items-center gap-2 text-muted-foreground", children: [
+                  /* @__PURE__ */ jsxDEV(Music, { className: "h-4 w-4" }, void 0, false, {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                    lineNumber: 253,
+                    columnNumber: 37
+                  }, this),
+                  /* @__PURE__ */ jsxDEV("span", { children: "\u0410\u0443\u0434\u0438\u043E" }, void 0, false, {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                    lineNumber: 254,
+                    columnNumber: 37
+                  }, this)
+                ] }, void 0, true, {
+                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                  lineNumber: 252,
+                  columnNumber: 33
+                }, this),
+                audioModels.map((model) => /* @__PURE__ */ jsxDEV(
+                  SelectItem,
+                  {
+                    value: model.key,
+                    className: "text-muted-foreground focus:bg-secondary focus:text-foreground pl-6",
+                    children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2 w-full min-w-[200px]", children: [
+                      /* @__PURE__ */ jsxDEV("span", { children: getModelIcon(model.key) }, void 0, false, {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                        lineNumber: 263,
+                        columnNumber: 45
+                      }, this),
+                      /* @__PURE__ */ jsxDEV("span", { children: model.name }, void 0, false, {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                        lineNumber: 266,
+                        columnNumber: 45
+                      }, this),
+                      model.provider && model.provider in PROVIDER_BADGE_CONFIG && /* @__PURE__ */ jsxDEV(
+                        ProviderBadge,
+                        {
+                          provider: model.provider
+                        },
+                        void 0,
+                        false,
+                        {
+                          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                          lineNumber: 270,
+                          columnNumber: 53
+                        },
+                        this
+                      )
+                    ] }, void 0, true, {
+                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                      lineNumber: 262,
+                      columnNumber: 41
+                    }, this)
+                  },
+                  model.key,
+                  false,
+                  {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                    lineNumber: 257,
+                    columnNumber: 37
+                  },
+                  this
+                ))
+              ] }, void 0, true, {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+                lineNumber: 251,
+                columnNumber: 29
+              }, this)
+            ] }, void 0, true, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
+              lineNumber: 182,
+              columnNumber: 21
+            }, this)
+          },
+          void 0,
+          false,
+          {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
             lineNumber: 167,
-            columnNumber: 25
-          }, this),
-          /* @__PURE__ */ jsxDEV("span", { children: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u043C\u043E\u0434\u0435\u043B\u0435\u0439..." }, void 0, false, {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-            lineNumber: 168,
-            columnNumber: 25
-          }, this)
-        ] }, void 0, true, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-          lineNumber: 166,
-          columnNumber: 21
-        }, this) : /* @__PURE__ */ jsxDEV(Fragment, { children: [
-          imageModels.length > 0 && /* @__PURE__ */ jsxDEV(SelectGroup, { children: [
-            /* @__PURE__ */ jsxDEV(SelectLabel, { className: "flex items-center gap-2 text-muted-foreground", children: [
-              /* @__PURE__ */ jsxDEV(ImageIcon, { className: "h-4 w-4" }, void 0, false, {
-                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                lineNumber: 176,
-                columnNumber: 37
-              }, this),
-              /* @__PURE__ */ jsxDEV("span", { children: "\u0418\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F" }, void 0, false, {
-                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                lineNumber: 177,
-                columnNumber: 37
-              }, this)
-            ] }, void 0, true, {
-              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-              lineNumber: 175,
-              columnNumber: 33
-            }, this),
-            imageModels.map((model) => /* @__PURE__ */ jsxDEV(
-              SelectItem,
-              {
-                value: model.key,
-                className: "text-muted-foreground focus:bg-secondary focus:text-foreground",
-                children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2 w-full min-w-[200px]", children: [
-                  /* @__PURE__ */ jsxDEV("span", { children: getModelIcon(model.key) }, void 0, false, {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                    lineNumber: 186,
-                    columnNumber: 45
-                  }, this),
-                  /* @__PURE__ */ jsxDEV("span", { children: model.name }, void 0, false, {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                    lineNumber: 189,
-                    columnNumber: 45
-                  }, this),
-                  model.provider && model.provider in PROVIDER_BADGE_CONFIG && /* @__PURE__ */ jsxDEV(
-                    ProviderBadge,
-                    {
-                      provider: model.provider
-                    },
-                    void 0,
-                    false,
-                    {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                      lineNumber: 193,
-                      columnNumber: 53
-                    },
-                    this
-                  )
-                ] }, void 0, true, {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                  lineNumber: 185,
-                  columnNumber: 41
-                }, this)
-              },
-              model.key,
-              false,
-              {
-                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                lineNumber: 180,
-                columnNumber: 37
-              },
-              this
-            ))
-          ] }, void 0, true, {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-            lineNumber: 174,
-            columnNumber: 29
-          }, this),
-          videoModels.length > 0 && /* @__PURE__ */ jsxDEV(SelectGroup, { children: [
-            /* @__PURE__ */ jsxDEV(SelectLabel, { className: "flex items-center gap-2 text-muted-foreground", children: [
-              /* @__PURE__ */ jsxDEV(Video, { className: "h-4 w-4" }, void 0, false, {
-                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                lineNumber: 209,
-                columnNumber: 37
-              }, this),
-              /* @__PURE__ */ jsxDEV("span", { children: "\u0412\u0438\u0434\u0435\u043E" }, void 0, false, {
-                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                lineNumber: 210,
-                columnNumber: 37
-              }, this)
-            ] }, void 0, true, {
-              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-              lineNumber: 208,
-              columnNumber: 33
-            }, this),
-            videoModels.map((model) => /* @__PURE__ */ jsxDEV(
-              SelectItem,
-              {
-                value: model.key,
-                className: "text-muted-foreground focus:bg-secondary focus:text-foreground",
-                children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2 w-full min-w-[200px]", children: [
-                  /* @__PURE__ */ jsxDEV("span", { children: getModelIcon(model.key) }, void 0, false, {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                    lineNumber: 219,
-                    columnNumber: 45
-                  }, this),
-                  /* @__PURE__ */ jsxDEV("span", { children: model.name }, void 0, false, {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                    lineNumber: 222,
-                    columnNumber: 45
-                  }, this),
-                  model.provider && model.provider in PROVIDER_BADGE_CONFIG && /* @__PURE__ */ jsxDEV(
-                    ProviderBadge,
-                    {
-                      provider: model.provider
-                    },
-                    void 0,
-                    false,
-                    {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                      lineNumber: 226,
-                      columnNumber: 53
-                    },
-                    this
-                  )
-                ] }, void 0, true, {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                  lineNumber: 218,
-                  columnNumber: 41
-                }, this)
-              },
-              model.key,
-              false,
-              {
-                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                lineNumber: 213,
-                columnNumber: 37
-              },
-              this
-            ))
-          ] }, void 0, true, {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-            lineNumber: 207,
-            columnNumber: 29
-          }, this),
-          audioModels.length > 0 && /* @__PURE__ */ jsxDEV(SelectGroup, { children: [
-            /* @__PURE__ */ jsxDEV(SelectLabel, { className: "flex items-center gap-2 text-muted-foreground", children: [
-              /* @__PURE__ */ jsxDEV(Music, { className: "h-4 w-4" }, void 0, false, {
-                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                lineNumber: 242,
-                columnNumber: 37
-              }, this),
-              /* @__PURE__ */ jsxDEV("span", { children: "\u0410\u0443\u0434\u0438\u043E" }, void 0, false, {
-                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                lineNumber: 243,
-                columnNumber: 37
-              }, this)
-            ] }, void 0, true, {
-              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-              lineNumber: 241,
-              columnNumber: 33
-            }, this),
-            audioModels.map((model) => /* @__PURE__ */ jsxDEV(
-              SelectItem,
-              {
-                value: model.key,
-                className: "text-muted-foreground focus:bg-secondary focus:text-foreground",
-                children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2 w-full min-w-[200px]", children: [
-                  /* @__PURE__ */ jsxDEV("span", { children: getModelIcon(model.key) }, void 0, false, {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                    lineNumber: 252,
-                    columnNumber: 45
-                  }, this),
-                  /* @__PURE__ */ jsxDEV("span", { children: model.name }, void 0, false, {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                    lineNumber: 255,
-                    columnNumber: 45
-                  }, this),
-                  model.provider && model.provider in PROVIDER_BADGE_CONFIG && /* @__PURE__ */ jsxDEV(
-                    ProviderBadge,
-                    {
-                      provider: model.provider
-                    },
-                    void 0,
-                    false,
-                    {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                      lineNumber: 259,
-                      columnNumber: 53
-                    },
-                    this
-                  )
-                ] }, void 0, true, {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                  lineNumber: 251,
-                  columnNumber: 41
-                }, this)
-              },
-              model.key,
-              false,
-              {
-                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-                lineNumber: 246,
-                columnNumber: 37
-              },
-              this
-            ))
-          ] }, void 0, true, {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-            lineNumber: 240,
-            columnNumber: 29
-          }, this)
-        ] }, void 0, true, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-          lineNumber: 171,
-          columnNumber: 21
-        }, this) }, void 0, false, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-          lineNumber: 163,
-          columnNumber: 13
-        }, this)
+            columnNumber: 13
+          },
+          this
+        )
       ]
     },
     void 0,
     true,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-      lineNumber: 140,
+      lineNumber: 144,
       columnNumber: 9
     },
     this
@@ -1933,13 +1970,13 @@ function ModelBadge({ model, showProvider = false }) {
     /* @__PURE__ */ jsxDEV(Badge, { variant: "secondary", className: "bg-secondary text-muted-foreground", children: [
       /* @__PURE__ */ jsxDEV("span", { className: "mr-1", children: getModelIcon(model) }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-        lineNumber: 290,
+        lineNumber: 301,
         columnNumber: 17
       }, this),
       modelInfo?.name || model
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-      lineNumber: 289,
+      lineNumber: 300,
       columnNumber: 13
     }, this),
     showProvider && modelInfo?.provider && modelInfo.provider in PROVIDER_BADGE_CONFIG && /* @__PURE__ */ jsxDEV(
@@ -1951,14 +1988,14 @@ function ModelBadge({ model, showProvider = false }) {
       false,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-        lineNumber: 296,
+        lineNumber: 307,
         columnNumber: 21
       },
       this
     )
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/model-selector.tsx",
-    lineNumber: 288,
+    lineNumber: 299,
     columnNumber: 9
   }, this);
 }
@@ -1973,23 +2010,19 @@ function useTestMode() {
         setIsTestMode(loadTestMode());
       }
     }
+    function handleCustomStorageChange() {
+      setIsTestMode(loadTestMode());
+    }
     window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const currentTestMode = loadTestMode();
-      setIsTestMode((prev) => {
-        if (prev !== currentTestMode) {
-          return currentTestMode;
-        }
-        return prev;
-      });
-    }, 3e3);
-    return () => clearInterval(interval);
+    window.addEventListener("test-mode-changed", handleCustomStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("test-mode-changed", handleCustomStorageChange);
+    };
   }, []);
   function setTestMode(enabled) {
     setIsTestMode(enabled);
+    window.dispatchEvent(new Event("test-mode-changed"));
   }
   function toggleTestMode() {
     setTestMode(!isTestMode);
@@ -2047,7 +2080,7 @@ const MODEL_CONFIGS = {
     supportsTailImageUrl: false,
     supportsElevenLabsParams: false
   },
-  VEO_3_1_FAST: {
+  VEO_3_1_FAST_KIEAI: {
     isNanoBanana: false,
     isNanoBananaPro: false,
     isNanoBananaProKieai: false,
@@ -2117,7 +2150,7 @@ const MODEL_CONFIGS = {
     supportsTailImageUrl: false,
     supportsElevenLabsParams: false
   },
-  VEO_3_1: {
+  VEO_3_1_KIEAI: {
     isNanoBanana: false,
     isNanoBananaPro: false,
     isNanoBananaProKieai: false,
@@ -2141,7 +2174,7 @@ const MODEL_CONFIGS = {
     supportsTailImageUrl: false,
     supportsElevenLabsParams: false
   },
-  KLING_2_6: {
+  KLING_2_6_KIEAI: {
     isNanoBanana: false,
     isNanoBananaPro: false,
     isNanoBananaProKieai: false,
@@ -2165,7 +2198,7 @@ const MODEL_CONFIGS = {
     supportsTailImageUrl: false,
     supportsElevenLabsParams: false
   },
-  KLING_2_5_TURBO_PRO: {
+  KLING_2_5_TURBO_PRO_KIEAI: {
     isNanoBanana: false,
     isNanoBananaPro: false,
     isNanoBananaProKieai: false,
@@ -2193,6 +2226,29 @@ const MODEL_CONFIGS = {
     isNanoBanana: false,
     isNanoBananaPro: false,
     isNanoBananaProKieai: true,
+    isVeo: false,
+    isKling: false,
+    isKling25: false,
+    isImagen4: false,
+    isImagen4Ultra: false,
+    isSeedream4_5: false,
+    isSeedream4_5_Edit: false,
+    isElevenLabs: false,
+    supportsFormat: true,
+    supportsQuality: true,
+    supportsDuration: false,
+    supportsSound: false,
+    supportsVeoGenerationType: false,
+    supportsNegativePrompt: false,
+    supportsSeed: false,
+    supportsCfgScale: false,
+    supportsTailImageUrl: false,
+    supportsElevenLabsParams: false
+  },
+  NANO_BANANA_2_KIEAI: {
+    isNanoBanana: false,
+    isNanoBananaPro: false,
+    isNanoBananaProKieai: false,
     isVeo: false,
     isKling: false,
     isKling25: false,
@@ -2258,7 +2314,7 @@ const MODEL_CONFIGS = {
     supportsTailImageUrl: false,
     supportsElevenLabsParams: false
   },
-  SEEDREAM_4_5: {
+  SEEDREAM_4_5_KIEAI: {
     isNanoBanana: false,
     isNanoBananaPro: false,
     isNanoBananaProKieai: false,
@@ -2281,7 +2337,7 @@ const MODEL_CONFIGS = {
     supportsTailImageUrl: false,
     supportsElevenLabsParams: false
   },
-  SEEDREAM_4_5_EDIT: {
+  SEEDREAM_4_5_EDIT_KIEAI: {
     isNanoBanana: false,
     isNanoBananaPro: false,
     isNanoBananaProKieai: false,
@@ -2305,7 +2361,7 @@ const MODEL_CONFIGS = {
     supportsElevenLabsParams: false,
     maxInputFiles: 14
   },
-  ELEVENLABS_MULTILINGUAL_V2: {
+  ELEVENLABS_MULTILINGUAL_V2_KIEAI: {
     isNanoBanana: false,
     isNanoBananaPro: false,
     isNanoBananaProKieai: false,
@@ -2327,6 +2383,58 @@ const MODEL_CONFIGS = {
     supportsCfgScale: false,
     supportsTailImageUrl: false,
     supportsElevenLabsParams: true
+  },
+  KLING_VIDEO_O1_WAVESPEED: {
+    isNanoBanana: false,
+    isNanoBananaPro: false,
+    isNanoBananaProKieai: false,
+    isVeo: false,
+    isKling: false,
+    isKling25: false,
+    isImagen4: false,
+    isImagen4Ultra: false,
+    isSeedream4_5: false,
+    isSeedream4_5_Edit: false,
+    isElevenLabs: false,
+    supportsFormat: true,
+    // aspect_ratio
+    supportsQuality: false,
+    supportsDuration: true,
+    // от 3 до 10 секунд
+    supportsSound: false,
+    supportsVeoGenerationType: false,
+    supportsNegativePrompt: false,
+    supportsSeed: false,
+    supportsCfgScale: false,
+    supportsTailImageUrl: false,
+    supportsElevenLabsParams: false,
+    maxInputFiles: 10
+    // до 10 reference images
+  },
+  SEEDANCE_1_5_PRO_KIEAI: {
+    isNanoBanana: false,
+    isNanoBananaPro: false,
+    isNanoBananaProKieai: false,
+    isVeo: false,
+    isKling: false,
+    isKling25: false,
+    isImagen4: false,
+    isImagen4Ultra: false,
+    isSeedream4_5: false,
+    isSeedream4_5_Edit: false,
+    isElevenLabs: false,
+    supportsFormat: true,
+    // aspect_ratio (16:9 или 9:16)
+    supportsQuality: false,
+    supportsDuration: true,
+    // 4, 8, 12 секунд
+    supportsSound: true,
+    supportsVeoGenerationType: false,
+    supportsNegativePrompt: false,
+    supportsSeed: false,
+    supportsCfgScale: false,
+    supportsTailImageUrl: false,
+    supportsElevenLabsParams: false
   }
 };
 function getModelConfig(model) {
@@ -2340,6 +2448,17 @@ function useModelType(model) {
       ...config
     };
   }, [model]);
+}
+function getErrorMessage(error, fallback) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null) {
+    const err = error;
+    if (typeof err.data === "object" && typeof err.data?.error === "string")
+      return err.data.error;
+    if (typeof err.data === "string") return err.data;
+    if (typeof err.message === "string") return err.message;
+  }
+  return fallback;
 }
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -2356,7 +2475,7 @@ function useChatInputFiles(chatId) {
   const [uploadUserMedia] = useUploadUserMediaMutation();
   const previewUrlsRef = useRef(/* @__PURE__ */ new Set());
   const processFiles = useCallback(
-    async (files, shouldUpload = false) => {
+    async (files, shouldUpload = false, skipSizeCheck = false) => {
       const newFiles = [];
       const imageFiles = [];
       const videoFiles = [];
@@ -2368,7 +2487,7 @@ function useChatInputFiles(chatId) {
           );
           continue;
         }
-        if (file.size > 10 * 1024 * 1024) {
+        if (!skipSizeCheck && file.size > 10 * 1024 * 1024) {
           alert(
             `\u0420\u0430\u0437\u043C\u0435\u0440 \u0444\u0430\u0439\u043B\u0430 "${file.name}" \u043D\u0435 \u0434\u043E\u043B\u0436\u0435\u043D \u043F\u0440\u0435\u0432\u044B\u0448\u0430\u0442\u044C 10MB`
           );
@@ -2424,10 +2543,16 @@ function useChatInputFiles(chatId) {
             { uploaded: result.uploaded, total: result.total }
           );
         } catch (error) {
+          const errorMessage = getErrorMessage(
+            error,
+            "\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439"
+          );
           console.error(
             "[ChatInput] \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439 \u043D\u0430 imgbb:",
+            errorMessage,
             error
           );
+          alert(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439: ${errorMessage}`);
         }
       }
       if (shouldUpload && chatId && newFiles.length > 0) {
@@ -2463,7 +2588,12 @@ function useChatInputFiles(chatId) {
             });
           }
         } catch (error) {
-          console.error("[ChatInput] \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F \u0444\u0430\u0439\u043B\u043E\u0432 \u0432 \u0411\u0414:", error);
+          const errorMessage = getErrorMessage(
+            error,
+            "\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u043E\u0432"
+          );
+          console.error("[ChatInput] \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F \u0444\u0430\u0439\u043B\u043E\u0432 \u0432 \u0411\u0414:", errorMessage, error);
+          alert(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u043E\u0432: ${errorMessage}`);
         }
       }
       return newFiles;
@@ -2485,8 +2615,17 @@ function useChatInputFiles(chatId) {
     async (event) => {
       const files = event.target.files;
       if (!files) return;
-      const newFiles = await processFiles(Array.from(files), true);
-      setAttachedFiles((prev) => [...prev, ...newFiles]);
+      try {
+        const newFiles = await processFiles(Array.from(files), true);
+        setAttachedFiles((prev) => [...prev, ...newFiles]);
+      } catch (error) {
+        const errorMessage = getErrorMessage(
+          error,
+          "\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u043E\u0432"
+        );
+        console.error("[ChatInput] \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0435 \u0444\u0430\u0439\u043B\u043E\u0432:", errorMessage, error);
+        alert(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u043E\u0432: ${errorMessage}`);
+      }
       if (event.target) {
         event.target.value = "";
       }
@@ -2494,17 +2633,36 @@ function useChatInputFiles(chatId) {
     [processFiles]
   );
   const addFileFromUrl = useCallback(
-    async (url, filename) => {
+    async (url, filename, imgbbUrl) => {
       try {
+        const isImage = filename.match(/\.(jpg|jpeg|png|gif|webp)$/i) || url.match(/\.(jpg|jpeg|png|gif|webp)$/i) || url.includes("i.ibb.co") || // imgbb URL
+        url.includes("i.imgbb.com");
+        if (imgbbUrl && isImage) {
+          console.log("[ChatInput] \u2705 \u0418\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u043C imgbbUrl \u0438\u0437 \u0411\u0414, \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0435\u043C \u043F\u043E\u0432\u0442\u043E\u0440\u043D\u0443\u044E \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0443 \u043D\u0430 imgbb:", imgbbUrl);
+          const preview = url;
+          const mimeType = filename.match(/\.png$/i) ? "image/png" : filename.match(/\.(jpg|jpeg)$/i) ? "image/jpeg" : filename.match(/\.gif$/i) ? "image/gif" : filename.match(/\.webp$/i) ? "image/webp" : "image/jpeg";
+          const emptyBlob = new Blob([], { type: mimeType });
+          const file2 = new File([emptyBlob], filename, { type: mimeType });
+          const attachedFile = {
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            file: file2,
+            preview,
+            imgbbUrl
+            // Используем URL из БД напрямую, не загружаем на imgbb
+          };
+          setAttachedFiles((prev) => [...prev, attachedFile]);
+          return;
+        }
         const file = await urlToFile(url, filename);
-        const processedFiles = await processFiles([file], false);
+        const processedFiles = await processFiles([file], false, true);
         setAttachedFiles((prev) => [...prev, ...processedFiles]);
       } catch (error) {
-        console.error(
-          "[ChatInput] \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u044F \u0444\u0430\u0439\u043B\u0430:",
-          error
+        const errorMessage = getErrorMessage(
+          error,
+          "\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u0430"
         );
-        alert("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u0444\u0430\u0439\u043B");
+        console.error("[ChatInput] \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u044F \u0444\u0430\u0439\u043B\u0430:", errorMessage, error);
+        alert(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u0430: ${errorMessage}`);
       }
     },
     [urlToFile, processFiles]
@@ -2549,9 +2707,18 @@ function useChatInputFiles(chatId) {
       if (isDisabled) return;
       const files = Array.from(event.dataTransfer.files);
       if (files.length === 0) return;
-      const newFiles = await processFiles(files, true);
-      if (newFiles.length > 0) {
-        setAttachedFiles((prev) => [...prev, ...newFiles]);
+      try {
+        const newFiles = await processFiles(files, true);
+        if (newFiles.length > 0) {
+          setAttachedFiles((prev) => [...prev, ...newFiles]);
+        }
+      } catch (error) {
+        const errorMessage = getErrorMessage(
+          error,
+          "\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u043E\u0432"
+        );
+        console.error("[ChatInput] \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0435 \u0444\u0430\u0439\u043B\u043E\u0432 (drag-and-drop):", errorMessage, error);
+        alert(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u043E\u0432: ${errorMessage}`);
       }
     },
     [processFiles]
@@ -2573,9 +2740,18 @@ function useChatInputFiles(chatId) {
       }
       if (files.length === 0) return;
       event.preventDefault();
-      const newFiles = await processFiles(files, true);
-      if (newFiles.length > 0) {
-        setAttachedFiles((prev) => [...prev, ...newFiles]);
+      try {
+        const newFiles = await processFiles(files, true);
+        if (newFiles.length > 0) {
+          setAttachedFiles((prev) => [...prev, ...newFiles]);
+        }
+      } catch (error) {
+        const errorMessage = getErrorMessage(
+          error,
+          "\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u043E\u0432"
+        );
+        console.error("[ChatInput] \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0435 \u0444\u0430\u0439\u043B\u043E\u0432 (paste):", errorMessage, error);
+        alert(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u043E\u0432: ${errorMessage}`);
       }
     },
     [processFiles]
@@ -2719,7 +2895,10 @@ function useChatInputSubmit({
               quality: params.quality,
               videoFormat: params.modelType.isVeo ? params.videoFormat : void 0,
               veoGenerationType: params.modelType.isVeo ? params.veoGenerationType : void 0,
-              inputFilesCount: params.attachedFiles.length,
+              attachedFilesCount: params.attachedFiles.length,
+              imageFilesCount: params.attachedFiles.filter(
+                (f) => f.file.type.startsWith("image/")
+              ).length,
               timestamp: (/* @__PURE__ */ new Date()).toISOString()
             }
           );
@@ -2786,6 +2965,13 @@ function useChatInputSubmit({
               }
             }
           }
+          console.log("[ChatInput] \u{1F4E4} \u041E\u0442\u043F\u0440\u0430\u0432\u043A\u0430 \u0437\u0430\u043F\u0440\u043E\u0441\u0430 generateMedia:", {
+            chatId,
+            model: currentModel,
+            inputFilesUrlsCount: inputFilesUrls.length,
+            inputFilesUrls: inputFilesUrls.map((url) => url.substring(0, 50) + "..."),
+            hasInputFiles: inputFilesUrls.length > 0
+          });
           result = await generateMedia({
             chatId,
             prompt: finalPrompt,
@@ -2805,6 +2991,9 @@ function useChatInputSubmit({
             },
             ...params.modelType.supportsSound && params.klingSound !== void 0 && {
               sound: params.klingSound
+            },
+            ...params.fixedLens !== void 0 && {
+              fixedLens: params.fixedLens
             },
             ...params.modelType.supportsNegativePrompt && params.negativePrompt && params.negativePrompt.trim() && {
               negativePrompt: params.negativePrompt.trim()
@@ -2871,6 +3060,13 @@ function useChatInputSubmit({
         setIsSubmitting(false);
       } catch (error) {
         console.error("[ChatInput] \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438:", error);
+        const isAuthError = error && typeof error === "object" && "status" in error && error.status === 401 || error && typeof error === "object" && "data" in error && error.data && typeof error.data === "object" && "error" in error.data && typeof error.data.error === "string" && (error.data.error.includes("No token provided") || error.data.error.includes("token") || error.data.error.includes("\u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446"));
+        if (isAuthError) {
+          handleSessionTimeout();
+          submitInProgressRef.current = false;
+          setIsSubmitting(false);
+          return;
+        }
         const errorMessage = error && typeof error === "object" && "data" in error && error.data && typeof error.data === "object" && "error" in error.data && typeof error.data.error === "string" ? error.data.error : "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u0437\u0430\u043F\u0440\u043E\u0441. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0435 \u0440\u0430\u0437.";
         if (onSendError) {
           onSendError(errorMessage);
@@ -2946,6 +3142,21 @@ const DURATION_OPTIONS = [
   { value: "5", label: "5 \u0441\u0435\u043A" },
   { value: "10", label: "10 \u0441\u0435\u043A" }
 ];
+const DURATION_OPTIONS_WAVESPEED = [
+  { value: "3", label: "3 \u0441\u0435\u043A" },
+  { value: "4", label: "4 \u0441\u0435\u043A" },
+  { value: "5", label: "5 \u0441\u0435\u043A" },
+  { value: "6", label: "6 \u0441\u0435\u043A" },
+  { value: "7", label: "7 \u0441\u0435\u043A" },
+  { value: "8", label: "8 \u0441\u0435\u043A" },
+  { value: "9", label: "9 \u0441\u0435\u043A" },
+  { value: "10", label: "10 \u0441\u0435\u043A" }
+];
+const DURATION_OPTIONS_SEEDANCE = [
+  { value: "4", label: "4 \u0441\u0435\u043A" },
+  { value: "8", label: "8 \u0441\u0435\u043A" },
+  { value: "12", label: "12 \u0441\u0435\u043A" }
+];
 const SOUND_OPTIONS = [
   { value: "true", label: "\u0437\u0432\u0443\u043A on" },
   { value: "false", label: "\u0437\u0432\u0443\u043A off" }
@@ -2953,7 +3164,8 @@ const SOUND_OPTIONS = [
 const GENERATION_TYPE_OPTIONS = [
   { value: "TEXT_2_VIDEO", label: "\u0422\u0435\u043A\u0441\u0442 \u2192 \u0412\u0438\u0434\u0435\u043E" },
   { value: "FIRST_AND_LAST_FRAMES_2_VIDEO", label: "\u041A\u0430\u0434\u0440\u044B \u2192 \u0412\u0438\u0434\u0435\u043E" },
-  { value: "REFERENCE_2_VIDEO", label: "\u0420\u0435\u0444\u0435\u0440\u0435\u043D\u0441 \u2192 \u0412\u0438\u0434\u0435\u043E" }
+  { value: "REFERENCE_2_VIDEO", label: "\u0420\u0435\u0444\u0435\u0440\u0435\u043D\u0441 \u2192 \u0412\u0438\u0434\u0435\u043E" },
+  { value: "EXTEND_VIDEO", label: "\u041F\u0440\u043E\u0434\u043B\u0435\u043D\u0438\u0435 \u0432\u0438\u0434\u0435\u043E" }
 ];
 const MODEL_SETTINGS_CONFIG = {
   NANO_BANANA_OPENROUTER: {
@@ -2986,6 +3198,16 @@ const MODEL_SETTINGS_CONFIG = {
       defaultValue: "2k"
     }
   },
+  NANO_BANANA_2_KIEAI: {
+    format: {
+      options: FORMAT_OPTIONS_1_1_16_9_9_16,
+      defaultValue: "9:16"
+    },
+    quality: {
+      options: QUALITY_OPTIONS_1K_2K_4K,
+      defaultValue: "2k"
+    }
+  },
   IMAGEN4_KIEAI: {
     format: {
       options: FORMAT_OPTIONS_1_1_16_9_9_16,
@@ -2998,7 +3220,7 @@ const MODEL_SETTINGS_CONFIG = {
       defaultValue: "9:16"
     }
   },
-  VEO_3_1_FAST: {
+  VEO_3_1_FAST_KIEAI: {
     format: {
       options: FORMAT_OPTIONS_16_9_9_16,
       defaultValue: "9:16"
@@ -3008,7 +3230,7 @@ const MODEL_SETTINGS_CONFIG = {
       defaultValue: "TEXT_2_VIDEO"
     }
   },
-  VEO_3_1: {
+  VEO_3_1_KIEAI: {
     format: {
       options: FORMAT_OPTIONS_16_9_9_16,
       defaultValue: "9:16"
@@ -3018,7 +3240,7 @@ const MODEL_SETTINGS_CONFIG = {
       defaultValue: "TEXT_2_VIDEO"
     }
   },
-  KLING_2_6: {
+  KLING_2_6_KIEAI: {
     format: {
       options: FORMAT_OPTIONS_16_9_9_16,
       defaultValue: "9:16"
@@ -3032,7 +3254,7 @@ const MODEL_SETTINGS_CONFIG = {
       defaultValue: false
     }
   },
-  KLING_2_5_TURBO_PRO: {
+  KLING_2_5_TURBO_PRO_KIEAI: {
     format: {
       options: FORMAT_OPTIONS_16_9_9_16,
       defaultValue: "9:16"
@@ -3042,7 +3264,7 @@ const MODEL_SETTINGS_CONFIG = {
       defaultValue: 5
     }
   },
-  SEEDREAM_4_5: {
+  SEEDREAM_4_5_KIEAI: {
     format: {
       options: FORMAT_OPTIONS_SEEDREAM,
       defaultValue: "9:16"
@@ -3053,7 +3275,7 @@ const MODEL_SETTINGS_CONFIG = {
       // по цене одинаково с 2к
     }
   },
-  SEEDREAM_4_5_EDIT: {
+  SEEDREAM_4_5_EDIT_KIEAI: {
     format: {
       options: FORMAT_OPTIONS_SEEDREAM,
       defaultValue: "9:16"
@@ -3066,8 +3288,34 @@ const MODEL_SETTINGS_CONFIG = {
   },
   MIDJOURNEY: {},
   SORA_2: {},
-  ELEVENLABS_MULTILINGUAL_V2: {}
+  ELEVENLABS_MULTILINGUAL_V2_KIEAI: {},
   // Настройки через отдельные поля в UI
+  KLING_VIDEO_O1_WAVESPEED: {
+    format: {
+      options: FORMAT_OPTIONS_16_9_9_16,
+      defaultValue: "9:16"
+    },
+    duration: {
+      options: DURATION_OPTIONS_WAVESPEED,
+      defaultValue: 5
+    }
+  },
+  SEEDANCE_1_5_PRO_KIEAI: {
+    format: {
+      options: FORMAT_OPTIONS_16_9_9_16,
+      defaultValue: "9:16"
+    },
+    duration: {
+      options: DURATION_OPTIONS_SEEDANCE,
+      defaultValue: 4
+    },
+    // generate_audio (звук) для Seedance 1.5 Pro
+    sound: {
+      options: SOUND_OPTIONS,
+      // По умолчанию без звука, как в большинстве видео-моделей
+      defaultValue: false
+    }
+  }
 };
 function getModelSettingsConfig(model) {
   return MODEL_SETTINGS_CONFIG[model] || {};
@@ -3102,7 +3350,7 @@ function FormatSelect({
             className: `${className} border-border bg-secondary text-foreground rounded-xl`,
             children: /* @__PURE__ */ jsxDEV(SelectValue, { placeholder, children: value || placeholder }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-              lineNumber: 72,
+              lineNumber: 74,
               columnNumber: 17
             }, this)
           },
@@ -3110,38 +3358,53 @@ function FormatSelect({
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-            lineNumber: 69,
+            lineNumber: 71,
             columnNumber: 13
           },
           this
         ),
-        /* @__PURE__ */ jsxDEV(SelectContent, { className: "border-border bg-card", children: config.options.map((option) => /* @__PURE__ */ jsxDEV(
-          SelectItem,
+        /* @__PURE__ */ jsxDEV(
+          SelectContent,
           {
-            value: option.value,
-            className: "text-muted-foreground focus:bg-accent focus:text-accent-foreground",
-            children: option.label
+            side: "top",
+            sideOffset: 8,
+            position: "popper",
+            collisionPadding: 20,
+            avoidCollisions: true,
+            className: "border-border bg-card data-[side=top]:animate-none!",
+            children: config.options.map((option) => /* @__PURE__ */ jsxDEV(
+              SelectItem,
+              {
+                value: option.value,
+                className: "text-muted-foreground focus:bg-accent focus:text-accent-foreground",
+                children: option.label
+              },
+              option.value,
+              false,
+              {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
+                lineNumber: 87,
+                columnNumber: 21
+              },
+              this
+            ))
           },
-          option.value,
+          void 0,
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
             lineNumber: 78,
-            columnNumber: 21
+            columnNumber: 13
           },
           this
-        )) }, void 0, false, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-          lineNumber: 76,
-          columnNumber: 13
-        }, this)
+        )
       ]
     },
     void 0,
     true,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-      lineNumber: 64,
+      lineNumber: 66,
       columnNumber: 9
     },
     this
@@ -3177,7 +3440,7 @@ function QualitySelect({
             className: `${className} border-border bg-secondary text-foreground rounded-xl`,
             children: /* @__PURE__ */ jsxDEV(SelectValue, { placeholder, children: value ? value.toUpperCase() : placeholder }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-              lineNumber: 132,
+              lineNumber: 141,
               columnNumber: 17
             }, this)
           },
@@ -3185,38 +3448,53 @@ function QualitySelect({
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-            lineNumber: 129,
+            lineNumber: 138,
             columnNumber: 13
           },
           this
         ),
-        /* @__PURE__ */ jsxDEV(SelectContent, { className: "border-border bg-card", children: config.options.map((option) => /* @__PURE__ */ jsxDEV(
-          SelectItem,
+        /* @__PURE__ */ jsxDEV(
+          SelectContent,
           {
-            value: option.value,
-            className: "text-muted-foreground focus:bg-accent focus:text-accent-foreground",
-            children: option.label
+            side: "top",
+            sideOffset: 8,
+            position: "popper",
+            collisionPadding: 20,
+            avoidCollisions: true,
+            className: "border-border bg-card data-[side=top]:animate-none!",
+            children: config.options.map((option) => /* @__PURE__ */ jsxDEV(
+              SelectItem,
+              {
+                value: option.value,
+                className: "text-muted-foreground focus:bg-accent focus:text-accent-foreground",
+                children: option.label
+              },
+              option.value,
+              false,
+              {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
+                lineNumber: 154,
+                columnNumber: 21
+              },
+              this
+            ))
           },
-          option.value,
+          void 0,
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-            lineNumber: 138,
-            columnNumber: 21
+            lineNumber: 145,
+            columnNumber: 13
           },
           this
-        )) }, void 0, false, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-          lineNumber: 136,
-          columnNumber: 13
-        }, this)
+        )
       ]
     },
     void 0,
     true,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-      lineNumber: 124,
+      lineNumber: 133,
       columnNumber: 9
     },
     this
@@ -3250,7 +3528,7 @@ function DurationSelect({
               " \u0441\u0435\u043A"
             ] }, void 0, true, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-              lineNumber: 184,
+              lineNumber: 200,
               columnNumber: 17
             }, this)
           },
@@ -3258,38 +3536,53 @@ function DurationSelect({
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-            lineNumber: 181,
+            lineNumber: 197,
             columnNumber: 13
           },
           this
         ),
-        /* @__PURE__ */ jsxDEV(SelectContent, { className: "border-border bg-card", children: config.options.map((option) => /* @__PURE__ */ jsxDEV(
-          SelectItem,
+        /* @__PURE__ */ jsxDEV(
+          SelectContent,
           {
-            value: option.value,
-            className: "text-muted-foreground focus:bg-accent focus:text-accent-foreground",
-            children: option.label
+            side: "top",
+            sideOffset: 8,
+            position: "popper",
+            collisionPadding: 20,
+            avoidCollisions: true,
+            className: "border-border bg-card data-[side=top]:animate-none!",
+            children: config.options.map((option) => /* @__PURE__ */ jsxDEV(
+              SelectItem,
+              {
+                value: option.value,
+                className: "text-muted-foreground focus:bg-accent focus:text-accent-foreground",
+                children: option.label
+              },
+              option.value,
+              false,
+              {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
+                lineNumber: 213,
+                columnNumber: 21
+              },
+              this
+            ))
           },
-          option.value,
+          void 0,
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-            lineNumber: 190,
-            columnNumber: 21
+            lineNumber: 204,
+            columnNumber: 13
           },
           this
-        )) }, void 0, false, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-          lineNumber: 188,
-          columnNumber: 13
-        }, this)
+        )
       ]
     },
     void 0,
     true,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-      lineNumber: 176,
+      lineNumber: 192,
       columnNumber: 9
     },
     this
@@ -3320,7 +3613,7 @@ function SoundSelect({
             className: `${className} border-border bg-secondary text-foreground rounded-xl`,
             children: /* @__PURE__ */ jsxDEV(SelectValue, { placeholder: "\u0417\u0432\u0443\u043A", children: value === void 0 || value ? "\u0437\u0432\u0443\u043A on" : "\u0437\u0432\u0443\u043A off" }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-              lineNumber: 237,
+              lineNumber: 260,
               columnNumber: 17
             }, this)
           },
@@ -3328,38 +3621,53 @@ function SoundSelect({
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-            lineNumber: 234,
+            lineNumber: 257,
             columnNumber: 13
           },
           this
         ),
-        /* @__PURE__ */ jsxDEV(SelectContent, { className: "border-border bg-card", children: config.options.map((option) => /* @__PURE__ */ jsxDEV(
-          SelectItem,
+        /* @__PURE__ */ jsxDEV(
+          SelectContent,
           {
-            value: option.value,
-            className: "text-muted-foreground focus:bg-accent focus:text-accent-foreground",
-            children: option.label
+            side: "top",
+            sideOffset: 8,
+            position: "popper",
+            collisionPadding: 20,
+            avoidCollisions: true,
+            className: "border-border bg-card data-[side=top]:animate-none!",
+            children: config.options.map((option) => /* @__PURE__ */ jsxDEV(
+              SelectItem,
+              {
+                value: option.value,
+                className: "text-muted-foreground focus:bg-accent focus:text-accent-foreground",
+                children: option.label
+              },
+              option.value,
+              false,
+              {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
+                lineNumber: 273,
+                columnNumber: 21
+              },
+              this
+            ))
           },
-          option.value,
+          void 0,
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-            lineNumber: 243,
-            columnNumber: 21
+            lineNumber: 264,
+            columnNumber: 13
           },
           this
-        )) }, void 0, false, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-          lineNumber: 241,
-          columnNumber: 13
-        }, this)
+        )
       ]
     },
     void 0,
     true,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-      lineNumber: 229,
+      lineNumber: 252,
       columnNumber: 9
     },
     this
@@ -3393,7 +3701,7 @@ function GenerationTypeSelect({
             className: `${className} border-border bg-secondary text-foreground rounded-xl`,
             children: /* @__PURE__ */ jsxDEV(SelectValue, { placeholder, children: selectedOption?.label || placeholder }, void 0, false, {
               fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-              lineNumber: 303,
+              lineNumber: 336,
               columnNumber: 17
             }, this)
           },
@@ -3401,38 +3709,53 @@ function GenerationTypeSelect({
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-            lineNumber: 300,
+            lineNumber: 333,
             columnNumber: 13
           },
           this
         ),
-        /* @__PURE__ */ jsxDEV(SelectContent, { className: "border-border bg-card focus:bg-accent focus:text-accent-foreground", children: config.options.map((option) => /* @__PURE__ */ jsxDEV(
-          SelectItem,
+        /* @__PURE__ */ jsxDEV(
+          SelectContent,
           {
-            value: option.value,
-            className: "text-muted-foreground focus:bg-accent focus:text-accent-foreground",
-            children: option.label
+            side: "top",
+            sideOffset: 8,
+            position: "popper",
+            collisionPadding: 20,
+            avoidCollisions: true,
+            className: "border-border bg-card focus:bg-accent focus:text-accent-foreground",
+            children: config.options.map((option) => /* @__PURE__ */ jsxDEV(
+              SelectItem,
+              {
+                value: option.value,
+                className: "text-muted-foreground focus:bg-accent focus:text-accent-foreground",
+                children: option.label
+              },
+              option.value,
+              false,
+              {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
+                lineNumber: 349,
+                columnNumber: 21
+              },
+              this
+            ))
           },
-          option.value,
+          void 0,
           false,
           {
             fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-            lineNumber: 309,
-            columnNumber: 21
+            lineNumber: 340,
+            columnNumber: 13
           },
           this
-        )) }, void 0, false, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-          lineNumber: 307,
-          columnNumber: 13
-        }, this)
+        )
       ]
     },
     void 0,
     true,
     {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-      lineNumber: 295,
+      lineNumber: 328,
       columnNumber: 9
     },
     this
@@ -3467,7 +3790,7 @@ function ModelSettingsPanel({
       false,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-        lineNumber: 366,
+        lineNumber: 408,
         columnNumber: 17
       },
       this
@@ -3484,7 +3807,7 @@ function ModelSettingsPanel({
       false,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-        lineNumber: 380,
+        lineNumber: 422,
         columnNumber: 17
       },
       this
@@ -3501,7 +3824,7 @@ function ModelSettingsPanel({
       false,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-        lineNumber: 389,
+        lineNumber: 431,
         columnNumber: 17
       },
       this
@@ -3518,7 +3841,7 @@ function ModelSettingsPanel({
       false,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-        lineNumber: 398,
+        lineNumber: 440,
         columnNumber: 17
       },
       this
@@ -3535,17 +3858,212 @@ function ModelSettingsPanel({
       false,
       {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-        lineNumber: 407,
+        lineNumber: 449,
         columnNumber: 17
       },
       this
     )
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input/model-settings.tsx",
-    lineNumber: 364,
+    lineNumber: 406,
     columnNumber: 9
   }, this);
 }
+function loadMediaSettings() {
+  {
+    return {};
+  }
+}
+function saveMediaSettings(settings) {
+  {
+    return;
+  }
+}
+const DEFAULT_SETTINGS = {
+  format: void 0,
+  quality: void 0,
+  duration: void 0,
+  veoGenerationType: void 0,
+  sound: void 0,
+  fixedLens: void 0,
+  negativePrompt: "",
+  seed: void 0,
+  cfgScale: void 0,
+  voice: "Rachel",
+  stability: 0.7,
+  similarityBoost: 0.75,
+  speed: 1,
+  languageCode: ""
+};
+function useModelSettings(currentModel) {
+  const modelType = useModelType(currentModel);
+  const config = getModelSettingsConfig(currentModel);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    const storedSettings = loadMediaSettings();
+    const newSettings = { ...DEFAULT_SETTINGS };
+    if (storedSettings.format) {
+      newSettings.format = storedSettings.format;
+    } else if (modelType.isVeo && storedSettings.videoFormat) {
+      newSettings.format = storedSettings.videoFormat;
+    } else if ((modelType.isKling || modelType.isKling25) && storedSettings.klingAspectRatio) {
+      newSettings.format = storedSettings.klingAspectRatio;
+    } else if (config.format?.defaultValue) {
+      newSettings.format = config.format.defaultValue;
+    }
+    if (storedSettings.quality) {
+      newSettings.quality = storedSettings.quality;
+    } else if (config.quality?.defaultValue) {
+      newSettings.quality = config.quality.defaultValue;
+    }
+    if (modelType.isVeo && storedSettings.veoGenerationType) {
+      newSettings.veoGenerationType = storedSettings.veoGenerationType;
+    } else if (config.generationType?.defaultValue) {
+      newSettings.veoGenerationType = config.generationType.defaultValue;
+    }
+    if (config.duration) {
+      const candidate = storedSettings.klingDuration ?? config.duration.defaultValue;
+      const optionValues = config.duration.options.map(
+        (o) => Number(o.value)
+      );
+      const isValid = candidate !== void 0 && optionValues.includes(candidate);
+      newSettings.duration = isValid ? candidate : config.duration.defaultValue;
+    }
+    if (storedSettings.klingSound !== void 0) {
+      newSettings.sound = storedSettings.klingSound;
+    } else if (config.sound?.defaultValue !== void 0) {
+      newSettings.sound = config.sound.defaultValue;
+    }
+    setSettings(newSettings);
+    isInitialMount.current = true;
+  }, [currentModel, modelType, config]);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (modelType.isVeo) {
+      saveMediaSettings({
+        videoFormat: settings.format && settings.format !== "1:1" ? settings.format : void 0,
+        veoGenerationType: settings.veoGenerationType
+      });
+    } else if (modelType.isKling || modelType.isKling25) {
+      saveMediaSettings({
+        klingAspectRatio: settings.format && settings.format !== "1:1" ? settings.format : void 0,
+        klingDuration: settings.duration,
+        klingSound: modelType.isKling ? settings.sound : void 0
+      });
+    } else {
+      ({
+        format: settings.format,
+        quality: settings.quality
+      });
+      if (config.duration && settings.duration !== void 0) {
+        settings.duration;
+      }
+    }
+  }, [settings, modelType]);
+  const updateSettings = (updates) => {
+    setSettings((prev) => ({ ...prev, ...updates }));
+  };
+  const setFormat = (format) => {
+    updateSettings({ format });
+  };
+  const setQuality = (quality) => {
+    updateSettings({ quality });
+  };
+  const setDuration = (duration) => {
+    updateSettings({ duration });
+  };
+  const setSound = (sound) => {
+    updateSettings({ sound });
+  };
+  const setFixedLens = (fixedLens) => {
+    updateSettings({ fixedLens });
+  };
+  const setVeoGenerationType = (veoGenerationType) => {
+    updateSettings({ veoGenerationType });
+  };
+  const setNegativePrompt = (negativePrompt) => {
+    updateSettings({ negativePrompt });
+  };
+  const setSeed = (seed) => {
+    updateSettings({ seed });
+  };
+  const setCfgScale = (cfgScale) => {
+    updateSettings({ cfgScale });
+  };
+  const setVoice = (voice) => {
+    updateSettings({ voice });
+  };
+  const setStability = (stability) => {
+    updateSettings({ stability });
+  };
+  const setSimilarityBoost = (similarityBoost) => {
+    updateSettings({ similarityBoost });
+  };
+  const setSpeed = (speed) => {
+    updateSettings({ speed });
+  };
+  const setLanguageCode = (languageCode) => {
+    updateSettings({ languageCode });
+  };
+  const resetModelSpecificSettings = () => {
+    const updates = {};
+    if (modelType.isVeo || modelType.isImagen4) {
+      updates.seed = void 0;
+    }
+    if (modelType.isImagen4) {
+      updates.negativePrompt = "";
+    }
+    if (modelType.isKling25) {
+      updates.negativePrompt = "";
+      updates.cfgScale = void 0;
+    }
+    if (Object.keys(updates).length > 0) {
+      updateSettings(updates);
+    }
+  };
+  return {
+    settings,
+    setFormat,
+    setQuality,
+    setDuration,
+    setSound,
+    setFixedLens,
+    setVeoGenerationType,
+    setNegativePrompt,
+    setSeed,
+    setCfgScale,
+    setVoice,
+    setStability,
+    setSimilarityBoost,
+    setSpeed,
+    setLanguageCode,
+    updateSettings,
+    resetModelSpecificSettings
+  };
+}
+const ELEVENLABS_VOICES = [
+  "Roger",
+  "Sarah",
+  "Charlie",
+  "George",
+  "Callum",
+  "River",
+  "Liam",
+  "Alice",
+  "Matilda",
+  "Will",
+  "Jessica",
+  "Eric",
+  "Chris",
+  "Brian",
+  "Daniel",
+  "Lily",
+  "Bill"
+];
 const ChatInput = forwardRef(
   function ChatInput2({
     chatId,
@@ -3554,50 +4072,30 @@ const ChatInput = forwardRef(
     onRequestCreated,
     onPendingMessage,
     onSendError,
-    disabled
+    disabled,
+    scrollToBottom,
+    showScrollButton
   }, ref) {
     const [prompt, setPrompt] = useState("");
-    const [format, setFormat] = useState(void 0);
-    const [quality, setQuality] = useState(
-      void 0
-    );
-    const [duration, setDuration] = useState(void 0);
-    const [veoGenerationType, setVeoGenerationType] = useState(void 0);
-    const [sound, setSound] = useState(void 0);
-    const [negativePrompt, setNegativePrompt] = useState("");
-    const [seed, setSeed] = useState(
-      void 0
-    );
-    const [cfgScale, setCfgScale] = useState(void 0);
-    const [voice, setVoice] = useState("Rachel");
-    const [stability, setStability] = useState(0.5);
-    const [similarityBoost, setSimilarityBoost] = useState(0.75);
-    const [speed, setSpeed] = useState(1);
-    const [languageCode, setLanguageCode] = useState("");
     const [isLockEnabled, setIsLockEnabled] = useState(false);
-    const elevenLabsVoices = [
-      "Rachel",
-      "Aria",
-      "Roger",
-      "Sarah",
-      "Laura",
-      "Charlie",
-      "George",
-      "Callum",
-      "River",
-      "Liam",
-      "Charlotte",
-      "Alice",
-      "Matilda",
-      "Will",
-      "Jessica",
-      "Eric",
-      "Chris",
-      "Brian",
-      "Daniel",
-      "Lily",
-      "Bill"
-    ];
+    const {
+      settings,
+      setFormat,
+      setQuality,
+      setDuration,
+      setSound,
+      setFixedLens,
+      setVeoGenerationType,
+      setNegativePrompt,
+      setSeed,
+      setCfgScale,
+      setVoice,
+      setStability,
+      setSimilarityBoost,
+      setSpeed,
+      setLanguageCode,
+      resetModelSpecificSettings
+    } = useModelSettings(currentModel);
     const [needsScrollbar, setNeedsScrollbar] = useState(false);
     const [attachingFile, setAttachingFile] = useState(false);
     const { isTestMode } = useTestMode();
@@ -3607,6 +4105,22 @@ const ChatInput = forwardRef(
     const [generateMediaTest] = useGenerateMediaTestMutation();
     const isDisabled = disabled ?? false;
     const modelType = useModelType(currentModel);
+    const {
+      format,
+      quality,
+      duration,
+      sound,
+      veoGenerationType,
+      negativePrompt,
+      seed,
+      cfgScale,
+      voice,
+      stability,
+      similarityBoost,
+      speed,
+      languageCode,
+      fixedLens
+    } = settings;
     const {
       attachedFiles,
       isDragging,
@@ -3636,7 +4150,12 @@ const ChatInput = forwardRef(
       onSendError,
       getFileAsBase64
     });
-    const MAX_PROMPT_LENGTH = 5e3;
+    const { data: models } = useGetModelsQuery();
+    const currentModelConfig = useMemo(
+      () => models?.find((m) => m.key === currentModel),
+      [models, currentModel]
+    );
+    const MAX_PROMPT_LENGTH = currentModelConfig?.promptLimit ?? 5e3;
     const adjustTextareaHeight = useCallback(() => {
       const textarea = textareaRef.current;
       if (!textarea) return;
@@ -3676,9 +4195,7 @@ const ChatInput = forwardRef(
       setPrompt: (newPrompt) => {
         setPrompt(newPrompt);
         setTimeout(() => {
-          const textarea = document.querySelector(
-            'textarea[placeholder*="\u041E\u043F\u0438\u0448\u0438\u0442\u0435"]'
-          );
+          const textarea = textareaRef.current;
           if (textarea) {
             textarea.focus();
             textarea.setSelectionRange(
@@ -3691,35 +4208,41 @@ const ChatInput = forwardRef(
       addFileFromUrl,
       setRequestData: async (request) => {
         setPrompt(request.prompt);
-        const settings = request.settings || {};
-        if (settings.format) setFormat(settings.format);
-        if (settings.quality) setQuality(settings.quality);
-        if (settings.duration) setDuration(settings.duration);
-        if (settings.veoGenerationType)
-          setVeoGenerationType(settings.veoGenerationType);
-        if (settings.sound !== void 0)
-          setSound(settings.sound);
-        if (settings.negativePrompt)
-          setNegativePrompt(settings.negativePrompt);
-        if (settings.seed || request.seed)
-          setSeed(settings.seed || request.seed);
-        if (settings.cfgScale) setCfgScale(settings.cfgScale);
-        if (settings.voice) setVoice(settings.voice);
-        if (settings.stability !== void 0)
-          setStability(settings.stability);
-        if (settings.similarityBoost !== void 0)
-          setSimilarityBoost(settings.similarityBoost);
-        if (settings.speed !== void 0)
-          setSpeed(settings.speed);
-        if (settings.languageCode)
-          setLanguageCode(settings.languageCode);
+        const settings2 = request.settings || {};
+        if (settings2.format) setFormat(settings2.format);
+        if (settings2.quality) setQuality(settings2.quality);
+        if (settings2.duration) setDuration(settings2.duration);
+        if (settings2.veoGenerationType)
+          setVeoGenerationType(settings2.veoGenerationType);
+        if (settings2.sound !== void 0)
+          setSound(settings2.sound);
+        if (settings2.negativePrompt)
+          setNegativePrompt(settings2.negativePrompt);
+        if (settings2.seed || request.seed)
+          setSeed(settings2.seed || request.seed);
+        if (settings2.cfgScale) setCfgScale(settings2.cfgScale);
+        if (settings2.voice) setVoice(settings2.voice);
+        if (settings2.stability !== void 0)
+          setStability(settings2.stability);
+        if (settings2.similarityBoost !== void 0)
+          setSimilarityBoost(settings2.similarityBoost);
+        if (settings2.speed !== void 0)
+          setSpeed(settings2.speed);
+        if (settings2.languageCode)
+          setLanguageCode(settings2.languageCode);
         clearFiles();
         if (request.inputFiles && request.inputFiles.length > 0) {
-          const { getMediaFileUrl } = await import('./constants-SLUBuX75.mjs');
+          const { getMediaFileUrl: getMediaFileUrl2 } = await Promise.resolve().then(() => constants);
           for (const filePath of request.inputFiles) {
-            const url = filePath.startsWith("http") ? filePath : getMediaFileUrl(filePath);
-            const filename = filePath.split("/").pop() || "file";
-            await addFileFromUrl(url, filename);
+            try {
+              const url = filePath.startsWith("http") ? filePath : getMediaFileUrl2(filePath);
+              const filename = filePath.split("/").pop() || "file";
+              await addFileFromUrl(url, filename);
+            } catch (error) {
+              console.error("[ChatInput] \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u0430 \u0438\u0437 \u0437\u0430\u043F\u0440\u043E\u0441\u0430:", error);
+              const errorMessage = error instanceof Error ? error.message : "\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u0430";
+              alert(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u0438\u0438 \u0444\u0430\u0439\u043B\u0430 "${filePath}": ${errorMessage}`);
+            }
           }
         }
         setTimeout(() => {
@@ -3735,52 +4258,9 @@ const ChatInput = forwardRef(
       }
     }));
     useEffect(() => {
-      const settings = loadMediaSettings();
-      const config = getModelSettingsConfig(currentModel);
-      if (settings.format) {
-        setFormat(settings.format);
-      } else if (modelType.isVeo && settings.videoFormat) {
-        setFormat(settings.videoFormat);
-      } else if ((modelType.isKling || modelType.isKling25) && settings.klingAspectRatio) {
-        setFormat(settings.klingAspectRatio);
-      } else if (config.format?.defaultValue) {
-        setFormat(config.format.defaultValue);
-      }
-      if (settings.quality) {
-        setQuality(settings.quality);
-      } else if (config.quality?.defaultValue) {
-        setQuality(config.quality.defaultValue);
-      }
-      if (modelType.isVeo && settings.veoGenerationType) {
-        setVeoGenerationType(settings.veoGenerationType);
-      } else if (config.generationType?.defaultValue) {
-        setVeoGenerationType(config.generationType.defaultValue);
-      }
-      if (settings.klingDuration) {
-        setDuration(settings.klingDuration);
-      } else if (config.duration?.defaultValue) {
-        setDuration(config.duration.defaultValue);
-      }
-      if (settings.klingSound !== void 0) {
-        setSound(settings.klingSound);
-      } else if (config.sound?.defaultValue !== void 0) {
-        setSound(config.sound.defaultValue);
-      }
       const lockState = loadLockButtonState();
       setIsLockEnabled(lockState);
-    }, [currentModel]);
-    const isInitialMount = useRef(true);
-    useEffect(() => {
-      if (isInitialMount.current) {
-        isInitialMount.current = false;
-        return;
-      }
-      if (modelType.isVeo) ; else if (modelType.isKling || modelType.isKling25) {
-        saveMediaSettings({
-          klingSound: modelType.isKling ? sound : void 0
-        });
-      } else ;
-    }, [format, quality, duration, sound, veoGenerationType, modelType]);
+    }, []);
     useEffect(() => {
       return () => {
         cleanup();
@@ -3805,7 +4285,7 @@ const ChatInput = forwardRef(
         }
         const videoFormat = modelType.isVeo && format && format !== "1:1" ? format : void 0;
         const klingAspectRatio = (modelType.isKling || modelType.isKling25) && format && format !== "1:1" ? format : void 0;
-        handleSubmit(event, {
+        const params = {
           prompt,
           attachedFiles,
           format,
@@ -3813,7 +4293,7 @@ const ChatInput = forwardRef(
           videoFormat,
           veoGenerationType,
           klingAspectRatio,
-          klingDuration: duration,
+          klingDuration: modelType.supportsDuration && duration !== void 0 ? duration : void 0,
           klingSound: sound,
           negativePrompt,
           seed,
@@ -3827,18 +4307,16 @@ const ChatInput = forwardRef(
           isLockEnabled,
           onClearForm: () => {
             setPrompt("");
-            if (modelType.isVeo || modelType.isImagen4) {
-              setSeed(void 0);
-            }
-            if (modelType.isImagen4) {
-              setNegativePrompt("");
-            }
-            if (modelType.isKling25) {
-              setNegativePrompt("");
-              setCfgScale(void 0);
-            }
+            resetModelSpecificSettings();
             clearFiles();
-          }
+          },
+          // fixedLens устанавливаем ниже при вызове handleSubmit
+          fixedLens: void 0
+        };
+        handleSubmit(event, {
+          ...params,
+          // fixedLens используется только для Seedance 1.5 Pro
+          fixedLens: currentModel === "SEEDANCE_1_5_PRO_KIEAI" ? fixedLens : void 0
         });
       },
       [
@@ -3881,667 +4359,793 @@ const ChatInput = forwardRef(
       const newState = !isLockEnabled;
       setIsLockEnabled(newState);
     }
-    return /* @__PURE__ */ jsxDEV("div", { id: "chat-input", className: "border-t border-border bg-background p-4", children: [
-      attachedFiles.length > 0 ? /* @__PURE__ */ jsxDEV("div", { className: "mb-3 flex flex-wrap gap-2 items-center", children: [
-        attachedFiles.map((file) => {
-          const isVideo = file.file.type.startsWith("video/");
-          return /* @__PURE__ */ jsxDEV(
-            "div",
-            {
-              className: "group relative h-16 w-16 overflow-hidden rounded-xl border border-border bg-secondary shadow-sm",
-              children: [
-                isVideo ? /* @__PURE__ */ jsxDEV(
-                  "video",
-                  {
-                    src: file.preview,
-                    className: "h-full w-full object-cover"
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                    lineNumber: 568,
-                    columnNumber: 41
-                  },
-                  this
-                ) : /* @__PURE__ */ jsxDEV(
-                  "img",
-                  {
-                    src: file.preview,
-                    alt: "Attachment",
-                    className: "h-full w-full object-cover"
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                    lineNumber: 574,
-                    columnNumber: 41
-                  },
-                  this
-                ),
-                /* @__PURE__ */ jsxDEV(
-                  "button",
-                  {
-                    onClick: () => removeFile(file.id),
-                    className: "absolute right-1 top-1 rounded-full bg-background/80 p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground",
-                    children: /* @__PURE__ */ jsxDEV(X, { className: "h-3 w-3" }, void 0, false, {
-                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                      lineNumber: 584,
-                      columnNumber: 41
-                    }, this)
-                  },
-                  void 0,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                    lineNumber: 580,
-                    columnNumber: 37
-                  },
-                  this
-                )
-              ]
-            },
-            file.id,
-            true,
-            {
-              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-              lineNumber: 563,
-              columnNumber: 33
-            },
-            this
-          );
-        }),
-        attachingFile && /* @__PURE__ */ jsxDEV(Loader2, { className: "h-4 w-4 ml-2 animate-spin" }, void 0, false, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-          lineNumber: 590,
-          columnNumber: 29
-        }, this)
-      ] }, void 0, true, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-        lineNumber: 559,
-        columnNumber: 21
-      }, this) : attachingFile && /* @__PURE__ */ jsxDEV(Loader2, { className: "h-4 w-4 mb-4 mx-4 animate-spin" }, void 0, false, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-        lineNumber: 595,
-        columnNumber: 25
-      }, this),
-      modelType.isKling25 && /* @__PURE__ */ jsxDEV("p", { className: "mb-2 text-xs text-muted-foreground", children: "\u0414\u043B\u044F image-to-video: \u043F\u0435\u0440\u0432\u043E\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u2014 \u043D\u0430\u0447\u0430\u043B\u044C\u043D\u044B\u0439 \u043A\u0430\u0434\u0440, \u0432\u0442\u043E\u0440\u043E\u0435 \u2014 \u0444\u0438\u043D\u0430\u043B\u044C\u043D\u044B\u0439 \u043A\u0430\u0434\u0440 (tail)" }, void 0, false, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-        lineNumber: 601,
-        columnNumber: 21
-      }, this),
-      modelType.isSeedream4_5_Edit && /* @__PURE__ */ jsxDEV("p", { className: "mb-2 text-xs text-muted-foreground", children: "Seedream 4.5 Edit \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u0434\u043E 14 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439 \u0434\u043B\u044F \u0440\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F" }, void 0, false, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-        lineNumber: 609,
-        columnNumber: 21
-      }, this),
-      /* @__PURE__ */ jsxDEV("div", { className: "mb-2 flex flex-wrap items-center gap-2", children: [
-        /* @__PURE__ */ jsxDEV(
-          ModelSelector,
-          {
-            value: currentModel,
-            onChange: (model) => {
-              setSeed(void 0);
-              onModelChange(model);
-            },
-            disabled: isDisabled
-          },
-          void 0,
-          false,
-          {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-            lineNumber: 617,
-            columnNumber: 21
-          },
-          this
-        ),
-        /* @__PURE__ */ jsxDEV(
-          ModelSettingsPanel,
-          {
-            model: currentModel,
-            format,
-            quality,
-            duration,
-            sound,
-            onFormatChange: (value) => setFormat(value),
-            onQualityChange: setQuality,
-            onDurationChange: setDuration,
-            onSoundChange: setSound,
-            veoGenerationType,
-            onVeoGenerationTypeChange: setVeoGenerationType,
-            disabled: isDisabled
-          },
-          void 0,
-          false,
-          {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-            lineNumber: 627,
-            columnNumber: 21
-          },
-          this
-        )
-      ] }, void 0, true, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-        lineNumber: 616,
-        columnNumber: 17
-      }, this),
-      modelType.isVeo && /* @__PURE__ */ jsxDEV("div", { className: "flex gap-2 mb-2", children: /* @__PURE__ */ jsxDEV("div", { className: "w-74", children: /* @__PURE__ */ jsxDEV(
-        NumberInput,
-        {
-          placeholder: "Seed (\u043E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E, 10000-99999)",
-          value: seed,
-          onValueChange: setSeed,
-          disabled: isDisabled,
-          className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl",
-          min: 1e4,
-          max: 99999
-        },
-        void 0,
-        false,
-        {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-          lineNumber: 659,
-          columnNumber: 29
-        },
-        this
-      ) }, void 0, false, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-        lineNumber: 658,
-        columnNumber: 25
-      }, this) }, void 0, false, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-        lineNumber: 657,
-        columnNumber: 21
-      }, this),
-      modelType.isImagen4 && /* @__PURE__ */ jsxDEV("div", { className: "flex gap-2 mb-2", children: [
-        /* @__PURE__ */ jsxDEV(
-          Input,
-          {
-            type: "text",
-            placeholder: "\u041D\u0435\u0433\u0430\u0442\u0438\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u043C\u043F\u0442 (\u043E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E)",
-            value: negativePrompt,
-            onChange: (e) => setNegativePrompt(e.target.value),
-            disabled: isDisabled,
-            className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl"
-          },
-          void 0,
-          false,
-          {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-            lineNumber: 675,
-            columnNumber: 25
-          },
-          this
-        ),
-        /* @__PURE__ */ jsxDEV(
-          NumberInput,
-          {
-            placeholder: "Seed (\u043E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E)",
-            value: seed,
-            onValueChange: setSeed,
-            disabled: isDisabled,
-            className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-40"
-          },
-          void 0,
-          false,
-          {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-            lineNumber: 683,
-            columnNumber: 25
-          },
-          this
-        )
-      ] }, void 0, true, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-        lineNumber: 674,
-        columnNumber: 21
-      }, this),
-      modelType.isKling25 && /* @__PURE__ */ jsxDEV("div", { className: "flex gap-2 mb-2", children: [
-        /* @__PURE__ */ jsxDEV(
-          Input,
-          {
-            type: "text",
-            placeholder: "\u041D\u0435\u0433\u0430\u0442\u0438\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u043C\u043F\u0442 (\u043E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E)",
-            value: negativePrompt,
-            onChange: (e) => setNegativePrompt(e.target.value),
-            disabled: isDisabled,
-            className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl"
-          },
-          void 0,
-          false,
-          {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-            lineNumber: 696,
-            columnNumber: 25
-          },
-          this
-        ),
-        /* @__PURE__ */ jsxDEV(
-          NumberInput,
-          {
-            placeholder: "CFG Scale (\u043E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E, 1-20)",
-            value: cfgScale,
-            onValueChange: setCfgScale,
-            disabled: isDisabled,
-            className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-40",
-            min: 1,
-            max: 20
-          },
-          void 0,
-          false,
-          {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-            lineNumber: 704,
-            columnNumber: 25
-          },
-          this
-        )
-      ] }, void 0, true, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-        lineNumber: 695,
-        columnNumber: 21
-      }, this),
-      modelType.isElevenLabs && /* @__PURE__ */ jsxDEV("div", { className: "mb-2 space-y-2", children: /* @__PURE__ */ jsxDEV("div", { className: "flex flex-wrap gap-2", children: [
-        /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col", children: [
-          /* @__PURE__ */ jsxDEV("p", { className: "mb-1 text-xs text-muted-foreground", children: "\u0413\u043E\u043B\u043E\u0441" }, void 0, false, {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-            lineNumber: 721,
-            columnNumber: 33
-          }, this),
-          /* @__PURE__ */ jsxDEV(
-            Select,
-            {
-              value: voice,
-              onValueChange: setVoice,
-              disabled: isDisabled,
-              children: [
-                /* @__PURE__ */ jsxDEV(SelectTrigger, { className: "w-40 border-border bg-secondary text-foreground focus-visible:ring-primary rounded-xl", children: /* @__PURE__ */ jsxDEV(SelectValue, { placeholder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0433\u043E\u043B\u043E\u0441" }, void 0, false, {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                  lineNumber: 730,
-                  columnNumber: 41
-                }, this) }, void 0, false, {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                  lineNumber: 729,
-                  columnNumber: 37
-                }, this),
-                /* @__PURE__ */ jsxDEV(SelectContent, { className: "border-border bg-card", children: elevenLabsVoices.map((voiceOption) => /* @__PURE__ */ jsxDEV(
-                  SelectItem,
-                  {
-                    value: voiceOption,
-                    className: "text-foreground focus:bg-secondary focus:text-foreground",
-                    children: voiceOption
-                  },
-                  voiceOption,
-                  false,
-                  {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                    lineNumber: 734,
-                    columnNumber: 45
-                  },
-                  this
-                )) }, void 0, false, {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                  lineNumber: 732,
-                  columnNumber: 37
-                }, this)
-              ]
-            },
-            void 0,
-            true,
-            {
-              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-              lineNumber: 724,
-              columnNumber: 33
-            },
-            this
-          )
-        ] }, void 0, true, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-          lineNumber: 720,
-          columnNumber: 29
-        }, this),
-        /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col", children: [
-          /* @__PURE__ */ jsxDEV("p", { className: "mb-1 text-xs text-muted-foreground", children: "\u0421\u0442\u0430\u0431\u0438\u043B\u044C\u043D\u043E\u0441\u0442\u044C (0-1)" }, void 0, false, {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-            lineNumber: 746,
-            columnNumber: 33
-          }, this),
-          /* @__PURE__ */ jsxDEV(
-            NumberInput,
-            {
-              placeholder: "0.5",
-              value: stability,
-              onValueChange: (value) => setStability(value ?? 0.5),
-              disabled: isDisabled,
-              className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-36",
-              min: 0,
-              max: 1,
-              step: 0.1
-            },
-            void 0,
-            false,
-            {
-              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-              lineNumber: 749,
-              columnNumber: 33
-            },
-            this
-          )
-        ] }, void 0, true, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-          lineNumber: 745,
-          columnNumber: 29
-        }, this),
-        /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col", children: [
-          /* @__PURE__ */ jsxDEV("p", { className: "mb-1 text-xs text-muted-foreground", children: "\u0423\u0441\u0438\u043B\u0435\u043D\u0438\u0435 \u0441\u0445\u043E\u0434\u0441\u0442\u0432\u0430 (0-1)" }, void 0, false, {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-            lineNumber: 763,
-            columnNumber: 33
-          }, this),
-          /* @__PURE__ */ jsxDEV(
-            NumberInput,
-            {
-              placeholder: "0.75",
-              value: similarityBoost,
-              onValueChange: (value) => setSimilarityBoost(value ?? 0.75),
-              disabled: isDisabled,
-              className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-44",
-              min: 0,
-              max: 1,
-              step: 0.1
-            },
-            void 0,
-            false,
-            {
-              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-              lineNumber: 766,
-              columnNumber: 33
-            },
-            this
-          )
-        ] }, void 0, true, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-          lineNumber: 762,
-          columnNumber: 29
-        }, this),
-        /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col", children: [
-          /* @__PURE__ */ jsxDEV("p", { className: "mb-1 text-xs text-muted-foreground", children: "\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C (0.5-2)" }, void 0, false, {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-            lineNumber: 780,
-            columnNumber: 33
-          }, this),
-          /* @__PURE__ */ jsxDEV(
-            NumberInput,
-            {
-              placeholder: "1",
-              value: speed,
-              onValueChange: (value) => setSpeed(value ?? 1),
-              disabled: isDisabled,
-              className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-36",
-              min: 0.5,
-              max: 2,
-              step: 0.1
-            },
-            void 0,
-            false,
-            {
-              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-              lineNumber: 783,
-              columnNumber: 33
-            },
-            this
-          )
-        ] }, void 0, true, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-          lineNumber: 779,
-          columnNumber: 29
-        }, this),
-        /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col", children: [
-          /* @__PURE__ */ jsxDEV("p", { className: "mb-1 text-xs text-slate-400", children: "\u041A\u043E\u0434 \u044F\u0437\u044B\u043A\u0430 (\u043E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E)" }, void 0, false, {
-            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-            lineNumber: 797,
-            columnNumber: 33
-          }, this),
-          /* @__PURE__ */ jsxDEV(
-            Input,
-            {
-              type: "text",
-              placeholder: "ru, en, es...",
-              value: languageCode,
-              onChange: (e) => setLanguageCode(e.target.value),
-              disabled: isDisabled,
-              className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-40"
-            },
-            void 0,
-            false,
-            {
-              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-              lineNumber: 800,
-              columnNumber: 33
-            },
-            this
-          )
-        ] }, void 0, true, {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-          lineNumber: 796,
-          columnNumber: 29
-        }, this)
-      ] }, void 0, true, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-        lineNumber: 719,
-        columnNumber: 25
-      }, this) }, void 0, false, {
-        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-        lineNumber: 718,
-        columnNumber: 21
-      }, this),
-      /* @__PURE__ */ jsxDEV(
-        "div",
-        {
-          className: cn(
-            "relative rounded-xl transition-all",
-            isDragging && "border-2 border-primary bg-secondary/80 p-1"
-          ),
-          onDragOver: (e) => handleDragOver(e, isDisabled),
-          onDragLeave: handleDragLeave,
-          onDrop: (e) => handleDrop(e, isDisabled),
-          children: [
-            /* @__PURE__ */ jsxDEV(
-              "input",
-              {
-                ref: fileInputRef,
-                type: "file",
-                accept: "image/*,video/*",
-                multiple: true,
-                onChange: handleFileSelect,
-                className: "hidden"
-              },
-              void 0,
-              false,
-              {
-                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                lineNumber: 826,
-                columnNumber: 21
-              },
-              this
-            ),
-            /* @__PURE__ */ jsxDEV(
-              Textarea,
-              {
-                ref: textareaRef,
-                value: prompt,
-                onChange: handleTextareaChange,
-                onKeyDown: handleKeyDown,
-                onPaste: (e) => {
-                  loadingEffectForAttachFile();
-                  handlePaste(e, isDisabled);
+    return /* @__PURE__ */ jsxDEV(
+      "div",
+      {
+        id: "chat-input",
+        className: "absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-slate-950/60 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl shadow-cyan-900/20 p-4 z-20",
+        children: [
+          attachedFiles.length > 0 ? /* @__PURE__ */ jsxDEV("div", { className: "mb-3 flex flex-wrap gap-2 items-center", children: [
+            attachedFiles.map((file) => {
+              const isVideo = file.file.type.startsWith("video/");
+              return /* @__PURE__ */ jsxDEV(
+                "div",
+                {
+                  className: "group relative h-16 w-16 overflow-hidden rounded-xl border border-border bg-secondary shadow-sm",
+                  children: [
+                    isVideo ? /* @__PURE__ */ jsxDEV(
+                      "video",
+                      {
+                        src: file.preview,
+                        className: "h-full w-full object-cover"
+                      },
+                      void 0,
+                      false,
+                      {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                        lineNumber: 523,
+                        columnNumber: 41
+                      },
+                      this
+                    ) : /* @__PURE__ */ jsxDEV(
+                      "img",
+                      {
+                        src: file.preview,
+                        alt: "Attachment",
+                        className: "h-full w-full object-cover"
+                      },
+                      void 0,
+                      false,
+                      {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                        lineNumber: 529,
+                        columnNumber: 41
+                      },
+                      this
+                    ),
+                    /* @__PURE__ */ jsxDEV(
+                      "button",
+                      {
+                        onClick: () => removeFile(file.id),
+                        className: "absolute right-1 top-1 rounded-full bg-background/80 p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground",
+                        children: /* @__PURE__ */ jsxDEV(X, { className: "h-3 w-3" }, void 0, false, {
+                          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                          lineNumber: 539,
+                          columnNumber: 41
+                        }, this)
+                      },
+                      void 0,
+                      false,
+                      {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                        lineNumber: 535,
+                        columnNumber: 37
+                      },
+                      this
+                    )
+                  ]
                 },
-                placeholder: "\u041E\u043F\u0438\u0448\u0438\u0442\u0435, \u0447\u0442\u043E \u0445\u043E\u0442\u0438\u0442\u0435 \u0441\u0433\u0435\u043D\u0435\u0440\u0438\u0440\u043E\u0432\u0430\u0442\u044C...",
-                maxLength: MAX_PROMPT_LENGTH,
-                className: cn(
-                  "min-h-[76px] max-h-[20vh] resize-none border-border bg-secondary pb-10 pl-4 pr-12 text-foreground placeholder:text-muted-foreground rounded-xl transition-all",
-                  "focus-visible:ring-primary focus-visible:border-primary",
-                  needsScrollbar && "overflow-y-auto custom-scrollbar",
-                  !needsScrollbar && "overflow-y-hidden",
-                  isDragging && "border-primary"
-                ),
-                style: { height: "auto" },
-                disabled: isDisabled
-              },
-              void 0,
-              false,
-              {
-                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                lineNumber: 834,
-                columnNumber: 21
-              },
-              this
-            ),
+                file.id,
+                true,
+                {
+                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                  lineNumber: 518,
+                  columnNumber: 33
+                },
+                this
+              );
+            }),
+            attachingFile && /* @__PURE__ */ jsxDEV(Loader2, { className: "h-4 w-4 ml-2 animate-spin" }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+              lineNumber: 545,
+              columnNumber: 29
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 514,
+            columnNumber: 21
+          }, this) : attachingFile && /* @__PURE__ */ jsxDEV(Loader2, { className: "h-4 w-4 mb-4 mx-4 animate-spin" }, void 0, false, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 550,
+            columnNumber: 25
+          }, this),
+          modelType.isKling25 && /* @__PURE__ */ jsxDEV("p", { className: "mb-2 text-xs text-muted-foreground", children: "\u0414\u043B\u044F image-to-video: \u043F\u0435\u0440\u0432\u043E\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u2014 \u043D\u0430\u0447\u0430\u043B\u044C\u043D\u044B\u0439 \u043A\u0430\u0434\u0440, \u0432\u0442\u043E\u0440\u043E\u0435 \u2014 \u0444\u0438\u043D\u0430\u043B\u044C\u043D\u044B\u0439 \u043A\u0430\u0434\u0440 (tail)" }, void 0, false, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 556,
+            columnNumber: 21
+          }, this),
+          modelType.isSeedream4_5_Edit && /* @__PURE__ */ jsxDEV("p", { className: "mb-2 text-xs text-muted-foreground", children: "Seedream 4.5 Edit \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u0434\u043E 14 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439 \u0434\u043B\u044F \u0440\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F" }, void 0, false, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 564,
+            columnNumber: 21
+          }, this),
+          currentModel === "SEEDANCE_1_5_PRO_KIEAI" && /* @__PURE__ */ jsxDEV("div", { className: "mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground", children: [
+            /* @__PURE__ */ jsxDEV("span", { children: "\u041A\u0430\u043C\u0435\u0440\u0430:" }, void 0, false, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+              lineNumber: 573,
+              columnNumber: 25
+            }, this),
             /* @__PURE__ */ jsxDEV(
-              "div",
+              Select,
               {
-                className: cn(
-                  "absolute bottom-2.5 right-12 text-[10px] select-none pointer-events-none transition-colors px-1 rounded bg-background/50",
-                  prompt.length >= MAX_PROMPT_LENGTH ? "text-destructive" : prompt.length >= MAX_PROMPT_LENGTH * 0.9 ? "text-primary" : "text-muted-foreground"
-                ),
+                value: fixedLens === void 0 ? "false" : fixedLens ? "true" : "false",
+                onValueChange: (value) => setFixedLens(value === "true"),
+                disabled: isDisabled,
                 children: [
-                  prompt.length,
-                  "/",
-                  MAX_PROMPT_LENGTH
+                  /* @__PURE__ */ jsxDEV(SelectTrigger, { className: "w-[150px] border-border bg-secondary text-foreground rounded-xl", children: /* @__PURE__ */ jsxDEV(
+                    SelectValue,
+                    {
+                      placeholder: "\u0420\u0435\u0436\u0438\u043C \u043A\u0430\u043C\u0435\u0440\u044B"
+                    },
+                    void 0,
+                    false,
+                    {
+                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                      lineNumber: 588,
+                      columnNumber: 33
+                    },
+                    this
+                  ) }, void 0, false, {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                    lineNumber: 587,
+                    columnNumber: 29
+                  }, this),
+                  /* @__PURE__ */ jsxDEV(
+                    SelectContent,
+                    {
+                      side: "top",
+                      sideOffset: 8,
+                      position: "popper",
+                      collisionPadding: 20,
+                      avoidCollisions: true,
+                      className: "border-border bg-card data-[side=top]:animate-none!",
+                      children: [
+                        /* @__PURE__ */ jsxDEV(SelectItem, { value: "true", className: "text-muted-foreground focus:bg-accent focus:text-accent-foreground", children: "\u0424\u0438\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0439 \u0440\u0430\u043A\u0443\u0440\u0441 (fixed_lens)" }, void 0, false, {
+                          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                          lineNumber: 600,
+                          columnNumber: 33
+                        }, this),
+                        /* @__PURE__ */ jsxDEV(SelectItem, { value: "false", className: "text-muted-foreground focus:bg-accent focus:text-accent-foreground", children: "\u0421\u0432\u043E\u0431\u043E\u0434\u043D\u0430\u044F \u043A\u0430\u043C\u0435\u0440\u0430" }, void 0, false, {
+                          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                          lineNumber: 603,
+                          columnNumber: 33
+                        }, this)
+                      ]
+                    },
+                    void 0,
+                    true,
+                    {
+                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                      lineNumber: 592,
+                      columnNumber: 29
+                    },
+                    this
+                  )
                 ]
               },
               void 0,
               true,
               {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                lineNumber: 858,
-                columnNumber: 21
+                lineNumber: 574,
+                columnNumber: 25
               },
               this
-            ),
-            /* @__PURE__ */ jsxDEV("div", { className: "absolute bottom-1.5 left-1.5 flex items-center gap-0", children: [
-              /* @__PURE__ */ jsxDEV(
-                Button,
-                {
-                  type: "button",
-                  size: "icon-sm",
-                  variant: "ghost",
-                  className: cn(
-                    "h-8 w-8 hover:bg-secondary",
-                    attachedFiles.length > 0 ? "text-primary" : "text-muted-foreground hover:text-primary"
-                  ),
-                  onClick: () => fileInputRef.current?.click(),
-                  disabled: isDisabled,
-                  children: /* @__PURE__ */ jsxDEV(Paperclip, { className: "h-4 w-4" }, void 0, false, {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                    lineNumber: 883,
-                    columnNumber: 29
-                  }, this)
-                },
-                void 0,
-                false,
-                {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                  lineNumber: 870,
-                  columnNumber: 25
-                },
-                this
-              ),
-              /* @__PURE__ */ jsxDEV(
-                Button,
-                {
-                  type: "button",
-                  size: "icon-sm",
-                  variant: "ghost",
-                  className: cn(
-                    "h-8 w-8 hover:bg-secondary",
-                    isLockEnabled ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                  ),
-                  onClick: toggleLock,
-                  disabled: isDisabled,
-                  title: isLockEnabled ? "\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043F\u0440\u043E\u043C\u043F\u0442\u043E\u0432 \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u043E" : "\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043F\u0440\u043E\u043C\u043F\u0442\u043E\u0432 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u043E",
-                  children: isLockEnabled ? /* @__PURE__ */ jsxDEV(Lock, { className: "h-4 w-4" }, void 0, false, {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                    lineNumber: 906,
-                    columnNumber: 33
-                  }, this) : /* @__PURE__ */ jsxDEV(Unlock, { className: "h-4 w-4" }, void 0, false, {
-                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                    lineNumber: 908,
-                    columnNumber: 33
-                  }, this)
-                },
-                void 0,
-                false,
-                {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                  lineNumber: 887,
-                  columnNumber: 25
-                },
-                this
-              )
-            ] }, void 0, true, {
-              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-              lineNumber: 869,
-              columnNumber: 21
-            }, this),
+            )
+          ] }, void 0, true, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 572,
+            columnNumber: 21
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { className: "mb-2 flex flex-wrap items-center gap-2", children: [
             /* @__PURE__ */ jsxDEV(
-              Button,
+              ModelSelector,
               {
-                type: "button",
-                size: "icon-sm",
-                className: "absolute bottom-1.5 right-1.5 bg-primary hover:bg-primary/90 text-primary-foreground",
-                onClick: (e) => {
-                  if (submitInProgressRef.current || isDisabled) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return;
-                  }
-                  onSubmit(e);
+                value: currentModel,
+                onChange: (model) => {
+                  setSeed(void 0);
+                  onModelChange(model);
                 },
-                disabled: isDisabled || !prompt.trim() && attachedFiles.length === 0,
-                children: isSubmitting ? /* @__PURE__ */ jsxDEV(Loader2, { className: "h-4 w-4 animate-spin" }, void 0, false, {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                  lineNumber: 933,
-                  columnNumber: 29
-                }, this) : /* @__PURE__ */ jsxDEV(Send, { className: "h-4 w-4" }, void 0, false, {
-                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                  lineNumber: 935,
-                  columnNumber: 29
-                }, this)
+                disabled: isDisabled
               },
               void 0,
               false,
               {
                 fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-                lineNumber: 914,
+                lineNumber: 613,
+                columnNumber: 21
+              },
+              this
+            ),
+            /* @__PURE__ */ jsxDEV(
+              ModelSettingsPanel,
+              {
+                model: currentModel,
+                format,
+                quality,
+                duration,
+                sound,
+                onFormatChange: (value) => setFormat(value),
+                onQualityChange: setQuality,
+                onDurationChange: setDuration,
+                onSoundChange: setSound,
+                veoGenerationType,
+                onVeoGenerationTypeChange: setVeoGenerationType,
+                disabled: isDisabled
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                lineNumber: 623,
                 columnNumber: 21
               },
               this
             )
-          ]
-        },
-        void 0,
-        true,
-        {
-          fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-          lineNumber: 816,
-          columnNumber: 17
-        },
-        this
-      ),
-      /* @__PURE__ */ jsxDEV("p", { className: "mt-2 text-xs text-muted-foreground", children: "Enter \u2014 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C, Shift+Enter \u2014 \u043D\u043E\u0432\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430. \u041C\u043E\u0436\u043D\u043E \u043F\u0435\u0440\u0435\u0442\u0430\u0441\u043A\u0438\u0432\u0430\u0442\u044C \u0444\u0430\u0439\u043B\u044B \u0438\u043B\u0438 \u0432\u0441\u0442\u0430\u0432\u043B\u044F\u0442\u044C \u0438\u0437 \u0431\u0443\u0444\u0435\u0440\u0430 \u043E\u0431\u043C\u0435\u043D\u0430 (Ctrl+V/Cmd+V)" }, void 0, false, {
+          ] }, void 0, true, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 612,
+            columnNumber: 17
+          }, this),
+          modelType.isVeo && /* @__PURE__ */ jsxDEV("div", { className: "flex gap-2 mb-2", children: /* @__PURE__ */ jsxDEV("div", { className: "w-74", children: /* @__PURE__ */ jsxDEV(
+            NumberInput,
+            {
+              placeholder: "Seed (\u043E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E, 10000-99999)",
+              value: seed,
+              onValueChange: setSeed,
+              disabled: isDisabled,
+              className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl",
+              min: 1e4,
+              max: 99999
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+              lineNumber: 655,
+              columnNumber: 29
+            },
+            this
+          ) }, void 0, false, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 654,
+            columnNumber: 25
+          }, this) }, void 0, false, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 653,
+            columnNumber: 21
+          }, this),
+          modelType.isImagen4 && /* @__PURE__ */ jsxDEV("div", { className: "flex gap-2 mb-2", children: [
+            /* @__PURE__ */ jsxDEV(
+              Input,
+              {
+                type: "text",
+                placeholder: "\u041D\u0435\u0433\u0430\u0442\u0438\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u043C\u043F\u0442 (\u043E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E)",
+                value: negativePrompt,
+                onChange: (e) => setNegativePrompt(e.target.value),
+                disabled: isDisabled,
+                className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl"
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                lineNumber: 671,
+                columnNumber: 25
+              },
+              this
+            ),
+            /* @__PURE__ */ jsxDEV(
+              NumberInput,
+              {
+                placeholder: "Seed (\u043E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E)",
+                value: seed,
+                onValueChange: setSeed,
+                disabled: isDisabled,
+                className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-40"
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                lineNumber: 679,
+                columnNumber: 25
+              },
+              this
+            )
+          ] }, void 0, true, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 670,
+            columnNumber: 21
+          }, this),
+          modelType.isKling25 && /* @__PURE__ */ jsxDEV("div", { className: "flex gap-2 mb-2", children: [
+            /* @__PURE__ */ jsxDEV(
+              Input,
+              {
+                type: "text",
+                placeholder: "\u041D\u0435\u0433\u0430\u0442\u0438\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u043C\u043F\u0442 (\u043E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E)",
+                value: negativePrompt,
+                onChange: (e) => setNegativePrompt(e.target.value),
+                disabled: isDisabled,
+                className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl"
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                lineNumber: 692,
+                columnNumber: 25
+              },
+              this
+            ),
+            /* @__PURE__ */ jsxDEV(
+              NumberInput,
+              {
+                placeholder: "CFG Scale (\u043E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E, 1-20)",
+                value: cfgScale,
+                onValueChange: setCfgScale,
+                disabled: isDisabled,
+                className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-40",
+                min: 1,
+                max: 20
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                lineNumber: 700,
+                columnNumber: 25
+              },
+              this
+            )
+          ] }, void 0, true, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 691,
+            columnNumber: 21
+          }, this),
+          modelType.isElevenLabs && /* @__PURE__ */ jsxDEV("div", { className: "mb-2 space-y-2", children: /* @__PURE__ */ jsxDEV("div", { className: "flex flex-wrap gap-2", children: [
+            /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col", children: [
+              /* @__PURE__ */ jsxDEV("p", { className: "mb-1 text-xs text-muted-foreground", children: "\u0413\u043E\u043B\u043E\u0441" }, void 0, false, {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                lineNumber: 717,
+                columnNumber: 33
+              }, this),
+              /* @__PURE__ */ jsxDEV(
+                Select,
+                {
+                  value: voice,
+                  onValueChange: setVoice,
+                  disabled: isDisabled,
+                  children: [
+                    /* @__PURE__ */ jsxDEV(SelectTrigger, { className: "w-40 border-border bg-secondary text-foreground focus-visible:ring-primary rounded-xl", children: /* @__PURE__ */ jsxDEV(SelectValue, { placeholder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0433\u043E\u043B\u043E\u0441" }, void 0, false, {
+                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                      lineNumber: 727,
+                      columnNumber: 41
+                    }, this) }, void 0, false, {
+                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                      lineNumber: 726,
+                      columnNumber: 37
+                    }, this),
+                    /* @__PURE__ */ jsxDEV(
+                      SelectContent,
+                      {
+                        side: "top",
+                        sideOffset: 8,
+                        position: "popper",
+                        collisionPadding: 20,
+                        avoidCollisions: true,
+                        className: "border-border bg-card data-[side=top]:animate-none!",
+                        children: ELEVENLABS_VOICES.map((voiceOption) => /* @__PURE__ */ jsxDEV(
+                          SelectItem,
+                          {
+                            value: voiceOption,
+                            className: "text-foreground focus:bg-secondary focus:text-foreground",
+                            children: voiceOption
+                          },
+                          voiceOption,
+                          false,
+                          {
+                            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                            lineNumber: 738,
+                            columnNumber: 45
+                          },
+                          this
+                        ))
+                      },
+                      void 0,
+                      false,
+                      {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                        lineNumber: 729,
+                        columnNumber: 37
+                      },
+                      this
+                    )
+                  ]
+                },
+                void 0,
+                true,
+                {
+                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                  lineNumber: 720,
+                  columnNumber: 33
+                },
+                this
+              )
+            ] }, void 0, true, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+              lineNumber: 716,
+              columnNumber: 29
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col", children: [
+              /* @__PURE__ */ jsxDEV("p", { className: "mb-1 text-xs text-muted-foreground", children: "\u0421\u0442\u0430\u0431\u0438\u043B\u044C\u043D\u043E\u0441\u0442\u044C (0-1)" }, void 0, false, {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                lineNumber: 750,
+                columnNumber: 33
+              }, this),
+              /* @__PURE__ */ jsxDEV(
+                NumberInput,
+                {
+                  placeholder: "0.5",
+                  value: stability,
+                  onValueChange: (value) => setStability(value ?? 0.5),
+                  disabled: isDisabled,
+                  className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-36",
+                  min: 0,
+                  max: 1,
+                  step: 0.1
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                  lineNumber: 753,
+                  columnNumber: 33
+                },
+                this
+              )
+            ] }, void 0, true, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+              lineNumber: 749,
+              columnNumber: 29
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col", children: [
+              /* @__PURE__ */ jsxDEV("p", { className: "mb-1 text-xs text-muted-foreground", children: "\u0423\u0441\u0438\u043B\u0435\u043D\u0438\u0435 \u0441\u0445\u043E\u0434\u0441\u0442\u0432\u0430 (0-1)" }, void 0, false, {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                lineNumber: 767,
+                columnNumber: 33
+              }, this),
+              /* @__PURE__ */ jsxDEV(
+                NumberInput,
+                {
+                  placeholder: "0.75",
+                  value: similarityBoost,
+                  onValueChange: (value) => setSimilarityBoost(value ?? 0.75),
+                  disabled: isDisabled,
+                  className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-44",
+                  min: 0,
+                  max: 1,
+                  step: 0.1
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                  lineNumber: 770,
+                  columnNumber: 33
+                },
+                this
+              )
+            ] }, void 0, true, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+              lineNumber: 766,
+              columnNumber: 29
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col", children: [
+              /* @__PURE__ */ jsxDEV("p", { className: "mb-1 text-xs text-muted-foreground", children: "\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C (0.5-2)" }, void 0, false, {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                lineNumber: 784,
+                columnNumber: 33
+              }, this),
+              /* @__PURE__ */ jsxDEV(
+                NumberInput,
+                {
+                  placeholder: "1",
+                  value: speed,
+                  onValueChange: (value) => setSpeed(value ?? 1),
+                  disabled: isDisabled,
+                  className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-36",
+                  min: 0.5,
+                  max: 2,
+                  step: 0.1
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                  lineNumber: 787,
+                  columnNumber: 33
+                },
+                this
+              )
+            ] }, void 0, true, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+              lineNumber: 783,
+              columnNumber: 29
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col", children: [
+              /* @__PURE__ */ jsxDEV("p", { className: "mb-1 text-xs text-slate-400", children: "\u041A\u043E\u0434 \u044F\u0437\u044B\u043A\u0430 (\u043E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E)" }, void 0, false, {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                lineNumber: 801,
+                columnNumber: 33
+              }, this),
+              /* @__PURE__ */ jsxDEV(
+                Input,
+                {
+                  type: "text",
+                  placeholder: "ru, en, es...",
+                  value: languageCode,
+                  onChange: (e) => setLanguageCode(e.target.value),
+                  disabled: isDisabled,
+                  className: "border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-40"
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                  lineNumber: 804,
+                  columnNumber: 33
+                },
+                this
+              )
+            ] }, void 0, true, {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+              lineNumber: 800,
+              columnNumber: 29
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 715,
+            columnNumber: 25
+          }, this) }, void 0, false, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 714,
+            columnNumber: 21
+          }, this),
+          /* @__PURE__ */ jsxDEV(
+            "div",
+            {
+              className: cn(
+                "relative rounded-xl transition-all",
+                isDragging && "border-2 border-primary bg-secondary/80 p-1"
+              ),
+              onDragOver: (e) => handleDragOver(e, isDisabled),
+              onDragLeave: handleDragLeave,
+              onDrop: (e) => handleDrop(e, isDisabled),
+              children: [
+                /* @__PURE__ */ jsxDEV(
+                  "input",
+                  {
+                    ref: fileInputRef,
+                    type: "file",
+                    accept: "image/*,video/*",
+                    multiple: true,
+                    onChange: handleFileSelect,
+                    className: "hidden"
+                  },
+                  void 0,
+                  false,
+                  {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                    lineNumber: 830,
+                    columnNumber: 21
+                  },
+                  this
+                ),
+                /* @__PURE__ */ jsxDEV(
+                  Textarea,
+                  {
+                    ref: textareaRef,
+                    value: prompt,
+                    onChange: handleTextareaChange,
+                    onKeyDown: handleKeyDown,
+                    onPaste: (e) => {
+                      loadingEffectForAttachFile();
+                      handlePaste(e, isDisabled);
+                    },
+                    placeholder: "\u041E\u043F\u0438\u0448\u0438\u0442\u0435, \u0447\u0442\u043E \u0445\u043E\u0442\u0438\u0442\u0435 \u0441\u0433\u0435\u043D\u0435\u0440\u0438\u0440\u043E\u0432\u0430\u0442\u044C...",
+                    maxLength: MAX_PROMPT_LENGTH,
+                    className: cn(
+                      "min-h-[76px] max-h-[20vh] resize-none border-border bg-secondary pb-10 pl-4 pr-12 text-foreground placeholder:text-muted-foreground rounded-xl transition-all",
+                      "focus-visible:ring-primary focus-visible:border-primary",
+                      needsScrollbar && "overflow-y-auto custom-scrollbar",
+                      !needsScrollbar && "overflow-y-hidden",
+                      isDragging && "border-primary"
+                    ),
+                    style: { height: "auto" },
+                    disabled: isDisabled
+                  },
+                  void 0,
+                  false,
+                  {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                    lineNumber: 838,
+                    columnNumber: 21
+                  },
+                  this
+                ),
+                /* @__PURE__ */ jsxDEV(
+                  "div",
+                  {
+                    className: cn(
+                      "absolute bottom-2.5 right-12 text-[10px] select-none pointer-events-none transition-colors px-1 rounded bg-background/50",
+                      prompt.length >= MAX_PROMPT_LENGTH ? "text-destructive" : prompt.length >= MAX_PROMPT_LENGTH * 0.9 ? "text-primary" : "text-muted-foreground"
+                    ),
+                    children: [
+                      prompt.length,
+                      "/",
+                      MAX_PROMPT_LENGTH
+                    ]
+                  },
+                  void 0,
+                  true,
+                  {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                    lineNumber: 862,
+                    columnNumber: 21
+                  },
+                  this
+                ),
+                /* @__PURE__ */ jsxDEV("div", { className: "absolute bottom-1.5 left-1.5 flex items-center gap-0", children: [
+                  /* @__PURE__ */ jsxDEV(
+                    Button,
+                    {
+                      type: "button",
+                      size: "icon-sm",
+                      variant: "ghost",
+                      className: cn(
+                        "h-8 w-8 hover:bg-secondary",
+                        attachedFiles.length > 0 ? "text-primary" : "text-muted-foreground hover:text-primary"
+                      ),
+                      onClick: () => fileInputRef.current?.click(),
+                      disabled: isDisabled,
+                      children: /* @__PURE__ */ jsxDEV(Paperclip, { className: "h-4 w-4" }, void 0, false, {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                        lineNumber: 890,
+                        columnNumber: 29
+                      }, this)
+                    },
+                    void 0,
+                    false,
+                    {
+                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                      lineNumber: 877,
+                      columnNumber: 25
+                    },
+                    this
+                  ),
+                  /* @__PURE__ */ jsxDEV(
+                    Button,
+                    {
+                      type: "button",
+                      size: "icon-sm",
+                      variant: "ghost",
+                      className: cn(
+                        "h-8 w-8 hover:bg-secondary",
+                        isLockEnabled ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                      ),
+                      onClick: toggleLock,
+                      disabled: isDisabled,
+                      title: isLockEnabled ? "\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043F\u0440\u043E\u043C\u043F\u0442\u043E\u0432 \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u043E" : "\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043F\u0440\u043E\u043C\u043F\u0442\u043E\u0432 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u043E",
+                      children: isLockEnabled ? /* @__PURE__ */ jsxDEV(Lock, { className: "h-4 w-4" }, void 0, false, {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                        lineNumber: 913,
+                        columnNumber: 33
+                      }, this) : /* @__PURE__ */ jsxDEV(Unlock, { className: "h-4 w-4" }, void 0, false, {
+                        fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                        lineNumber: 915,
+                        columnNumber: 33
+                      }, this)
+                    },
+                    void 0,
+                    false,
+                    {
+                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                      lineNumber: 894,
+                      columnNumber: 25
+                    },
+                    this
+                  )
+                ] }, void 0, true, {
+                  fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                  lineNumber: 876,
+                  columnNumber: 21
+                }, this),
+                /* @__PURE__ */ jsxDEV(
+                  Button,
+                  {
+                    type: "button",
+                    size: "icon-sm",
+                    className: "absolute bottom-1.5 right-1.5 bg-primary hover:bg-primary/90 text-primary-foreground",
+                    onClick: (e) => {
+                      if (submitInProgressRef.current || isDisabled) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                      }
+                      onSubmit(e);
+                    },
+                    disabled: isDisabled || !prompt.trim() && attachedFiles.length === 0,
+                    children: isSubmitting ? /* @__PURE__ */ jsxDEV(Loader2, { className: "h-4 w-4 animate-spin" }, void 0, false, {
+                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                      lineNumber: 940,
+                      columnNumber: 29
+                    }, this) : /* @__PURE__ */ jsxDEV(Send, { className: "h-4 w-4" }, void 0, false, {
+                      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                      lineNumber: 942,
+                      columnNumber: 29
+                    }, this)
+                  },
+                  void 0,
+                  false,
+                  {
+                    fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                    lineNumber: 921,
+                    columnNumber: 21
+                  },
+                  this
+                )
+              ]
+            },
+            void 0,
+            true,
+            {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+              lineNumber: 820,
+              columnNumber: 17
+            },
+            this
+          ),
+          /* @__PURE__ */ jsxDEV("p", { className: "mt-2 text-xs text-muted-foreground", children: "Enter \u2014 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C, Shift+Enter \u2014 \u043D\u043E\u0432\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430. \u041C\u043E\u0436\u043D\u043E \u043F\u0435\u0440\u0435\u0442\u0430\u0441\u043A\u0438\u0432\u0430\u0442\u044C \u0444\u0430\u0439\u043B\u044B \u0438\u043B\u0438 \u0432\u0441\u0442\u0430\u0432\u043B\u044F\u0442\u044C \u0438\u0437 \u0431\u0443\u0444\u0435\u0440\u0430 \u043E\u0431\u043C\u0435\u043D\u0430 (Ctrl+V/Cmd+V)" }, void 0, false, {
+            fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+            lineNumber: 948,
+            columnNumber: 17
+          }, this),
+          showScrollButton && scrollToBottom && /* @__PURE__ */ jsxDEV(
+            Button,
+            {
+              size: "icon",
+              variant: "secondary",
+              className: "absolute -top-14 right-1 z-30 h-10 w-10 rounded-full bg-slate-950/60 backdrop-blur-xl text-foreground shadow-2xl shadow-cyan-900/20 border border-white/10 hover:bg-slate-950/80",
+              onClick: scrollToBottom,
+              children: /* @__PURE__ */ jsxDEV(ChevronDown, { className: "h-6 w-6" }, void 0, false, {
+                fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+                lineNumber: 962,
+                columnNumber: 25
+              }, this)
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
+              lineNumber: 956,
+              columnNumber: 21
+            },
+            this
+          )
+        ]
+      },
+      void 0,
+      true,
+      {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-        lineNumber: 941,
-        columnNumber: 17
-      }, this)
-    ] }, void 0, true, {
-      fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/components/media/chat-input.tsx",
-      lineNumber: 556,
-      columnNumber: 13
-    }, this);
+        lineNumber: 508,
+        columnNumber: 13
+      },
+      this
+    );
   }
 );
 
-export { Button as B, ChatSidebar as C, Dialog as D, ModelBadge as M, PANEL_HEADER_CLASSES as P, ScrollArea as S, ChatInput as a, createLoadingEffectForAttachFile as b, cn as c, PANEL_HEADER_TITLE_CLASSES as d, Skeleton as e, DialogContent as f, getModelIcon as g, DialogTitle as h, downloadFile as i, getProviderDisplayName as j, isVideoDataUrl as k, formatTime as l, formatFileSize as m, Badge as n, useTestMode as u };
-//# sourceMappingURL=chat-input-BHukpy2u.mjs.map
+export { Button as B, ChatSidebar as C, Dialog as D, ModelBadge as M, PANEL_HEADER_CLASSES as P, ScrollArea as S, ChatInput as a, createLoadingEffectForAttachFile as b, cn as c, PANEL_HEADER_TITLE_CLASSES as d, Skeleton as e, DialogContent as f, getModelIcon as g, DialogTitle as h, getOriginalFileUrl as i, downloadFile as j, getProviderDisplayName as k, isVideoDataUrl as l, getMediaFileUrl as m, formatTime as n, formatFileSize as o, Badge as p, useTestMode as u };
+//# sourceMappingURL=chat-input-BK5on2xW.mjs.map

@@ -67,7 +67,6 @@ export function FormatSelect({
             value={displayValue || undefined}
             onValueChange={handleChange}
             disabled={disabled}
-            modal={false}
         >
             <SelectTrigger
                 className={`${className} border-border bg-secondary text-foreground rounded-xl`}
@@ -135,7 +134,6 @@ export function QualitySelect({
             value={displayValue || undefined}
             onValueChange={handleChange}
             disabled={disabled}
-            modal={false}
         >
             <SelectTrigger
                 className={`${className} border-border bg-secondary text-foreground rounded-xl`}
@@ -331,7 +329,6 @@ export function GenerationTypeSelect({
             value={displayValue || undefined}
             onValueChange={handleChange}
             disabled={disabled}
-            modal={false}
         >
             <SelectTrigger
                 className={`${className} border-border bg-secondary text-foreground rounded-xl`}

@@ -81,7 +81,6 @@ export async function aiChat(
         history = initUserHistory(userId);
 
         const tgHistoryRaw = await getChatHistoryFromTelegram(userId);
-        // @ts-ignore
         const tgHistoryFormatted = tgHistoryRaw.messages
             // .filter((m) => m.senderId !== userId) // фильтрует только сообщения от пользователя
             .map((m) => ({

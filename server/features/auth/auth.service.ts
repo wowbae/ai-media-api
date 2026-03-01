@@ -67,7 +67,9 @@ export class AuthService {
             email: user.email,
             role: user.role,
         };
-        return jwt.sign(payload, authConfig.jwtSecret, { expiresIn: authConfig.jwtExpiresIn as string });
+        return jwt.sign(payload, authConfig.jwtSecret, {
+            expiresIn: authConfig.jwtExpiresIn,
+        } as jwt.SignOptions);
     }
 
     // Verify Token

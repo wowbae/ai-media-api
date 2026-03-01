@@ -13,7 +13,6 @@ import {
 import {
     useGetChatQuery,
     useUpdateChatMutation,
-    useGetRequestQuery,
     useLazyGetRequestQuery,
     useGetModelsQuery,
     useGenerateMediaMutation,
@@ -24,7 +23,6 @@ import { PANEL_HEADER_CLASSES } from '@/lib/panel-styles';
 import { cn } from '@/lib/utils';
 import { getModelIcon } from '@/lib/model-utils';
 import { useTestMode } from '@/hooks/use-test-mode';
-import { getPollingInitialDelay } from '@/lib/constants';
 
 export const Route = createFileRoute('/media/$chatId')({
     component: MediaChatPage,
@@ -45,7 +43,7 @@ function MediaChatPage() {
     const { chatId } = Route.useParams();
     const chatIdNum = parseInt(chatId);
 
-    // Первоначальная загрузка только последних 3 сообщений для быстрого показа интерфейса
+    // Первоначальная загрузка только последних 10 сообщений для быстрого показа интерфейса
     const {
         data: chat,
         isLoading: isChatLoading,
@@ -56,17 +54,10 @@ function MediaChatPage() {
         { id: chatIdNum, limit: 10 },
         {
             // Всегда обновлять при монтировании или изменении аргументов
-            // Это критично для правильной работы при смене чата
             refetchOnMountOrArgChange: true,
             skip: false,
         }
     );
-
-    // ВАЖНО: inputFiles теперь всегда возвращаются с сервера (убрали условие includeInputFiles)
-    // Фоновая загрузка больше не нужна - все данные уже есть в chat
-
-    // Загружаем только последние 10 запросов для чата
-    // MediaGallery загружает файлы отдельно через /files endpoint
 
     // Debug logging для отслеживания загрузки чата
     useEffect(() => {
@@ -89,11 +80,6 @@ function MediaChatPage() {
     const [currentModel, setCurrentModel] = useState<MediaModel>(
         'NANO_BANANA_PRO_KIEAI'
     );
-    const [pollingState, setPollingState] = useState<{ requestId: number | null; startTime: number | null }>({
-        requestId: null,
-        startTime: null,
-    });
-    const pollingDelayTimerRef = useRef<NodeJS.Timeout | null>(null);
     // Локальное состояние для оптимистичного отображения pending-сообщения
     const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(
         null
@@ -104,36 +90,8 @@ function MediaChatPage() {
     const [showScrollButton, setShowScrollButton] = useState(false);
     const scrollToBottomRef = useRef<(() => void) | null>(null);
 
-    // Получаем список моделей для определения задержки
+    // Получаем список моделей (больше не нужно для polling задержки)
     const { data: models } = useGetModelsQuery();
-
-    // Вспомогательная функция для остановки polling
-    function stopPolling() {
-        if (pollingDelayTimerRef.current) {
-            clearTimeout(pollingDelayTimerRef.current);
-            pollingDelayTimerRef.current = null;
-        }
-        setPollingState({ requestId: null, startTime: null });
-    }
-
-    // Сброс состояния при смене чата
-    useEffect(() => {
-        if (previousChatIdRef.current !== chatIdNum) {
-            console.log('[Chat] Смена чата:', {
-                previous: previousChatIdRef.current,
-                current: chatIdNum,
-            });
-
-            // Сбрасываем все состояние
-            isInitialLoadRef.current = true;
-            previousChatIdRef.current = chatIdNum;
-            stopPolling();
-            setPendingMessage(null);
-
-            // Принудительно обновляем запросы
-            refetch();
-        }
-    }, [chatIdNum, refetch]);
 
     // Синхронизация модели с настройками чата
     // ВАЖНО: Обновляем ТОЛЬКО при первоначальной загрузке чата
@@ -192,18 +150,6 @@ function MediaChatPage() {
         }
     }
 
-    // Polling для отслеживания статуса генерации (только если не тестовый режим)
-    const shouldSkipPolling = !pollingState.requestId || isTestMode;
-
-    const { data: pollingRequest } = useGetRequestQuery(
-        pollingState.requestId || 0,
-        {
-            skip: shouldSkipPolling,
-            pollingInterval: isTestMode ? 0 : 7000,
-            refetchOnMountOrArgChange: !shouldSkipPolling && !!pollingState.requestId,
-        }
-    );
-
     // Обработчик добавления pending-сообщения (вызывается из ChatInput перед отправкой)
     function handleAddPendingMessage(prompt: string) {
         const pending: PendingMessage = {
@@ -233,7 +179,7 @@ function MediaChatPage() {
     // Обработчик создания нового запроса (вызывается из ChatInput после успешной отправки)
     function handleRequestCreated(requestId: number) {
         console.log(
-            '[Chat] ✅ Новый запрос создан, обновляем чат и запускаем polling:',
+            '[Chat] ✅ Новый запрос создан, SSE автоматически обновит UI:',
             { requestId }
         );
 
@@ -248,181 +194,15 @@ function MediaChatPage() {
             console.error('[Chat] Ошибка при обновлении чата:', error);
         });
 
-        // В тестовом режиме не запускаем polling
-        if (isTestMode) {
-            console.log(
-                '[Chat] 🧪 Тестовый режим: polling отключен для нового запроса'
-            );
-            return;
-        }
-
-        // Очищаем предыдущий таймер, если есть
-        if (pollingDelayTimerRef.current) {
-            clearTimeout(pollingDelayTimerRef.current);
-            pollingDelayTimerRef.current = null;
-        }
-
-        // Устанавливаем requestId сразу, startTime будет установлен после задержки
-        setPollingState({ requestId, startTime: null });
-
-        // Определяем задержку на основе текущей модели
-        const delay = getPollingInitialDelay(currentModel, models);
-
-        // Устанавливаем задержку перед началом polling
-        console.log(
-            `[Chat] ⏳ Ожидание ${delay / 1000} секунд перед началом polling: requestId=${requestId}, model=${currentModel}, delay=${delay}ms`
-        );
-
-        pollingDelayTimerRef.current = setTimeout(() => {
-            console.log(
-                `[Chat] ✅ Задержка ${delay / 1000} сек завершена, запускаем polling: requestId=${requestId}`
-            );
-            setPollingState(prev => ({ ...prev, requestId, startTime: Date.now() }));
-            pollingDelayTimerRef.current = null;
-        }, delay);
+        // SSE автоматически отслеживает статус через подписку
+        // При завершении задачи сервер отправит событие и RTK Query обновит кеш
     }
 
-    // Останавливаем polling при включении тестового режима
-    useEffect(() => {
-        if (isTestMode && pollingState.requestId !== null) {
-            stopPolling();
-        }
-    }, [isTestMode, pollingState.requestId]);
-
-    // Очистка таймера при размонтировании
-    useEffect(() => {
-        return () => {
-            if (pollingDelayTimerRef.current) {
-                clearTimeout(pollingDelayTimerRef.current);
-                pollingDelayTimerRef.current = null;
-            }
-        };
-    }, []);
-
-    // Обновляем чат когда статус запроса изменился
-    // Используем ref для отслеживания предыдущего статуса и количества файлов, чтобы обновлять чат при любых изменениях
-    const previousStatusRef = useRef<string | null>(null);
-    const previousFilesCountRef = useRef<number | null>(null);
-    const pollingStartTimeRef = useRef<number | null>(null);
-    const maxPollingTime = 7 * 60 * 1000; // Максимальное время polling - 7 минут
-
-    useEffect(() => {
-        if (pollingState.requestId && !pollingStartTimeRef.current) {
-            pollingStartTimeRef.current = Date.now();
-        } else if (!pollingState.requestId && pollingStartTimeRef.current) {
-            pollingStartTimeRef.current = null;
-        }
-    }, [pollingState.requestId]);
-
-    useEffect(() => {
-        if (pollingRequest) {
-            if (pollingRequest.id !== pollingState.requestId) {
-                return;
-            }
-
-            const currentStatus = pollingRequest.status;
-            const previousStatus = previousStatusRef.current;
-            const currentFilesCount = pollingRequest.files?.length || 0;
-            const previousFilesCount = previousFilesCountRef.current;
-
-            if (pollingStartTimeRef.current) {
-                const pollingDuration =
-                    Date.now() - pollingStartTimeRef.current;
-                if (pollingDuration > maxPollingTime) {
-                    stopPolling();
-                    pollingStartTimeRef.current = null;
-                    previousStatusRef.current = null;
-                    previousFilesCountRef.current = null;
-                    refetch();
-                    return;
-                }
-            }
-
-            const statusChanged = previousStatus !== currentStatus;
-            const filesCountChanged =
-                previousFilesCount !== null &&
-                previousFilesCount !== currentFilesCount;
-            const isFirstRequest = previousStatus === null;
-
-            setPendingMessage((prev) => {
-                if (!prev) return prev;
-                if (!pollingState.requestId || prev.requestId !== pollingState.requestId) {
-                    return prev;
-                }
-
-                const isProcessing = currentStatus === 'PROCESSING';
-                const isFailed = currentStatus === 'FAILED';
-                const nextStatus = isProcessing
-                    ? 'PROCESSING'
-                    : isFailed
-                      ? 'FAILED'
-                      : prev.status;
-                const nextError =
-                    isFailed && (pollingRequest.errorMessage || true)
-                        ? pollingRequest.errorMessage ||
-                          'Генерация не удалась. Детали ошибки не предоставлены провайдером.'
-                        : prev.errorMessage;
-
-                if (
-                    nextStatus === prev.status &&
-                    nextError === prev.errorMessage
-                ) {
-                    return prev;
-                }
-
-                return {
-                    ...prev,
-                    status: nextStatus,
-                    errorMessage: nextError,
-                };
-            });
-
-            const shouldUpdate =
-                isFirstRequest ||
-                statusChanged ||
-                filesCountChanged ||
-                (currentStatus === 'PROCESSING' &&
-                    previousStatus === 'PROCESSING' &&
-                    Date.now() % 7000 < 1500);
-
-            if (shouldUpdate) {
-                refetch().catch((error) => {
-                    console.error('[Chat] Ошибка при обновлении чата:', error);
-                });
-            }
-
-            if (currentStatus === 'COMPLETED' || currentStatus === 'FAILED') {
-                stopPolling();
-                pollingStartTimeRef.current = null;
-                previousStatusRef.current = null;
-                previousFilesCountRef.current = null;
-
-                setTimeout(() => {
-                    refetch().catch((error) => {
-                        console.error(
-                            '[Chat] Ошибка при финальном обновлении чата:',
-                            error
-                        );
-                    });
-                }, 500);
-
-                setTimeout(() => {
-                    refetch().catch((error) => {
-                        console.error(
-                            '[Chat] Ошибка при дополнительном обновлении чата:',
-                            error
-                        );
-                    });
-                }, 1500);
-            } else {
-                previousStatusRef.current = currentStatus;
-                previousFilesCountRef.current = currentFilesCount;
-            }
-        }
-    }, [pollingRequest, pollingState.requestId, refetch, maxPollingTime]);
+    // SSE автоматически обновляет кеш через invalidateTags
+    // При получении события REQUEST_COMPLETED или REQUEST_FAILED
+    // RTK Query автоматически обновит все подписанные компоненты
 
     // Убираем pending-сообщение если реальный запрос появился
-    // ВАЖНО: Этот useEffect должен быть ДО early returns для соблюдения правил хуков
     const activeRequests = useMemo(
         () => chat?.requests || [],
         [chat?.requests]
@@ -435,18 +215,11 @@ function MediaChatPage() {
             (r) => r.id === pendingMessage.requestId
         );
 
-        const pollingMatched =
-            pollingRequest && pollingRequest.id === pendingMessage.requestId;
-        const pollingCompleted =
-            pollingMatched &&
-            (pollingRequest.status === 'COMPLETED' ||
-                pollingRequest.status === 'FAILED');
-
         if (requestAppeared) {
             console.log('[Chat] 🔄 Запрос найден, убираем pending-сообщение');
             setPendingMessage(null);
         }
-    }, [activeRequests, pendingMessage, pollingRequest]);
+    }, [activeRequests, pendingMessage]);
 
     // Показываем загрузку только если нет кешированных данных и идет первичная загрузка
     if (isChatLoading && !chat) {
@@ -512,30 +285,17 @@ function MediaChatPage() {
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
 
-    // Обновляем статус активного запроса если есть polling данные
-    const requestsWithPolling = sortedRequests.map((request) => {
-        if (
-            pollingRequest &&
-            pollingState.requestId &&
-            request.id === pollingRequest.id &&
-            request.id === pollingState.requestId
-        ) {
-            return pollingRequest;
-        }
-        return request;
-    }) as MediaRequest[];
+    // SSE автоматически обновляет кеш - просто используем sortedRequests
+    const requestsWithPolling = sortedRequests as MediaRequest[];
 
     // Добавляем pending-сообщение в конец списка (если есть)
-    // Проверяем, что pending-сообщение еще не было заменено реальным запросом
-    // Если есть requestId - сравниваем по нему (точное совпадение)
-    // Если нет requestId - pending ещё не получил ответ от сервера, показываем его
     const hasPendingInList =
         pendingMessage &&
         !requestsWithPolling.some(
             (r) =>
                 pendingMessage.requestId
-                    ? r.id === pendingMessage.requestId // Сравниваем по реальному ID
-                    : false // Пока нет requestId - реального запроса точно нет в списке
+                    ? r.id === pendingMessage.requestId
+                    : false
         );
 
     // Создаем объект для pending-сообщения в формате MediaRequest
@@ -558,8 +318,8 @@ function MediaChatPage() {
 
     // Финальный список запросов с pending-сообщением
     const finalRequests = pendingAsRequest
-        ? [...requestsWithPolling, pendingAsRequest]
-        : requestsWithPolling;
+        ? [...sortedRequests, pendingAsRequest]
+        : sortedRequests;
 
     // Обработчик редактирования промпта
     function handleEditPrompt(prompt: string) {

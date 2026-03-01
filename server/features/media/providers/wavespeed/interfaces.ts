@@ -45,6 +45,7 @@ export interface WavespeedResultResponse {
 export const WAVESPEED_STATUS_MAP: Record<string, "pending" | "processing" | "done" | "failed"> = {
   idle: "pending",
   pending: "pending",
+  created: "pending",
   processing: "processing",
   generating: "processing",
   done: "done",

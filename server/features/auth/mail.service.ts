@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { authConfig } from '../../config';
+import { authConfig, serverConfig } from '../../config';
 
 // Create generic transporter
 const transporter = nodemailer.createTransport({
@@ -13,7 +13,7 @@ const transporter = nodemailer.createTransport({
 });
 
 export async function sendPasswordResetEmail(email: string, token: string): Promise<boolean> {
-    const resetLink = `${authConfig.appUrl}/reset-password?token=${token}`;
+    const resetLink = `${serverConfig.appUrl}/reset-password?token=${token}`;
 
     // Simple HTML template
     const html = `

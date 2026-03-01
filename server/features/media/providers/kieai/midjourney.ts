@@ -28,16 +28,20 @@ const KIEAI_STATUS_MAP: Record<string, TaskStatusResult["status"]> = {
   failed: "failed",
 };
 
-// Маппинг соотношений сторон
+// Маппинг соотношений сторон (все форматы из GenerateParams в KieAiAspectRatio)
 function mapAspectRatio(
-  aspectRatio?: "1:1" | "9:16" | "16:9",
+  aspectRatio?: "1:1" | "4:3" | "3:4" | "9:16" | "16:9" | "2:3" | "3:2" | "21:9",
 ): KieAiAspectRatio | undefined {
   if (!aspectRatio) return undefined;
-  // Маппинг наших форматов на форматы Kie.ai
   const mapping: Record<string, KieAiAspectRatio> = {
     "1:1": "1:1",
+    "4:3": "4:3",
+    "3:4": "3:4",
     "9:16": "9:16",
     "16:9": "16:9",
+    "2:3": "2:3",
+    "3:2": "3:2",
+    "21:9": "16:9", // Ближайший аналог
   };
   return mapping[aspectRatio];
 }

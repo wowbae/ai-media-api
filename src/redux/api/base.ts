@@ -18,6 +18,7 @@ export type MediaModel =
     | 'KLING_2_6_KIEAI'
     | 'KLING_2_5_TURBO_PRO_KIEAI'
     | 'NANO_BANANA_PRO_KIEAI'
+    | 'NANO_BANANA_2_KIEAI'
     | 'IMAGEN4_KIEAI'
     | 'IMAGEN4_ULTRA_KIEAI'
     | 'SEEDREAM_4_5_KIEAI'
@@ -204,3 +205,6 @@ export const baseApi = createApi({
     refetchOnReconnect: true,
     endpoints: () => ({}),
 });
+
+// SSE подписка вынесена отдельно из-за ограничений TypeScript
+// Используем кастомный хук для подключения к SSE

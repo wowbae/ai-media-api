@@ -1,6 +1,8 @@
 // Сервис для загрузки изображений на imgbb
 // Используется для получения публичных URL изображений для GPTunnel API
 import 'dotenv/config';
+import type { SavedFileInfo } from './file.service';
+import { updateFileUrlsInDatabase } from './database.service';
 
 const IMGBB_API_URL = 'https://api.imgbb.com/1/upload';
 

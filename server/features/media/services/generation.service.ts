@@ -3,7 +3,7 @@
 import { prisma } from 'prisma/client';
 import { Prisma } from '@prisma/client';
 import type { GenerateMediaRequest, MediaModel } from '../interfaces';
-import { generateMedia } from './generation.service';
+import { generateMedia } from '../generation.service';
 import { TokenService } from '../../tokens/token.service';
 import { getModelPricing } from '../pricing';
 import { invalidateChatCache } from '../routes/cache';
@@ -100,11 +100,10 @@ export class GenerationService {
 
         if (recentRequest) {
             return {
-                status: 202,
-                requestId: recentRequest.id,
                 status: recentRequest.status,
+                requestId: recentRequest.id,
                 message: 'Запрос уже обрабатывается',
-            } as CreateGenerationResult;
+            };
         }
 
         // Создаём настройки запроса

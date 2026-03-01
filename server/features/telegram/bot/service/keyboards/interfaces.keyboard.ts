@@ -1,13 +1,13 @@
-import { IMapDataNewTask } from '../../maps';
+import { IMapCallbackDataNewTask } from '../../maps';
 
 interface IButtonConfig {
     text: string;
-    data: Record<string, any>;
+    data: Record<string, unknown>;
 }
 
-interface INewTaskButtonConfig extends IButtonConfig {
+interface INewTaskButtonConfig extends Omit<IButtonConfig, 'data'> {
     text: string;
-    data: IMapDataNewTask;
+    data: IMapCallbackDataNewTask;
 }
 
 // экспортируем весь файл

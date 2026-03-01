@@ -5,13 +5,17 @@ import { useLocation } from '@tanstack/react-router';
 import { useGetMeQuery } from '@/redux/api/auth.endpoints';
 import { setCredentials, logout } from '@/redux/auth-slice';
 import { handleSessionTimeout } from '@/redux/api/utils';
+import { useSSESubscription } from '@/hooks/use-sse-subscription';
 
 export function AuthInitializer() {
     const dispatch = useDispatch();
     const location = useLocation();
     const hasCheckedRef = useRef(false);
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    
+
+    // Подключаем SSE подписку для real-time обновлений
+    useSSESubscription();
+
     // Определяем, является ли текущая страница публичной (не требует авторизации)
     const isPublicRoute = location.pathname === '/login' || location.pathname === '/register';
 
