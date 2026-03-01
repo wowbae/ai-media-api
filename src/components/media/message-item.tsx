@@ -30,12 +30,17 @@ import {
     formatTime,
     getProviderDisplayName,
     isVideoDataUrl,
+    toDirectImageUrl,
 } from '@/lib/media-utils';
 
 interface MessageItemProps {
     request: MediaRequest;
     onEditPrompt?: (prompt: string) => void;
-    onAttachFile?: (fileUrl: string, filename: string, imgbbUrl?: string) => void;
+    onAttachFile?: (
+        fileUrl: string,
+        filename: string,
+        imgbbUrl?: string,
+    ) => void;
     onRepeatRequest?: (request: MediaRequest, model?: MediaModel) => void;
 }
 
@@ -48,7 +53,7 @@ export function MessageItem({
     const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
     const { data: models } = useGetModelsQuery();
     const [fullscreenVideo, setFullscreenVideo] = useState<MediaFile | null>(
-        null
+        null,
     );
     const [attachingFile, setAttachingFile] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
@@ -58,7 +63,7 @@ export function MessageItem({
     // Создаем функцию для эффекта загрузки
     const loadingEffectForAttachFile = useMemo(
         () => createLoadingEffectForAttachFile(setAttachingFile),
-        []
+        [],
     );
 
     // Проверяем, переполнен ли текст (превышает 2 строки)
@@ -153,7 +158,10 @@ export function MessageItem({
                     </div>
                     {/* Превью прикрепленных файлов */}
                     {((request.inputFiles && request.inputFiles.length > 0) ||
-                        (request.files && request.files.length > 0 && (!request.inputFiles || request.inputFiles.length === 0))) && (
+                        (request.files &&
+                            request.files.length > 0 &&
+                            (!request.inputFiles ||
+                                request.inputFiles.length === 0))) && (
                         <div className='mt-2 flex flex-wrap gap-2'>
                             {/* Сначала показываем inputFiles, если есть */}
                             {request.inputFiles?.map((fileUrl, index) => {
@@ -162,20 +170,18 @@ export function MessageItem({
                                     return null;
                                 }
 
-                                // Поддерживаем data URL (base64) и HTTP/HTTPS URL (imgbb)
                                 const isDataUrl = fileUrl.startsWith('data:');
                                 const isHttpUrl =
                                     fileUrl.startsWith('http://') ||
                                     fileUrl.startsWith('https://');
 
-                                // Если это не data URL и не HTTP URL - может быть относительный путь (для видео)
-                                // Преобразуем относительный путь в полный URL
                                 let finalUrl = fileUrl;
                                 if (!isDataUrl && !isHttpUrl && fileUrl) {
-                                    // Относительный путь - преобразуем в полный URL
                                     finalUrl = getMediaFileUrl(fileUrl);
                                 } else if (!isDataUrl && !isHttpUrl) {
                                     return null;
+                                } else if (isHttpUrl) {
+                                    finalUrl = toDirectImageUrl(fileUrl);
                                 }
 
                                 // Определяем, является ли это видео
@@ -184,7 +190,8 @@ export function MessageItem({
                                 // Для относительных путей - проверяем расширение
                                 const isVideo = isDataUrl
                                     ? isVideoDataUrl(fileUrl)
-                                    : fileUrl.match(/\.(mp4|webm|mov)$/i) !== null;
+                                    : fileUrl.match(/\.(mp4|webm|mov)$/i) !==
+                                      null;
 
                                 return (
                                     <div
@@ -209,10 +216,17 @@ export function MessageItem({
                                 );
                             })}
                             {/* Fallback: показываем файлы из request.files, если inputFiles пустое */}
-                            {(!request.inputFiles || request.inputFiles.length === 0) &&
+                            {(!request.inputFiles ||
+                                request.inputFiles.length === 0) &&
                                 request.files.map((file) => {
-                                    // Используем url (imgbb URL) или path (локальный путь)
-                                    const previewUrl = file.url || (file.path ? getMediaFileUrl(file.path) : null);
+                                    const rawUrl =
+                                        file.url ||
+                                        (file.path
+                                            ? getMediaFileUrl(file.path)
+                                            : null);
+                                    const previewUrl = rawUrl
+                                        ? toDirectImageUrl(rawUrl)
+                                        : null;
                                     if (!previewUrl) return null;
 
                                     const isVideo = file.type === 'VIDEO';
@@ -350,16 +364,18 @@ export function MessageItem({
                                                                     const fileUrl =
                                                                         file.path
                                                                             ? getMediaFileUrl(
-                                                                                  file.path
+                                                                                  file.path,
                                                                               )
                                                                             : file.url;
                                                                     if (
                                                                         !fileUrl
                                                                     ) {
                                                                         console.warn(
-                                                                            '[MessageItem] Нет file.path и file.url'
+                                                                            '[MessageItem] Нет file.path и file.url',
                                                                         );
-                                                                        alert('Ошибка: у файла отсутствует путь или URL. Невозможно прикрепить файл.');
+                                                                        alert(
+                                                                            'Ошибка: у файла отсутствует путь или URL. Невозможно прикрепить файл.',
+                                                                        );
                                                                         return;
                                                                     }
                                                                     loadingEffectForAttachFile();
@@ -367,7 +383,8 @@ export function MessageItem({
                                                                     onAttachFile(
                                                                         fileUrl,
                                                                         file.filename,
-                                                                        file.url || undefined
+                                                                        file.url ||
+                                                                            undefined,
                                                                     );
                                                                 }}
                                                                 title='Прикрепить к промпту'
@@ -388,7 +405,7 @@ export function MessageItem({
                                                         onClick={(e) =>
                                                             handleDeleteFile(
                                                                 e,
-                                                                file.id
+                                                                file.id,
                                                             )
                                                         }
                                                         disabled={isDeleting}
@@ -405,7 +422,7 @@ export function MessageItem({
                                                             className='h-8 w-8 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-primary hover:bg-primary/10 group-hover:opacity-100'
                                                             onClick={() =>
                                                                 setFullscreenVideo(
-                                                                    file
+                                                                    file,
                                                                 )
                                                             }
                                                             title='Открыть на весь экран'
@@ -455,12 +472,19 @@ export function MessageItem({
                                     size='icon'
                                     variant='secondary'
                                     onClick={() => {
-                                        const downloadUrl = getOriginalFileUrl(fullscreenVideo);
+                                        const downloadUrl =
+                                            getOriginalFileUrl(fullscreenVideo);
                                         if (!downloadUrl) {
-                                            console.warn('[MessageItem] Невозможно скачать файл: нет оригинального URL', fullscreenVideo);
+                                            console.warn(
+                                                '[MessageItem] Невозможно скачать файл: нет оригинального URL',
+                                                fullscreenVideo,
+                                            );
                                             return;
                                         }
-                                        downloadFile(downloadUrl, fullscreenVideo.filename);
+                                        downloadFile(
+                                            downloadUrl,
+                                            fullscreenVideo.filename,
+                                        );
                                     }}
                                     title='Скачать файл'
                                 >

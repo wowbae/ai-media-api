@@ -50,3 +50,13 @@ export function isVideoDataUrl(dataUrl: string): boolean {
     const mimeType = getMimeTypeFromDataUrl(dataUrl);
     return mimeType.startsWith('video/');
 }
+
+// fastpic и др. возвращают URL страницы (.html), а не прямую ссылку на изображение
+// Для img src нужна прямая ссылка — убираем .html
+export function toDirectImageUrl(url: string): string {
+    if (!url || typeof url !== 'string') return url;
+    if (url.endsWith('.html') && /\.(png|jpg|jpeg|gif|webp)\.html$/i.test(url)) {
+        return url.slice(0, -5);
+    }
+    return url;
+}

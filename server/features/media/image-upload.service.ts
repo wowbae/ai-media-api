@@ -26,6 +26,15 @@ function getFilenameFromMime(mimeType?: string): string {
   return `image.${ext}`;
 }
 
+// fastpic возвращает URL страницы (.html), а не прямую ссылку на изображение
+// Для img src нужна прямая ссылка — убираем .html
+function toDirectImageUrl(url: string): string {
+  if (url.endsWith('.html') && /\.(png|jpg|jpeg|gif|webp)\.html$/i.test(url)) {
+    return url.slice(0, -5);
+  }
+  return url;
+}
+
 async function uploadWithFallback(
   buffer: Buffer,
   filename: string,
@@ -42,7 +51,7 @@ async function uploadWithFallback(
   try {
     const service = new ImageUploadService(serviceName);
     const { directLink } = await service.uploadFromBinary(buffer, filename);
-    return directLink;
+    return toDirectImageUrl(directLink);
   } catch (error) {
     console.warn(`[image-upload] ${serviceName} недоступен:`, error instanceof Error ? error.message : error);
     return uploadWithFallback(buffer, filename, tried);

@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { getMediaFileUrl } from './constants'
+import { toDirectImageUrl } from './media-utils'
 import { type MediaFile } from '@/redux/api/base'
 
 export function cn(...inputs: ClassValue[]) {
@@ -26,11 +27,8 @@ export function getOriginalFileUrl(file: MediaFile): string | null {
     }
     
     // Если нет локального файла (удален после отправки в Telegram):
-    // - Для IMAGE: file.url содержит оригинальный URL с imgbb (без сжатия)
-    // - Для VIDEO: file.url содержит оригинальный URL провайдера
-    // - Для AUDIO: file.url содержит оригинальный URL провайдера
     if (file.url) {
-        return file.url;
+        return file.type === 'IMAGE' ? toDirectImageUrl(file.url) : file.url;
     }
     
     return null;

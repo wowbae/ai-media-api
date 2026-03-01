@@ -22,6 +22,7 @@ import {
   useDeleteFileMutation,
   useUploadThumbnailMutation,
 } from "@/redux/media-api";
+import { toDirectImageUrl } from "@/lib/media-utils";
 import {
   extractVideoThumbnail,
   isThumbnailPending,
@@ -53,15 +54,15 @@ export function MediaPreview({
   // previewUrl для изображений (для видео логика внутри VideoPreview)
   // Формируем список всех возможных URL для fallback при ошибке загрузки
   // Приоритет: локальные пути (быстрые) > imgbb URL (медленные)
-  // previewPath (локальный превью) > path (локальный оригинал) > previewUrl (imgbb превью) > url (imgbb оригинал)
+  // previewPath (локальный превью) > path (локальный оригинал) > previewUrl > url
   const imagePreviewUrls = [
-    file.previewPath ? getMediaFileUrl(file.previewPath) : null, // Локальный превью - самый быстрый
-    file.path ? getMediaFileUrl(file.path) : null, // Локальный оригинал - быстрый
-    file.previewUrl, // imgbb превью - медленнее
-    file.url, // imgbb оригинал - самый медленный
+    file.previewPath ? getMediaFileUrl(file.previewPath) : null,
+    file.path ? getMediaFileUrl(file.path) : null,
+    file.previewUrl ? toDirectImageUrl(file.previewUrl) : null,
+    file.url ? toDirectImageUrl(file.url) : null,
   ]
     .filter((url): url is string => url !== null && url !== undefined)
-    .filter((url, index, self) => self.indexOf(url) === index); // Убираем дубликаты
+    .filter((url, index, self) => self.indexOf(url) === index);
 
   const imagePreviewUrl = imagePreviewUrls[0] || null;
 
