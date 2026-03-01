@@ -3,7 +3,6 @@ import { MediaFile } from '@prisma/client';
 import { telegramConfig, mediaStorageConfig, MEDIA_MODELS } from './config';
 import { InputFile, Bot } from 'grammy';
 import { existsSync } from 'fs';
-import { readFile } from 'fs/promises';
 import path from 'path';
 import { prisma } from 'prisma/client';
 import { deleteFile as deleteLocalFile } from './file.service';
@@ -296,9 +295,9 @@ export async function notifyTelegramGroupBatch(
                         continue;
                      }
                 } else {
-                    console.log(`[Telegram] ✅ Читаем локальный файл: ${absolutePath}`);
-                    const fileBuffer = await readFile(absolutePath);
-                    inputFile = new InputFile(fileBuffer, file.filename);
+                    // InputFile(path) стримит с диска, не загружая в память — быстрее для больших файлов
+                    console.log(`[Telegram] ✅ Отправляем локальный файл (stream): ${absolutePath}`);
+                    inputFile = new InputFile(absolutePath, file.filename);
                 }
             } else if (file.url) {
                 // Для видео в media group требуется локальный файл
@@ -365,9 +364,9 @@ export async function notifyTelegramGroupBatch(
                         return false;
                     }
                 } else {
-                    console.log(`[Telegram] ✅ Читаем локальный файл для одиночной отправки: ${absolutePath}`);
-                    const fileBuffer = await readFile(absolutePath);
-                    inputFile = new InputFile(fileBuffer, firstFile.filename);
+                    // InputFile(path) стримит с диска, не загружая в память — быстрее для больших файлов
+                    console.log(`[Telegram] ✅ Отправляем локальный файл (stream): ${absolutePath}`);
+                    inputFile = new InputFile(absolutePath, firstFile.filename);
                 }
             } else if (firstFile.url) {
                 console.log(`[Telegram] ✅ Используем URL для одиночной отправки (нет локального пути): ${firstFile.url}`);

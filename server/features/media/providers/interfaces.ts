@@ -51,6 +51,8 @@ export interface TaskCreatedResult {
 export interface TaskStatusResult {
   status: "pending" | "processing" | "done" | "failed";
   url?: string;
+  /** URL результатов (при status=done) — позволяет избежать повторного API вызова в getTaskResult */
+  resultUrls?: string[];
   error?: string;
 }
 

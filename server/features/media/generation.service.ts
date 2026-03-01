@@ -13,7 +13,7 @@ import {
   type GenerateParams,
   type TaskStatusResult,
 } from "./providers";
-import type { SavedFileInfo } from "./file.service";
+import { saveFileFromUrl, type SavedFileInfo } from "./file.service";
 import { saveFilesToDatabase, sendFilesToTelegram, updateFileUrlsInDatabase } from "./database.service";
 import { formatErrorMessage } from "./error-utils";
 import type { GenerateMediaOptions } from "./types";
@@ -24,6 +24,18 @@ const ASYNC_TASK_CHECK_INTERVAL = 10 * 1000; // 10 секунд
 
 // Максимальное время ожидания async задачи (в миллисекундах)
 const MAX_ASYNC_WAIT_TIME = 10 * 60 * 1000; // 10 минут
+
+// Мьютекс: requestId в процессе обработки завершения (защита от двойного скачивания)
+const processingCompletions = new Set<number>();
+
+async function downloadFilesFromUrls(urls: string[]): Promise<SavedFileInfo[]> {
+  const files: SavedFileInfo[] = [];
+  for (let i = 0; i < urls.length; i++) {
+    const savedFile = await saveFileFromUrl(urls[i]);
+    files.push(savedFile);
+  }
+  return files;
+}
 
 // Основная функция генерации медиа через провайдеры
 export async function generateMedia(options: GenerateMediaOptions): Promise<SavedFileInfo[]> {
@@ -200,14 +212,13 @@ async function checkAsyncTaskStatus(
 
       const status = await provider.checkTaskStatus(taskId);
 
-      console.log(`[MediaService] Статус async задачи: requestId=${requestId}`, {
-        status: status.status,
-        hasUrl: !!status.url,
-        error: status.error || undefined,
-      });
+      console.log(
+        `[MediaService] Статус async задачи: requestId=${requestId}, taskId=${taskId}`,
+        { status: status.status, hasUrl: !!status.url, error: status.error || undefined },
+      );
 
       if (status.status === "done") {
-        await handleAsyncTaskCompleted(requestId, taskId, providerName, model, prompt);
+        await handleAsyncTaskCompleted(requestId, taskId, providerName, model, prompt, status);
         return;
       }
 
@@ -239,60 +250,72 @@ async function handleAsyncTaskCompleted(
   taskId: string,
   providerName: string,
   model: MediaModel,
-  prompt: string
+  prompt: string,
+  status?: TaskStatusResult
 ): Promise<void> {
-  // Завершённые запросы не обрабатываем повторно
-  const request = await prisma.mediaRequest.findUnique({
-    where: { id: requestId },
-    select: { status: true },
-  });
-  if (request?.status === 'COMPLETED') {
-    console.log(`[MediaService] Запрос requestId=${requestId} уже завершён, пропускаем`);
+  // Защита от повторной обработки (мьютекс + проверка статуса в БД)
+  if (processingCompletions.has(requestId)) {
+    console.log(`[MediaService] requestId=${requestId} уже обрабатывается, пропускаем`);
     return;
   }
+  processingCompletions.add(requestId);
 
-  const providerManager = getProviderManager();
-  const provider = providerManager.getProvider(model);
-
-  if (!provider.getTaskResult) {
-    throw new Error(
-      `Провайдер ${providerName} не поддерживает getTaskResult`,
-    );
-  }
-
-  const savedFiles = await getTaskResultWithRetry(provider, taskId, requestId);
-  const savedMediaFiles = await saveFilesToDatabase(requestId, savedFiles, prompt);
-
-  // Отправляем в Telegram
-  await sendFilesToTelegram(requestId, savedMediaFiles, prompt).catch((error) => {
-    console.error(`[MediaService] ⚠️ Ошибка отправки в Telegram: requestId=${requestId}:`, error.message);
-  });
-
-  // Загружаем изображения на imgbb и обновляем URL в БД
   try {
-    const { uploadFilesToImgbbAndUpdateDatabase } = await import("./imgbb.service");
-    await uploadFilesToImgbbAndUpdateDatabase(savedFiles, requestId, prompt);
-  } catch (error) {
-    console.error(`[MediaService] ⚠️ Ошибка загрузки на imgbb: requestId=${requestId}:`, error instanceof Error ? error.message : error);
+    const request = await prisma.mediaRequest.findUnique({
+      where: { id: requestId },
+      select: { status: true },
+    });
+    if (request?.status === 'COMPLETED') {
+      console.log(`[MediaService] Запрос requestId=${requestId} уже завершён, пропускаем`);
+      return;
+    }
+
+    const providerManager = getProviderManager();
+    const provider = providerManager.getProvider(model);
+
+    let savedFiles: SavedFileInfo[];
+
+    // Используем resultUrls из checkTaskStatus чтобы избежать повторного API вызова и скачивания
+    if (status?.resultUrls && status.resultUrls.length > 0) {
+      console.log(`[MediaService] Используем resultUrls из checkTaskStatus (${status.resultUrls.length} файлов)`);
+      savedFiles = await downloadFilesFromUrls(status.resultUrls);
+    } else if (provider.getTaskResult) {
+      savedFiles = await getTaskResultWithRetry(provider, taskId, requestId);
+    } else {
+      throw new Error(`Провайдер ${providerName} не поддерживает getTaskResult`);
+    }
+
+    const savedMediaFiles = await saveFilesToDatabase(requestId, savedFiles, prompt);
+
+    await sendFilesToTelegram(requestId, savedMediaFiles, prompt).catch((error) => {
+      console.error(`[MediaService] ⚠️ Ошибка отправки в Telegram: requestId=${requestId}:`, error.message);
+    });
+
+    try {
+      const { uploadFilesToImgbbAndUpdateDatabase } = await import("./imgbb.service");
+      await uploadFilesToImgbbAndUpdateDatabase(savedFiles, requestId, prompt);
+    } catch (error) {
+      console.error(`[MediaService] ⚠️ Ошибка загрузки на imgbb: requestId=${requestId}:`, error instanceof Error ? error.message : error);
+    }
+
+    await prisma.mediaRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'COMPLETED',
+        completedAt: new Date(),
+      },
+    });
+
+    await sendSSENotification(requestId, 'COMPLETED', {
+      filesCount: savedFiles.length,
+    });
+
+    console.log(
+      `[MediaService] ✅ Async генерация завершена: requestId=${requestId}, файлов: ${savedFiles.length}`,
+    );
+  } finally {
+    processingCompletions.delete(requestId);
   }
-
-  // Обновляем статус на COMPLETED
-  await prisma.mediaRequest.update({
-    where: { id: requestId },
-    data: {
-      status: 'COMPLETED',
-      completedAt: new Date(),
-    },
-  });
-
-  // Отправляем SSE уведомление
-  await sendSSENotification(requestId, 'COMPLETED', {
-    filesCount: savedFiles.length,
-  });
-
-  console.log(
-    `[MediaService] ✅ Async генерация завершена: requestId=${requestId}, файлов: ${savedFiles.length}`,
-  );
 }
 
 // Обработка неудачного завершения async задачи
@@ -352,10 +375,10 @@ async function handleAsyncTaskTimeout(
         { status: finalStatus.status, hasUrl: !!finalStatus.url },
       );
 
-      if (finalStatus.status === "done" && provider.getTaskResult) {
-        await handleAsyncTaskCompleted(requestId, taskId, providerName, model, prompt);
-        return;
-      }
+          if (finalStatus.status === "done" && provider.getTaskResult) {
+            await handleAsyncTaskCompleted(requestId, taskId, providerName, model, prompt, finalStatus);
+            return;
+          }
     }
   } catch (statusError) {
     console.error(

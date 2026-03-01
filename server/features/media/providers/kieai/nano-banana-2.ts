@@ -370,13 +370,6 @@ export function createKieAiNanoBanana2Provider(
           "Задача завершилась с ошибкой"
         : undefined;
 
-    console.log("[Kie.ai Nano Banana 2] Парсинг статуса:", {
-      taskId: taskData.taskId,
-      state,
-      resultUrlsCount: resultUrls.length,
-      error: errorMessage,
-    });
-
     return {
       status: state,
       resultUrls,
@@ -402,7 +395,6 @@ export function createKieAiNanoBanana2Provider(
 
       const mappedStatus = KIEAI_STATUS_MAP[result.status] || "pending";
 
-      // Логируем статус
       if (result.status === "fail") {
         console.warn("[Kie.ai Nano Banana 2] Задача завершилась с ошибкой:", {
           taskId,
@@ -410,16 +402,8 @@ export function createKieAiNanoBanana2Provider(
           mappedStatus,
           error: result.error,
         });
-      } else {
-        console.log("[Kie.ai Nano Banana 2] Статус задачи:", {
-          taskId,
-          status: result.status,
-          mappedStatus,
-          resultUrlsCount: result.resultUrls?.length || 0,
-        });
       }
 
-      // Получаем URL результата из массива resultUrls
       const resultUrl =
         result.resultUrls && result.resultUrls.length > 0
           ? result.resultUrls[0]
@@ -428,6 +412,7 @@ export function createKieAiNanoBanana2Provider(
       return {
         status: mappedStatus,
         url: resultUrl,
+        resultUrls: result.resultUrls,
         error: result.error,
       };
     },

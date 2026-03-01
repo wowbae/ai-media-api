@@ -35,6 +35,9 @@ interface ImgbbErrorResponse {
 // Кеш для ключей, чтобы не парсить env каждый раз
 let cachedApiKeys: string[] | null = null;
 
+// Счётчик для распределения нагрузки по ключам при параллельных загрузках
+let uploadSessionCounter = 0;
+
 /**
  * Сбрасывает кеш ключей (полезно при изменении env переменных)
  */
@@ -159,13 +162,15 @@ function isRateLimitError(error: unknown, responseText?: string): boolean {
 function isRetryableError(error: unknown): boolean {
     if (error instanceof Error) {
         const message = error.message.toLowerCase();
-        const code = (error as any).code;
+        const code = (error as NodeJS.ErrnoException).code;
 
-        // Проверяем на ECONNRESET и другие сетевые ошибки
+        // Проверяем на ECONNRESET, таймаут и другие сетевые ошибки
         return (
             code === 'ECONNRESET' ||
             code === 'ECONNREFUSED' ||
             code === 'ETIMEDOUT' ||
+            error.name === 'AbortError' ||
+            message.includes('timeout') ||
             message.includes('socket connection was closed') ||
             message.includes('connection was closed') ||
             message.includes('network error') ||
@@ -216,16 +221,23 @@ export async function uploadToImgbb(
     retryCount = 0,
     useDisplayUrl = false,
     keyIndex = 0,
-    triedKeys: Set<number> = new Set()
+    triedKeys: Set<number> = new Set(),
+    uploadId?: string
 ): Promise<string> {
     const apiKeys = getImgbbApiKeys();
+    const sessionId = uploadId ?? `#${++uploadSessionCounter}`;
     
     if (apiKeys.length === 0) {
         throw new Error('IMGBB_API_KEY не настроен в .env');
     }
     
     // Используем ключ по индексу с циклическим перебором
-    const actualKeyIndex = keyIndex % apiKeys.length;
+    // При новой сессии (без uploadId) распределяем нагрузку: каждая новая загрузка начинает с другого ключа
+    const startKeyIndex =
+        uploadId === undefined && apiKeys.length > 1
+            ? (uploadSessionCounter - 1) % apiKeys.length
+            : keyIndex;
+    const actualKeyIndex = startKeyIndex % apiKeys.length;
     const currentKey = apiKeys[actualKeyIndex];
     
     // Добавляем текущий ключ в множество попробованных
@@ -246,14 +258,14 @@ export async function uploadToImgbb(
     }
 
     if (retryCount === 0) {
-        console.log('[imgbb] Загрузка изображения...', {
+        console.log(`[imgbb] [${sessionId}] Загрузка изображения...`, {
             isBuffer: Buffer.isBuffer(imageData),
             base64Length: base64Data.length,
             keyIndex: actualKeyIndex + 1,
             totalKeys: apiKeys.length,
         });
     } else {
-        console.log(`[imgbb] Повторная попытка загрузки (${retryCount}/${MAX_RETRIES})...`, {
+        console.log(`[imgbb] [${sessionId}] Повторная попытка (${retryCount}/${MAX_RETRIES})...`, {
             keyIndex: actualKeyIndex + 1,
             totalKeys: apiKeys.length,
             triedKeys: Array.from(triedKeys).map(i => i + 1),
@@ -278,7 +290,7 @@ export async function uploadToImgbb(
             const errorText = await response.text();
             const isRateLimit = isRateLimitError(null, errorText);
             
-            console.error('[imgbb] Ошибка загрузки:', {
+            console.error(`[imgbb] [${sessionId}] Ошибка загрузки:`, {
                 status: response.status,
                 error: errorText,
                 retryCount,
@@ -308,11 +320,11 @@ export async function uploadToImgbb(
                 const delay = Math.max(INITIAL_RETRY_DELAY, INITIAL_RETRY_DELAY * Math.pow(2, retryCount));
                 
                 console.warn(
-                    `[imgbb] ⚠️ Rate limit достигнут на ключе ${actualKeyIndex + 1}, переключение на ключ ${nextKeyIndex + 1}/${apiKeys.length} через ${delay}ms...`
+                    `[imgbb] [${sessionId}] ⚠️ Rate limit на ключе ${actualKeyIndex + 1}, переключение на ключ ${nextKeyIndex + 1}/${apiKeys.length} через ${delay}ms`
                 );
                 
                 await new Promise((resolve) => setTimeout(resolve, delay));
-                return uploadToImgbb(imageData, retryCount + 1, useDisplayUrl, nextKeyIndex, triedKeys);
+                return uploadToImgbb(imageData, retryCount + 1, useDisplayUrl, nextKeyIndex, triedKeys, sessionId);
             }
             
             throw new Error(`imgbb upload error: ${response.status} - ${errorText}`);
@@ -331,13 +343,13 @@ export async function uploadToImgbb(
         const selectedUrl = useDisplayUrl ? result.data.display_url : result.data.url;
         
         if (retryCount > 0) {
-            console.log(`[imgbb] ✅ Изображение загружено после ${retryCount} попыток:`, {
+            console.log(`[imgbb] [${sessionId}] ✅ Загружено после ${retryCount} попыток:`, {
                 id: result.data.id,
                 url: selectedUrl,
                 type: useDisplayUrl ? 'display (превью)' : 'original (оригинал)',
             });
         } else {
-            console.log('[imgbb] ✅ Изображение загружено:', {
+            console.log(`[imgbb] [${sessionId}] ✅ Изображение загружено:`, {
                 id: result.data.id,
                 url: selectedUrl,
                 type: useDisplayUrl ? 'display (превью)' : 'original (оригинал)',
@@ -350,11 +362,8 @@ export async function uploadToImgbb(
         const errorMessage = error instanceof Error ? error.message : String(error);
         const isRateLimit = isRateLimitError(error, errorMessage);
         
-        console.error('[imgbb] Ошибка в catch блоке:', {
+        console.error(`[imgbb] [${sessionId}] Запрос не удался (ключ ${actualKeyIndex + 1}/${apiKeys.length}):`, {
             error: errorMessage,
-            isRateLimit,
-            currentKeyIndex: actualKeyIndex + 1,
-            totalKeys: apiKeys.length,
             retryCount,
             triedKeys: Array.from(triedKeys).map(i => i + 1),
         });
@@ -379,27 +388,42 @@ export async function uploadToImgbb(
             const delay = Math.max(INITIAL_RETRY_DELAY, INITIAL_RETRY_DELAY * Math.pow(2, retryCount));
             
             console.warn(
-                `[imgbb] ⚠️ Rate limit достигнут на ключе ${actualKeyIndex + 1}, переключение на ключ ${nextKeyIndex + 1}/${apiKeys.length} через ${delay}ms...`
+                `[imgbb] [${sessionId}] ⚠️ Rate limit на ключе ${actualKeyIndex + 1}, переключение на ключ ${nextKeyIndex + 1}/${apiKeys.length} через ${delay}ms`
             );
             
             await new Promise((resolve) => setTimeout(resolve, delay));
-            return uploadToImgbb(imageData, retryCount + 1, useDisplayUrl, nextKeyIndex, triedKeys);
+            return uploadToImgbb(imageData, retryCount + 1, useDisplayUrl, nextKeyIndex, triedKeys, sessionId);
         }
         
-        // Если это retryable ошибка (сетевая) и не превышен лимит попыток
+        // Если это retryable ошибка (сетевая, таймаут) и не превышен лимит попыток
         if (isRetryableError(error) && retryCount < MAX_RETRIES) {
+            // Пробуем следующий ключ, если есть непробованные
+            let nextKeyIndex = actualKeyIndex;
+            let attempts = 0;
+
+            do {
+                nextKeyIndex = (nextKeyIndex + 1) % apiKeys.length;
+                attempts++;
+                if (attempts >= apiKeys.length) {
+                    triedKeys.clear();
+                    nextKeyIndex = actualKeyIndex;
+                    break;
+                }
+            } while (triedKeys.has(nextKeyIndex) && attempts < apiKeys.length);
+
             const delay = Math.max(INITIAL_RETRY_DELAY, INITIAL_RETRY_DELAY * Math.pow(2, retryCount));
+            const keySwitched = nextKeyIndex !== actualKeyIndex;
             console.warn(
-                `[imgbb] Ошибка соединения (попытка ${retryCount + 1}/${MAX_RETRIES}), повтор через ${delay}ms:`,
+                `[imgbb] [${sessionId}] Ошибка соединения (попытка ${retryCount + 1}/${MAX_RETRIES})${keySwitched ? `, переключение на ключ ${nextKeyIndex + 1}/${apiKeys.length}` : ''}, повтор через ${delay}ms:`,
                 errorMessage
             );
 
             await new Promise((resolve) => setTimeout(resolve, delay));
-            return uploadToImgbb(imageData, retryCount + 1, useDisplayUrl, keyIndex, triedKeys);
+            return uploadToImgbb(imageData, retryCount + 1, useDisplayUrl, nextKeyIndex, triedKeys, sessionId);
         }
 
         // Если ошибка не retryable или превышен лимит попыток
-        console.error('[imgbb] ❌ Ошибка загрузки файла (все попытки исчерпаны):', {
+        console.error(`[imgbb] [${sessionId}] ❌ Все попытки исчерпаны:`, {
             error: errorMessage,
             triedKeys: Array.from(triedKeys).map(i => i + 1),
             totalKeys: apiKeys.length,
