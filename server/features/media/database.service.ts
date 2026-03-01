@@ -153,23 +153,27 @@ export async function updateFileUrlsInDatabase(
     filename: string;
     url: string | null;
     previewUrl?: string | null;
+    path?: string | null;
+    previewPath?: string | null;
   }>,
 ): Promise<void> {
   for (const file of files) {
-    if (!file.url) {
-      continue;
-    }
+    if (!file.url) continue;
 
     try {
+      const data: Record<string, unknown> = {
+        url: file.url,
+        ...(file.previewUrl !== undefined && { previewUrl: file.previewUrl }),
+      };
+      if (file.path !== undefined) data.path = file.path;
+      if (file.previewPath !== undefined) data.previewPath = file.previewPath;
+
       await prisma.mediaFile.updateMany({
         where: {
           requestId,
           filename: file.filename,
         },
-        data: {
-          url: file.url,
-          ...(file.previewUrl !== undefined && { previewUrl: file.previewUrl }),
-        },
+        data,
       });
     } catch (error) {
       console.error(

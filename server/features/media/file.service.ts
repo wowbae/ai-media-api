@@ -261,26 +261,29 @@ async function saveBufferToFile(
 }
 
 // Сохранение файла из base64
-// Для изображений: сохраняет локально + загружает на imgbb
+// Для изображений: сохраняет локально, imgbb — опционально (deferImgbb=true для генерации)
 // Для видео: только локально
 export async function saveBase64File(
     base64Data: string,
-    mimeType: string
+    mimeType: string,
+    options?: { deferImgbb?: boolean }
 ): Promise<SavedFileInfo> {
     const buffer = Buffer.from(base64Data, 'base64');
     const isImage = mimeType.startsWith('image/');
 
-    // Для изображений используем гибридное сохранение (локально + imgbb)
     if (isImage) {
+        // deferImgbb: для генерации — только локально, imgbb после Telegram
+        if (options?.deferImgbb) {
+            return saveBufferToFile(buffer, mimeType);
+        }
         return saveImageWithImgbb(buffer, mimeType);
     }
 
-    // Для видео и других типов - только локально
     return saveBufferToFile(buffer, mimeType);
 }
 
 // Сохранение файла из URL (скачивание)
-// Для изображений: сохраняет локально + загружает на imgbb синхронно
+// Для изображений: сохраняет локально, imgbb загружается позже (после отправки в Telegram)
 // Для видео: сохраняет локально + сохраняет URL провайдера для последующего использования
 export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
     const response = await fetch(url);
@@ -296,24 +299,12 @@ export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
     // Сохраняем локально
     const savedFile = await saveBufferToFile(buffer, contentType);
 
-    // Для изображений: загружаем на imgbb синхронно (сразу при получении результата)
+    // Для изображений: url=null, imgbb загрузится после отправки в Telegram (uploadFilesToImgbbAndUpdateDatabase)
     if (isImage) {
-        try {
-            const { uploadToImgbb, isImgbbConfigured } = await import('./imgbb.service');
-            if (isImgbbConfigured()) {
-                // Загружаем на imgbb синхронно (параллельно с сохранением локально)
-                const imgbbUrl = await uploadToImgbb(buffer);
-                savedFile.url = imgbbUrl;
-                console.log('[file.service] ✅ Изображение сохранено локально и загружено на imgbb:', {
-                    filename: savedFile.filename,
-                    path: savedFile.path,
-                    url: imgbbUrl,
-                });
-            }
-        } catch (error) {
-            console.error('[file.service] ❌ Ошибка загрузки на imgbb (продолжаем с локальным сохранением):', error);
-            // Не прерываем процесс, просто url останется null
-        }
+        console.log('[file.service] ✅ Изображение сохранено локально (imgbb — после Telegram):', {
+            filename: savedFile.filename,
+            path: savedFile.path,
+        });
     } else if (isVideo) {
         // Для видео: сохраняем оригинальный URL провайдера для последующего использования
         // когда файл будет удален с сервера после отправки в Telegram

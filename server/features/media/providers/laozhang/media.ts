@@ -129,7 +129,9 @@ async function parseGoogleNativeResponse(
         if (part.inlineData?.data) {
           const mimeType = part.inlineData.mimeType || "image/png";
           const base64 = part.inlineData.data;
-          const savedFile = await saveBase64File(base64, mimeType);
+          const savedFile = await saveBase64File(base64, mimeType, {
+          deferImgbb: true,
+        });
           files.push(savedFile);
         }
       }
@@ -174,7 +176,9 @@ async function parseImageResponse(
               const [header, base64] = imageUrl.split(",");
               const mimeMatch = header.match(/data:([^;]+)/);
               const mimeType = mimeMatch ? mimeMatch[1] : "image/png";
-              const savedFile = await saveBase64File(base64, mimeType);
+              const savedFile = await saveBase64File(base64, mimeType, {
+          deferImgbb: true,
+        });
               files.push(savedFile);
             } else if (imageUrl.startsWith("http")) {
               const savedFile = await saveFileFromUrl(imageUrl);
@@ -192,7 +196,9 @@ async function parseImageResponse(
           const [header, base64] = content.split(",");
           const mimeMatch = header.match(/data:([^;]+)/);
           const mimeType = mimeMatch ? mimeMatch[1] : "image/png";
-          const savedFile = await saveBase64File(base64, mimeType);
+          const savedFile = await saveBase64File(base64, mimeType, {
+          deferImgbb: true,
+        });
           files.push(savedFile);
         } else if (content.startsWith("http")) {
           const savedFile = await saveFileFromUrl(content);

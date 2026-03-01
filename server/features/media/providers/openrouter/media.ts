@@ -73,10 +73,9 @@ async function parseGeminiImageResponse(
                             const mimeType = mimeMatch
                                 ? mimeMatch[1]
                                 : 'image/png';
-                            const savedFile = await saveBase64File(
-                                base64,
-                                mimeType
-                            );
+                            const savedFile = await saveBase64File(base64, mimeType, {
+                                deferImgbb: true,
+                            });
                             files.push(savedFile);
                         } else if (imageUrl.startsWith('http')) {
                             const savedFile = await saveFileFromUrl(imageUrl);
@@ -93,7 +92,8 @@ async function parseGeminiImageResponse(
                     if (part.inlineData?.data) {
                         const savedFile = await saveBase64File(
                             part.inlineData.data,
-                            part.inlineData.mimeType || 'image/png'
+                            part.inlineData.mimeType || 'image/png',
+                            { deferImgbb: true }
                         );
                         files.push(savedFile);
                     }
@@ -103,7 +103,9 @@ async function parseGeminiImageResponse(
                     const [header, base64] = content.split(',');
                     const mimeMatch = header.match(/data:([^;]+)/);
                     const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-                    const savedFile = await saveBase64File(base64, mimeType);
+                    const savedFile = await saveBase64File(base64, mimeType, {
+                            deferImgbb: true,
+                        });
                     files.push(savedFile);
                 } else if (content.startsWith('http')) {
                     const savedFile = await saveFileFromUrl(content);
@@ -121,7 +123,8 @@ async function parseGeminiImageResponse(
                 if (item.b64_json) {
                     const savedFile = await saveBase64File(
                         item.b64_json,
-                        'image/png'
+                        'image/png',
+                        { deferImgbb: true }
                     );
                     files.push(savedFile);
                 } else if (item.url) {
@@ -150,7 +153,8 @@ async function parseGenericResponse(data: unknown): Promise<SavedFileInfo[]> {
                 if (item.b64_json) {
                     const savedFile = await saveBase64File(
                         item.b64_json,
-                        'image/png'
+                        'image/png',
+                        { deferImgbb: true }
                     );
                     files.push(savedFile);
                 } else if (item.url) {

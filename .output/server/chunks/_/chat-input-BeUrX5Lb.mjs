@@ -6,7 +6,7 @@ import { FlaskConical, Plus, MessageSquare, X, Loader2, Paperclip, Lock, Unlock,
 import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { u as useGetChatsQuery, a as useCreateChatMutation, k as useDeleteChatMutation, h as useUpdateChatMutation, i as useGenerateMediaMutation, o as useGenerateMediaTestMutation, d as useGetModelsQuery, l as useUploadToImgbbMutation, m as useUploadUserMediaMutation, n as handleSessionTimeout } from './router-EhyTjV9k.mjs';
+import { u as useGetChatsQuery, a as useCreateChatMutation, k as useDeleteChatMutation, h as useUpdateChatMutation, i as useGenerateMediaMutation, o as useGenerateMediaTestMutation, d as useGetModelsQuery, l as useUploadToImgbbMutation, m as useUploadUserMediaMutation, n as handleSessionTimeout } from './router-CgddXcVw.mjs';
 import { Slot } from '@radix-ui/react-slot';
 import { cva } from 'class-variance-authority';
 import { clsx } from 'clsx';
@@ -5148,4 +5148,4 @@ const ChatInput = forwardRef(
 );
 
 export { Button as B, ChatSidebar as C, Dialog as D, ModelBadge as M, PANEL_HEADER_CLASSES as P, ScrollArea as S, ChatInput as a, createLoadingEffectForAttachFile as b, cn as c, PANEL_HEADER_TITLE_CLASSES as d, Skeleton as e, DialogContent as f, getModelIcon as g, DialogTitle as h, getOriginalFileUrl as i, downloadFile as j, getProviderDisplayName as k, isVideoDataUrl as l, getMediaFileUrl as m, formatTime as n, formatFileSize as o, Badge as p, useTestMode as u };
-//# sourceMappingURL=chat-input-BK5on2xW.mjs.map
+//# sourceMappingURL=chat-input-BeUrX5Lb.mjs.map

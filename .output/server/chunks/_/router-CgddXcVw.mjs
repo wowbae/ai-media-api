@@ -7,7 +7,7 @@ import { setupListeners } from '@reduxjs/toolkit/query';
 import { useState, useEffect, useRef } from 'react';
 import { Loader2, UserPlus, LogIn, LinkIcon, Zap, RefreshCw } from 'lucide-react';
 
-const appCss = "/assets/styles-BId-3JM_.css";
+const appCss = "/assets/styles-zzK5DvDm.css";
 function createAuthHeaders(headers, { getState }) {
   const token = getState().auth.token;
   if (token) {
@@ -1531,11 +1531,11 @@ const $$splitComponentImporter$2 = () => import('./index-vRGhebwl.mjs');
 const Route$2 = createFileRoute("/")({
   component: lazyRouteComponent($$splitComponentImporter$2, "component")
 });
-const $$splitComponentImporter$1 = () => import('./index-BKcM3vPO.mjs');
+const $$splitComponentImporter$1 = () => import('./index-DtHH9iF7.mjs');
 const Route$1 = createFileRoute("/media/")({
   component: lazyRouteComponent($$splitComponentImporter$1, "component")
 });
-const $$splitComponentImporter = () => import('./_chatId-BuJzWMqB.mjs');
+const $$splitComponentImporter = () => import('./_chatId-DkEsJPvp.mjs');
 const Route = createFileRoute("/media/$chatId")({
   component: lazyRouteComponent($$splitComponentImporter, "component")
 });
@@ -1586,4 +1586,4 @@ const router = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProper
 }, Symbol.toStringTag, { value: "Module" }));
 
 export { Route as R, useCreateChatMutation as a, useDeleteFileMutation as b, useUploadThumbnailMutation as c, useGetModelsQuery as d, useGetFilesQuery as e, useGetChatQuery as f, useGetPricingQuery as g, useUpdateChatMutation as h, useGenerateMediaMutation as i, useLazyGetRequestQuery as j, useDeleteChatMutation as k, useUploadToImgbbMutation as l, useUploadUserMediaMutation as m, handleSessionTimeout as n, useGenerateMediaTestMutation as o, router as r, useGetChatsQuery as u };
-//# sourceMappingURL=router-EhyTjV9k.mjs.map
+//# sourceMappingURL=router-CgddXcVw.mjs.map

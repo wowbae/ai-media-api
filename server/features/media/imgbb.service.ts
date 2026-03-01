@@ -682,6 +682,8 @@ export async function uploadFilesToImgbbAndUpdateDatabase(
                 filename: file.filename,
                 url: file.url,
                 previewUrl: file.previewUrl || null,
+                path: file.path,
+                previewPath: file.previewPath,
             }));
 
         if (filesToUpdate.length > 0) {

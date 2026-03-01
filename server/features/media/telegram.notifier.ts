@@ -114,12 +114,12 @@ async function validateChatAccess(
 
 // Удаление медиа-файла с сервера после успешной отправки в Telegram
 // Для VIDEO: удаляет локальные файлы, сохраняет URL провайдера
-// Для IMAGE: удаляет локальные файлы, сохраняет URL на imgbb
+// Для IMAGE: удаляет только если есть url (imgbb) — иначе файл нужен для загрузки на imgbb
 async function deleteMediaAfterTelegramSend(file: MediaFile): Promise<void> {
-    // Удаляем только файлы с локальным путем (IMAGE и VIDEO)
-    if ((file.type !== 'VIDEO' && file.type !== 'IMAGE') || !file.path) {
-        return;
-    }
+    if (file.type !== 'VIDEO' && file.type !== 'IMAGE') return;
+    if (!file.path) return;
+    // IMAGE без url — imgbb ещё не загружен, файл нужен для uploadFilesToImgbbAndUpdateDatabase
+    if (file.type === 'IMAGE' && !file.url) return;
 
     try {
         // Удаляем локальный файл и превью

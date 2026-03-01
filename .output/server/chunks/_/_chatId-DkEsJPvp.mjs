@@ -1,8 +1,8 @@
 import { jsxDEV, Fragment } from 'react/jsx-dev-runtime';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Loader2, Pin, ChevronDown, ImageIcon, VideoIcon, RefreshCcw, Download, X, Copy, AlertCircle, Paperclip, Trash2, Maximize2, CheckCircle2, FileIcon, Video, AudioLines } from 'lucide-react';
-import { u as useTestMode, C as ChatSidebar, a as ChatInput, c as cn, g as getModelIcon, M as ModelBadge, S as ScrollArea, b as createLoadingEffectForAttachFile, P as PANEL_HEADER_CLASSES, d as PANEL_HEADER_TITLE_CLASSES, e as Skeleton, D as Dialog, f as DialogContent, h as DialogTitle, i as getOriginalFileUrl, B as Button, j as downloadFile, k as getProviderDisplayName, l as isVideoDataUrl, m as getMediaFileUrl, n as formatTime, o as formatFileSize, p as Badge } from './chat-input-BK5on2xW.mjs';
-import { R as Route, f as useGetChatQuery, h as useUpdateChatMutation, i as useGenerateMediaMutation, j as useLazyGetRequestQuery, d as useGetModelsQuery, b as useDeleteFileMutation, e as useGetFilesQuery, g as useGetPricingQuery, c as useUploadThumbnailMutation } from './router-EhyTjV9k.mjs';
+import { u as useTestMode, C as ChatSidebar, a as ChatInput, c as cn, g as getModelIcon, M as ModelBadge, S as ScrollArea, b as createLoadingEffectForAttachFile, P as PANEL_HEADER_CLASSES, d as PANEL_HEADER_TITLE_CLASSES, e as Skeleton, D as Dialog, f as DialogContent, h as DialogTitle, i as getOriginalFileUrl, B as Button, j as downloadFile, k as getProviderDisplayName, l as isVideoDataUrl, m as getMediaFileUrl, n as formatTime, o as formatFileSize, p as Badge } from './chat-input-BeUrX5Lb.mjs';
+import { R as Route, f as useGetChatQuery, h as useUpdateChatMutation, i as useGenerateMediaMutation, j as useLazyGetRequestQuery, d as useGetModelsQuery, b as useDeleteFileMutation, e as useGetFilesQuery, g as useGetPricingQuery, c as useUploadThumbnailMutation } from './router-CgddXcVw.mjs';
 import '@tanstack/react-router';
 import '@radix-ui/react-scroll-area';
 import '@radix-ui/react-dropdown-menu';
@@ -3405,4 +3405,4 @@ function ChatHeader({
 }
 
 export { MediaChatPage as component };
-//# sourceMappingURL=_chatId-BuJzWMqB.mjs.map
+//# sourceMappingURL=_chatId-DkEsJPvp.mjs.map

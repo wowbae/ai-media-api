@@ -1,9 +1,9 @@
 import { jsxDEV, Fragment } from 'react/jsx-dev-runtime';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { C as ChatSidebar } from './chat-input-BK5on2xW.mjs';
+import { C as ChatSidebar } from './chat-input-BeUrX5Lb.mjs';
 import { Loader2, Sparkles } from 'lucide-react';
-import { u as useGetChatsQuery, a as useCreateChatMutation } from './router-EhyTjV9k.mjs';
+import { u as useGetChatsQuery, a as useCreateChatMutation } from './router-CgddXcVw.mjs';
 import '@radix-ui/react-scroll-area';
 import '@radix-ui/react-dropdown-menu';
 import '@radix-ui/react-dialog';
@@ -194,4 +194,4 @@ function ModelCard({
 }
 
 export { MediaIndexPage as component };
-//# sourceMappingURL=index-BKcM3vPO.mjs.map
+//# sourceMappingURL=index-DtHH9iF7.mjs.map
