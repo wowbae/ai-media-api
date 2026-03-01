@@ -174,7 +174,7 @@ export function createKieAiSeedream5Provider(
 
     if (isEditMode) {
       requestBody = {
-        model: "seedream/5.0-lite-edit",
+        model: "seedream/5-lite-image-to-image",
         input: {
           prompt: prompt,
           image_urls: imageUrls,
@@ -184,7 +184,7 @@ export function createKieAiSeedream5Provider(
       };
     } else {
       requestBody = {
-        model: "seedream/5.0-lite-text-to-image",
+        model: "seedream/5-lite-text-to-image",
         input: {
           prompt: prompt,
           aspect_ratio: mapAspectRatio(aspectRatio),
@@ -421,13 +421,13 @@ export function createKieAiSeedream5Provider(
       if (result.status === "success") {
         if (!result.resultUrls || result.resultUrls.length === 0) {
           console.warn(
-            "[Kie.ai Seedream 5.0] Статус success, но resultUrls пустой - продолжаем ожидание:",
+            "[Kie.ai Seedream 5.0] Статус success, но resultUrls пустой - продолжаем проверку:",
             {
               taskId,
               status: result.status,
             },
           );
-          // Возвращаем processing вместо done, чтобы продолжить polling
+          // Возвращаем processing вместо done, чтобы продолжить проверку статуса
           mappedStatus = "processing";
         } else {
           // Статус success и есть resultUrls - задача готова

@@ -101,6 +101,18 @@ export function useChatInputSubmit({
                 return;
             }
 
+            // Валидация для Seedream 5.0 Edit: максимум 14 файлов
+            if (params.modelType.isSeedream5_Edit && params.attachedFiles.length > (params.modelType.maxInputFiles || 0)) {
+                submitInProgressRef.current = false;
+                setIsSubmitting(false);
+                if (onSendError) {
+                    onSendError(
+                        `Seedream 5.0 Edit поддерживает максимум 14 файлов. Выбрано: ${params.attachedFiles.length}`
+                    );
+                }
+                return;
+            }
+
             // Устанавливаем флаг атомарно (до всех асинхронных операций)
             submitInProgressRef.current = true;
             setIsSubmitting(true);
@@ -364,7 +376,7 @@ export function useChatInputSubmit({
                     );
                 }
 
-                // Уведомляем родителя о создании запроса для запуска polling
+                // Уведомляем родителя о создании запроса для запуска SSE отслеживания
                 if (onRequestCreated && result.requestId) {
                     onRequestCreated(result.requestId);
                 }

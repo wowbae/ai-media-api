@@ -31,14 +31,6 @@ export interface GenerateMediaOptions {
   languageCode?: string;
 }
 
-// Опции для polling задач
-export interface PollingOptions {
-  requestId: number;
-  taskId: string;
-  providerName: string;
-  prompt: string;
-}
-
 // Опции для восстановления задач после перезапуска
 export interface TaskRecoveryOptions {
   requestId: number;

@@ -97,11 +97,32 @@ export async function generateMedia(options: GenerateMediaOptions): Promise<void
       // Сохраняем taskId в БД
       await prisma.mediaRequest.update({
         where: { id: requestId },
-        data: { 
+        data: {
           taskId: result.taskId,
           status: 'PENDING',
         },
       });
+
+      // Получаем chatId и userId из БД для отслеживания
+      const request = await prisma.mediaRequest.findUnique({
+        where: { id: requestId },
+        select: { chatId: true, chat: { select: { userId: true } } },
+      });
+
+      if (request && request.chat?.userId) {
+        // Запускаем отслеживание задачи
+        const { getTaskTrackingService } = await import('./task-tracking.service');
+        const taskTrackingService = getTaskTrackingService();
+        
+        await taskTrackingService.startTracking({
+          requestId,
+          taskId: result.taskId,
+          model,
+          prompt,
+          chatId: request.chatId,
+          userId: request.chat.userId,
+        });
+      }
 
       console.log(
         `[MediaService] ✅ Задача создана: requestId=${requestId}, taskId=${result.taskId}`,

@@ -567,6 +567,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     </p>
                 )}
 
+                {/* Подсказка для Seedream 5.0 Edit */}
+                {modelType.isSeedream5_Edit && (
+                    <p className='mb-2 text-xs text-muted-foreground'>
+                        Seedream 5.0 Edit поддерживает до 14 изображений для
+                        редактирования
+                    </p>
+                )}
+
                 {/* Дополнительные параметры Seedance 1.5 Pro */}
                 {currentModel === 'SEEDANCE_1_5_PRO_KIEAI' && (
                     <div className='mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground'>

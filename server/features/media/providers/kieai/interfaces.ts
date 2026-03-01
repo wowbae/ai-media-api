@@ -337,34 +337,29 @@ export type KieAiKling3Mode = "std" | "pro";
 // Соотношение сторон для Kling 3.0
 export type KieAiKling3AspectRatio = "1:1" | "16:9" | "9:16";
 
-// Длительность видео для Kling 3.0 (3-15 секунд)
-export type KieAiKling3Duration = 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
+// Длительность видео для Kling 3.0 (3-15 секунд) - передается как строка
+export type KieAiKling3Duration = "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "11" | "12" | "13" | "14" | "15";
 
-// Запрос на создание задачи Kling 3.0 (Text-to-Video)
-export interface KieAiKling3TextToVideoRequest {
-  model: "kling/3.0-text-to-video";
-  callBackUrl?: string;
-  input: {
-    prompt: string; // Максимум 2500 символов
-    duration: KieAiKling3Duration;
-    aspect_ratio?: KieAiKling3AspectRatio;
-    mode?: KieAiKling3Mode;
-    multi_shots?: boolean;
-    sound?: boolean;
-  };
+// Kling Element для multi-prompt
+export interface KieAiKling3Element {
+  name: string; // например "element_dog"
+  description: string; // описание элемента
+  element_input_urls: string[]; // URL изображений для элемента
 }
 
-// Запрос на создание задачи Kling 3.0 (Image-to-Video)
-export interface KieAiKling3ImageToVideoRequest {
-  model: "kling/3.0-image-to-video";
+// Запрос на создание задачи Kling 3.0 (универсальный)
+export interface KieAiKling3VideoRequest {
+  model: "kling-3.0/video";
   callBackUrl?: string;
   input: {
-    prompt: string; // Максимум 2500 символов
-    image_urls: string[]; // URL для start frame и/или end frame (JPG/PNG, макс 10MB)
-    duration: KieAiKling3Duration;
     mode?: KieAiKling3Mode;
-    multi_shots?: boolean;
+    image_urls?: string[]; // URL для start frame и/или end frame (JPG/PNG, макс 10MB)
     sound?: boolean;
+    duration: KieAiKling3Duration;
+    aspect_ratio?: KieAiKling3AspectRatio;
+    multi_shots?: boolean;
+    prompt: string; // Максимум 2500 символов
+    kling_elements?: KieAiKling3Element[]; // Элементы для multi-prompt
   };
 }
 
@@ -387,7 +382,7 @@ export type KieAiSeedream5Quality = "basic" | "high";
 
 // Запрос на создание задачи Seedream 5.0 (Text-to-Image)
 export interface KieAiSeedream5TextToImageRequest {
-  model: "seedream/5.0-lite-text-to-image";
+  model: "seedream/5-lite-text-to-image";
   callBackUrl?: string;
   input: {
     prompt: string;
@@ -398,7 +393,7 @@ export interface KieAiSeedream5TextToImageRequest {
 
 // Запрос на создание задачи Seedream 5.0 (Edit/Image-to-Image)
 export interface KieAiSeedream5EditRequest {
-  model: "seedream/5.0-lite-edit";
+  model: "seedream/5-lite-image-to-image";
   callBackUrl?: string;
   input: {
     prompt: string;

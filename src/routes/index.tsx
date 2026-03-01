@@ -76,7 +76,7 @@ function HomePage() {
                     <FeatureCard
                         icon={<Zap className='w-12 h-12 text-orange-400' />}
                         title='Быстрая обработка'
-                        description='Асинхронная генерация с polling статусом и уведомлениями'
+                        description='Асинхронная генерация с SSE уведомлениями в реальном времени'
                     />
                 </div>
             </section>

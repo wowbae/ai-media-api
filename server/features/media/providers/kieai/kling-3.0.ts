@@ -18,8 +18,8 @@ import type {
   KieAiKling3AspectRatio,
   KieAiKling3Duration,
   KieAiKling3Mode,
-  KieAiKling3TextToVideoRequest,
-  KieAiKling3ImageToVideoRequest,
+  KieAiKling3VideoRequest,
+  KieAiKling3Element,
   KieAiTaskDetailResponse,
   KieAiResultJson,
 } from "./interfaces";
@@ -47,12 +47,12 @@ function mapKling3AspectRatio(
   return "1:1"; // По умолчанию
 }
 
-// Маппинг длительности (3-15 секунд)
+// Маппинг длительности (3-15 секунд) - передается как строка
 function mapKling3Duration(duration?: number): KieAiKling3Duration {
-  if (!duration) return 5;
-  if (duration < 3) return 3;
-  if (duration > 15) return 15;
-  return duration as KieAiKling3Duration;
+  if (!duration) return "5";
+  if (duration < 3) return "3";
+  if (duration > 15) return "15";
+  return String(duration) as KieAiKling3Duration;
 }
 
 // Маппинг режима
@@ -79,13 +79,19 @@ export function createKieAiKling3Provider(config: KieAiConfig): MediaProvider {
     const sound = params.sound ?? true; // По умолчанию звук включен
     const multiShots = params.multiShots ?? false;
 
-    // Формируем модель в зависимости от типа запроса
-    const model = isImageToVideo
-      ? "kling/3.0-image-to-video"
-      : "kling/3.0-text-to-video";
+    // Формируем модель - единый эндпоинт для всех типов
+    const model = "kling-3.0/video";
 
-    // Формируем input объект
-    const input: Record<string, unknown> = {
+    // Формируем input объект согласно документации
+    const input: {
+      prompt: string;
+      duration: KieAiKling3Duration;
+      mode?: KieAiKling3Mode;
+      sound?: boolean;
+      multi_shots?: boolean;
+      aspect_ratio?: KieAiKling3AspectRatio;
+      image_urls?: string[];
+    } = {
       prompt: params.prompt,
       duration,
       mode,
@@ -93,52 +99,35 @@ export function createKieAiKling3Provider(config: KieAiConfig): MediaProvider {
       multi_shots: multiShots,
     };
 
+    // Добавляем image_urls если есть файлы
     if (isImageToVideo) {
-      // Image-to-Video режим
-      const inputImage = params.inputFiles![0];
-
-      // Если это data URL (base64) - загружаем на imgbb
-      let imageUrl: string;
-      if (inputImage.startsWith("data:")) {
-        if (!isImgbbConfigured()) {
-          throw new Error(
-            "IMGBB_API_KEY не настроен. Для image-to-video нужен imgbb.",
-          );
-        }
-        console.log("[Kie.ai Kling 3.0] Загрузка изображения на imgbb...");
-        imageUrl = await uploadToImgbb(inputImage);
-      } else {
-        // Уже URL - используем как есть
-        imageUrl = inputImage;
-      }
-
-      (input as Record<string, string[]>).image_urls = [imageUrl];
-
-      // Если есть второй файл (end frame), добавляем его
-      if (params.inputFiles!.length > 1) {
-        const endFrameImage = params.inputFiles![1];
-        let endFrameUrl: string;
-        if (endFrameImage.startsWith("data:")) {
+      const imageUrls: string[] = [];
+      
+      for (const inputImage of params.inputFiles!) {
+        let imageUrl: string;
+        if (inputImage.startsWith("data:")) {
           if (!isImgbbConfigured()) {
             throw new Error(
               "IMGBB_API_KEY не настроен. Для image-to-video нужен imgbb.",
             );
           }
-          console.log("[Kie.ai Kling 3.0] Загрузка end frame на imgbb...");
-          endFrameUrl = await uploadToImgbb(endFrameImage);
+          console.log("[Kie.ai Kling 3.0] Загрузка изображения на imgbb...");
+          imageUrl = await uploadToImgbb(inputImage);
         } else {
-          endFrameUrl = endFrameImage;
+          imageUrl = inputImage;
         }
-        (input as Record<string, string[]>).image_urls.push(endFrameUrl);
+        imageUrls.push(imageUrl);
       }
+      
+      input.image_urls = imageUrls;
     } else {
-      // Text-to-Video режим
+      // Text-to-Video режим - добавляем aspect_ratio
       const aspectRatio = mapKling3AspectRatio(params.aspectRatio);
       input.aspect_ratio = aspectRatio;
     }
 
     // Формируем тело запроса согласно документации
-    const requestBody = {
+    const requestBody: KieAiKling3VideoRequest = {
       model,
       callBackUrl: "", // Можно оставить пустым, если не используется callback
       input,
@@ -179,7 +168,7 @@ export function createKieAiKling3Provider(config: KieAiConfig): MediaProvider {
       );
     }
 
-    // API возвращает { code: 200, msg: "success", data: { taskId: "task_kling/3.0-..." } }
+    // API возвращает { code: 200, msg: "success", data: { taskId: "task_kling-3.0-..." } }
     const responseData = (await response.json()) as {
       code: number;
       msg: string;

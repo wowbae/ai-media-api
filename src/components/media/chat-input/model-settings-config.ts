@@ -12,7 +12,7 @@ export interface QualityOption {
 }
 
 export interface DurationOption {
-    value: '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '12';
+    value: '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '12' | '15';
     label: string;
 }
 
@@ -53,12 +53,34 @@ export interface SoundConfig {
     defaultValue: boolean;
 }
 
+export interface ModeOption {
+    value: 'std' | 'pro';
+    label: string;
+}
+
+export interface ModeConfig {
+    options: ModeOption[];
+    defaultValue: 'std' | 'pro';
+}
+
+export interface MultiShotsOption {
+    value: boolean;
+    label: string;
+}
+
+export interface MultiShotsConfig {
+    options: MultiShotsOption[];
+    defaultValue: boolean;
+}
+
 export interface ModelSettingConfig {
     format?: FormatConfig;
     quality?: QualityConfig;
     duration?: DurationConfig;
     sound?: SoundConfig;
     generationType?: GenerationTypeConfig;
+    mode?: ModeConfig;
+    multiShots?: MultiShotsConfig;
 }
 
 // Общие опции для форматов
@@ -261,6 +283,62 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
         quality: {
             options: QUALITY_OPTIONS_SEEDREAM,
             defaultValue: '4k', // по цене одинаково с 2к
+        },
+    },
+    SEEDREAM_5_0_LITE_KIEAI: {
+        format: {
+            options: FORMAT_OPTIONS_SEEDREAM,
+            defaultValue: '9:16',
+        },
+        quality: {
+            options: QUALITY_OPTIONS_SEEDREAM,
+            defaultValue: '4k', // basic = 2K, high = 4K
+        },
+    },
+    SEEDREAM_5_0_LITE_EDIT_KIEAI: {
+        format: {
+            options: FORMAT_OPTIONS_SEEDREAM,
+            defaultValue: '9:16',
+        },
+        quality: {
+            options: QUALITY_OPTIONS_SEEDREAM,
+            defaultValue: '4k', // basic = 2K, high = 4K
+        },
+    },
+    KLING_3_0_KIEAI: {
+        format: {
+            options: FORMAT_OPTIONS_16_9_9_16,
+            defaultValue: '9:16',
+        },
+        duration: {
+            options: [
+                { value: '3', label: '3 сек' },
+                { value: '5', label: '5 сек' },
+                { value: '10', label: '10 сек' },
+                { value: '15', label: '15 сек' },
+            ],
+            defaultValue: 5,
+        },
+        // mode (std/pro) для Kling 3.0
+        mode: {
+            options: [
+                { value: 'std', label: 'Standard' },
+                { value: 'pro', label: 'Pro' },
+            ],
+            defaultValue: 'std',
+        },
+        // multi_shots для Kling 3.0
+        multiShots: {
+            options: [
+                { value: true, label: 'Включено' },
+                { value: false, label: 'Выключено' },
+            ],
+            defaultValue: false,
+        },
+        // sound для Kling 3.0
+        sound: {
+            options: SOUND_OPTIONS,
+            defaultValue: true,
         },
     },
     MIDJOURNEY: {},

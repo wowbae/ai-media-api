@@ -13,10 +13,13 @@ const MODEL_ICONS: Record<string, string> = {
     VEO_3_1_KIEAI: '🎥',
     KLING_2_6_KIEAI: '🎬',
     KLING_2_5_TURBO_PRO_KIEAI: '🎬',
+    KLING_3_0_KIEAI: '🎬',
     IMAGEN4_KIEAI: '🖼️',
     IMAGEN4_ULTRA_KIEAI: '💎',
     SEEDREAM_4_5_KIEAI: '🌌',
     SEEDREAM_4_5_EDIT_KIEAI: '🪄',
+    SEEDREAM_5_0_LITE_KIEAI: '🌟',
+    SEEDREAM_5_0_LITE_EDIT_KIEAI: '✨',
     ELEVENLABS_MULTILINGUAL_V2_KIEAI: '🎤',
     KLING_VIDEO_O1_WAVESPEED: '🎥',
 };

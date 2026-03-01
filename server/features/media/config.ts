@@ -132,7 +132,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         },
     },
     SEEDREAM_5_0_LITE_KIEAI: {
-        id: 'seedream/5.0-lite-text-to-image',
+        id: 'seedream/5-lite-text-to-image',
         name: 'Seedream 5.0 Lite',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
@@ -144,7 +144,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         },
     },
     SEEDREAM_5_0_LITE_EDIT_KIEAI: {
-        id: 'seedream/5.0-lite-edit',
+        id: 'seedream/5-lite-image-to-image',
         name: 'Seedream 5.0 Lite Edit',
         types: ['IMAGE'] as const,
         maxPromptLength: 8192,
@@ -156,7 +156,7 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         },
     },
     KLING_3_0_KIEAI: {
-        id: 'kling/3.0',
+        id: 'kling-3.0',
         name: 'Kling 3.0',
         types: ['VIDEO'] as const,
         maxPromptLength: 4096,

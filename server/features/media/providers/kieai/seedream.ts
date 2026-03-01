@@ -421,13 +421,13 @@ export function createKieAiSeedreamProvider(
       if (result.status === "success") {
         if (!result.resultUrls || result.resultUrls.length === 0) {
           console.warn(
-            "[Kie.ai Seedream 4.5] Статус success, но resultUrls пустой - продолжаем ожидание:",
+            "[Kie.ai Seedream 4.5] Статус success, но resultUrls пустой - продолжаем проверку:",
             {
               taskId,
               status: result.status,
             },
           );
-          // Возвращаем processing вместо done, чтобы продолжить polling
+          // Возвращаем processing вместо done, чтобы продолжить проверку статуса
           mappedStatus = "processing";
         } else {
           // Статус success и есть resultUrls - задача готова

@@ -90,13 +90,13 @@ function MediaChatPage() {
     const [showScrollButton, setShowScrollButton] = useState(false);
     const scrollToBottomRef = useRef<(() => void) | null>(null);
 
-    // Получаем список моделей (больше не нужно для polling задержки)
+    // Получаем список моделей
     const { data: models } = useGetModelsQuery();
 
     // Синхронизация модели с настройками чата
     // ВАЖНО: Обновляем ТОЛЬКО при первоначальной загрузке чата
     // После этого модель может быть изменена ТОЛЬКО пользователем вручную через селектор
-    // Все автоматические обновления чата (polling, refetch) НЕ влияют на выбранную модель
+    // Все автоматические обновления чата (SSE updates, refetch) НЕ влияют на выбранную модель
     useEffect(() => {
         const activeChatForSync = chat;
         if (!activeChatForSync) return;
@@ -286,12 +286,12 @@ function MediaChatPage() {
     );
 
     // SSE автоматически обновляет кеш - просто используем sortedRequests
-    const requestsWithPolling = sortedRequests as MediaRequest[];
+    const requests = sortedRequests as MediaRequest[];
 
     // Добавляем pending-сообщение в конец списка (если есть)
     const hasPendingInList =
         pendingMessage &&
-        !requestsWithPolling.some(
+        !requests.some(
             (r) =>
                 pendingMessage.requestId
                     ? r.id === pendingMessage.requestId
