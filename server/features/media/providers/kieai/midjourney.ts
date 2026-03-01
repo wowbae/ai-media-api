@@ -191,11 +191,6 @@ export function createKieAiMidjourneyProvider(
     const responseData =
       (await response.json()) as KieAiApiResponse<KieAiStatusResponse>;
 
-    console.log(
-      "[Kie.ai Midjourney] Полный ответ статуса:",
-      JSON.stringify(responseData, null, 2),
-    );
-
     // Проверяем код ответа
     if (responseData.code !== 200) {
       throw new Error(
@@ -217,23 +212,18 @@ export function createKieAiMidjourneyProvider(
       resultUrls = data.resultInfoJson.resultUrls.map((item) => item.resultUrl);
     }
 
-    // Определяем статус на основе successFlag и наличия результатов
+    // Определяем статус: ошибка API имеет приоритет над остальными условиями
     let status: KieAiTaskStatus = "pending";
-    if (data.successFlag === 1 && resultUrls.length > 0) {
+    const hasError =
+      data.errorMessage ||
+      (data.errorCode != null && String(data.errorCode) !== "0");
+    if (hasError) {
+      status = "failed";
+    } else if (data.successFlag === 1 && resultUrls.length > 0) {
       status = "completed";
     } else if (data.successFlag === 0 || !data.resultInfoJson) {
       status = "processing";
-    } else if (data.errorMessage || data.errorCode) {
-      status = "failed";
     }
-
-    console.log("[Kie.ai Midjourney] Парсинг статуса:", {
-      taskId: data.taskId,
-      successFlag: data.successFlag,
-      resultUrlsCount: resultUrls.length,
-      resultUrls: resultUrls, // Логируем все URL для отладки
-      status,
-    });
 
     return {
       ...data,
