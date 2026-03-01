@@ -384,7 +384,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
             { requestId: number; files: MediaFile[] },
             {
                 chatId: number;
-                files: { base64: string; mimeType: string; filename: string }[];
+                files: { base64: string; mimeType: string; filename: string; imgbbUrl?: string }[];
             }
         >({
             query: (body) => ({

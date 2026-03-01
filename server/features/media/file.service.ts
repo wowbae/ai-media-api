@@ -262,11 +262,12 @@ async function saveBufferToFile(
 
 // Сохранение файла из base64
 // Для изображений: сохраняет локально, imgbb — опционально (deferImgbb=true для генерации)
+// imgbbUrl: если передан — используем готовый URL, не загружаем на imgbb повторно
 // Для видео: только локально
 export async function saveBase64File(
     base64Data: string,
     mimeType: string,
-    options?: { deferImgbb?: boolean }
+    options?: { deferImgbb?: boolean; imgbbUrl?: string }
 ): Promise<SavedFileInfo> {
     const buffer = Buffer.from(base64Data, 'base64');
     const isImage = mimeType.startsWith('image/');
@@ -275,6 +276,16 @@ export async function saveBase64File(
         // deferImgbb: для генерации — только локально, imgbb после Telegram
         if (options?.deferImgbb) {
             return saveBufferToFile(buffer, mimeType);
+        }
+        // imgbbUrl: клиент уже загрузил на imgbb, не дублируем загрузку
+        if (options?.imgbbUrl) {
+            const savedFile = await saveBufferToFile(buffer, mimeType);
+            savedFile.url = options.imgbbUrl;
+            console.log('[file.service] ✅ Изображение сохранено локально, imgbbUrl передан (без повторной загрузки):', {
+                filename: savedFile.filename,
+                path: savedFile.path,
+            });
+            return savedFile;
         }
         return saveImageWithImgbb(buffer, mimeType);
     }

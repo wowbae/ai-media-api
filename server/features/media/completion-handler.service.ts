@@ -84,13 +84,7 @@ export async function handleTaskCompleted(
       console.error(`[CompletionHandler] ⚠️ Ошибка отправки в Telegram: requestId=${requestId}:`, error.message);
     });
 
-    try {
-      const { uploadFilesToImgbbAndUpdateDatabase } = await import("./imgbb-upload.service");
-      await uploadFilesToImgbbAndUpdateDatabase(savedFiles, requestId, prompt);
-    } catch (error) {
-      console.error(`[CompletionHandler] ⚠️ Ошибка загрузки на imgbb: requestId=${requestId}:`, error instanceof Error ? error.message : error);
-    }
-
+    // Сначала помечаем COMPLETED и шлём SSE — пользователь сразу видит "Готово"
     const request = await prisma.mediaRequest.update({
       where: { id: requestId },
       data: {
@@ -108,6 +102,18 @@ export async function handleTaskCompleted(
     console.log(
       `[CompletionHandler] ✅ Генерация завершена: requestId=${requestId}, файлов: ${savedFiles.length}`,
     );
+
+    // Загрузка на imgbb в фоне — не блокирует статус "Сохранение"
+    import("./imgbb-upload.service")
+      .then(({ uploadFilesToImgbbAndUpdateDatabase }) =>
+        uploadFilesToImgbbAndUpdateDatabase(savedFiles, requestId, prompt),
+      )
+      .then(() => {
+        if (request.chatId) invalidateChatCache(request.chatId);
+      })
+      .catch((error) => {
+        console.error(`[CompletionHandler] ⚠️ Ошибка загрузки на imgbb: requestId=${requestId}:`, error instanceof Error ? error.message : error);
+      });
   } catch (error) {
     const failed = await prisma.mediaRequest.update({
       where: { id: requestId },

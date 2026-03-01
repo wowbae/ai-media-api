@@ -153,6 +153,7 @@ export function useChatInputFiles(chatId?: number) {
                             base64: await fileToBase64(f.file),
                             mimeType: f.file.type,
                             filename: f.file.name,
+                            imgbbUrl: f.imgbbUrl,
                         }))
                     );
 

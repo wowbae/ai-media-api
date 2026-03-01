@@ -71,6 +71,12 @@ function MediaChatPage() {
         });
     }, [chatIdNum, isChatLoading, isChatFetching, chat, chatError]);
 
+    // Сброс состояния при смене чата (навигация по списку слева)
+    useEffect(() => {
+        setPendingMessage(null);
+        isInitialLoadRef.current = true;
+    }, [chatIdNum]);
+
     const [updateChat] = useUpdateChatMutation();
     const [generateMedia] = useGenerateMediaMutation();
     const [getRequestTrigger] = useLazyGetRequestQuery();
@@ -86,7 +92,6 @@ function MediaChatPage() {
     );
     const chatInputRef = useRef<ChatInputRef>(null);
     const isInitialLoadRef = useRef(true);
-    const previousChatIdRef = useRef(chatIdNum);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const scrollToBottomRef = useRef<(() => void) | null>(null);
 
@@ -98,19 +103,14 @@ function MediaChatPage() {
     // После этого модель может быть изменена ТОЛЬКО пользователем вручную через селектор
     // Все автоматические обновления чата (SSE updates, refetch) НЕ влияют на выбранную модель
     useEffect(() => {
-        const activeChatForSync = chat;
-        if (!activeChatForSync) return;
+        if (!chat || chat.id !== chatIdNum) return;
 
         // При первоначальной загрузке устанавливаем модель из чата
         if (isInitialLoadRef.current) {
-            setCurrentModel(activeChatForSync.model);
+            setCurrentModel(chat.model);
             isInitialLoadRef.current = false;
-            return;
         }
-
-        // После первоначальной загрузки НЕ синхронизируем модель автоматически
-        // Это предотвращает изменение модели при обновлениях чата после генерации
-    }, [chat]);
+    }, [chat, chatIdNum]);
 
     // Обработка смены модели пользователем
     // ВАЖНО: Это единственный способ изменить модель после первоначальной загрузки
@@ -204,8 +204,9 @@ function MediaChatPage() {
 
     // Убираем pending-сообщение если реальный запрос появился
     const activeRequests = useMemo(
-        () => chat?.requests || [],
-        [chat?.requests],
+        () =>
+            chat && chat.id === chatIdNum ? (chat.requests || []) : [],
+        [chat, chatIdNum],
     );
 
     useEffect(() => {
@@ -271,13 +272,21 @@ function MediaChatPage() {
     // Если есть кешированные данные, показываем их даже если идет обновление
     // Это обеспечивает мгновенное отображение из кеша
 
-    // Если нет чата (не должно происходить после проверок выше, но для TypeScript)
-    if (!chat) {
-        return null;
-    }
+    // ВАЖНО: Используем данные чата только если они соответствуют текущему chatId.
+    // При смене чата RTK Query может кратковременно вернуть данные предыдущего чата.
+    const activeChat =
+        chat && chat.id === chatIdNum ? chat : null;
 
-    // Используем данные чата (inputFiles теперь всегда включены)
-    const activeChat = chat;
+    if (!activeChat) {
+        return (
+            <div className='flex h-screen bg-background'>
+                <ChatSidebar />
+                <div className='flex flex-1 items-center justify-center'>
+                    <Loader2 className='h-8 w-8 animate-spin text-primary' />
+                </div>
+            </div>
+        );
+    }
 
     // Сортируем запросы по дате (старые сверху)
     const sortedRequests = [...(activeChat.requests || [])].sort(
@@ -392,8 +401,8 @@ function MediaChatPage() {
             {/* Сайдбар */}
             <ChatSidebar />
 
-            {/* Основной чат */}
-            <div className='relative flex flex-1 flex-col'>
+            {/* Основной чат — key для сброса состояния при смене чата */}
+            <div key={chatIdNum} className='relative flex flex-1 flex-col'>
                 {/* Заголовок чата */}
                 <ChatHeader
                     name={activeChat.name}

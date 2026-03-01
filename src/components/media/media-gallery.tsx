@@ -109,9 +109,13 @@ export function MediaGallery({
     );
 
     // Загружаем данные чата для расчета стоимости (все запросы)
+    // refetchOnMountOrArgChange: false — не дублируем запросы с основным чатом, обновление через invalidateTags
     const { data: chatData } = useGetChatQuery(
         { id: chatId!, limit: 1000 },
-        { skip: chatId === undefined }
+        {
+            skip: chatId === undefined,
+            refetchOnMountOrArgChange: false,
+        },
     );
 
     // Загружаем карту цен для fallback по модели (для старых запросов без costUsd)

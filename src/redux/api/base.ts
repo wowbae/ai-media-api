@@ -201,7 +201,8 @@ export const baseApi = createApi({
     baseQuery: baseQueryWithErrorHandling,
     tagTypes: ['Chat', 'Request', 'File', 'Model'],
     keepUnusedDataFor: 60,
-    refetchOnMountOrArgChange: 10,
+    // 60 сек вместо 10 — снижает нагрузку при бездействии (было: постоянные запросы каждые 10 сек)
+    refetchOnMountOrArgChange: 60,
     refetchOnFocus: true,
     refetchOnReconnect: true,
     endpoints: () => ({}),

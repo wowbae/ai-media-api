@@ -389,7 +389,7 @@ export function createFilesRouter(): Router {
         try {
             const { chatId, files } = req.body as {
                 chatId: number;
-                files: { base64: string; mimeType: string; filename: string }[];
+                files: { base64: string; mimeType: string; filename: string; imgbbUrl?: string }[];
             };
 
             if (!chatId || !files || !Array.isArray(files) || files.length === 0) {
@@ -433,12 +433,17 @@ export function createFilesRouter(): Router {
             // Сохраняем каждый файл
             for (const fileData of files) {
                 try {
-                    console.log(`[API] 📤 Обработка файла: ${fileData.filename} (${fileData.mimeType})`);
+                    console.log(`[API] 📤 Обработка файла: ${fileData.filename} (${fileData.mimeType})`, {
+                        hasImgbbUrl: !!fileData.imgbbUrl,
+                    });
                     
                     // Извлекаем чистый base64 если есть префикс data:...;base64,
                     const base64Clean = fileData.base64.replace(/^data:.*?;base64,/, '');
 
-                    const savedFileInfo = await saveBase64File(base64Clean, fileData.mimeType);
+                    // imgbbUrl: клиент уже загрузил на imgbb при прикреплении — не дублируем
+                    const savedFileInfo = await saveBase64File(base64Clean, fileData.mimeType, {
+                        imgbbUrl: fileData.imgbbUrl,
+                    });
                     
                     console.log(`[API] ✅ Файл сохранен: ${savedFileInfo.filename}`, {
                         type: savedFileInfo.type,

@@ -25,9 +25,15 @@ class SSEService {
   private userIdToClient: Map<number, string> = new Map();
 
   /**
-   * Добавить SSE подключение
+   * Добавить SSE подключение.
+   * Закрывает предыдущее соединение того же userId — один пользователь = одно соединение.
    */
   addClient(clientId: string, res: Response, userId: number): void {
+    const oldClientId = this.userIdToClient.get(userId);
+    if (oldClientId && oldClientId !== clientId) {
+      this.removeClient(oldClientId, true); // silent — замена, не логируем
+    }
+
     const client: SSEClient = {
       id: clientId,
       res,
@@ -37,23 +43,25 @@ class SSEService {
 
     this.clients.set(clientId, client);
     this.userIdToClient.set(userId, clientId);
-
-    if (process.env.NODE_ENV === 'development') {
-        console.log(`[SSE] Подключен userId=${userId}`);
-    }
   }
 
   /**
-   * Удалить SSE подключение
+   * Удалить SSE подключение и закрыть соединение
+   * @param silent — true при замене соединения (не логируем Отключен)
    */
-  removeClient(clientId: string): void {
+  removeClient(clientId: string, silent = false): void {
     const client = this.clients.get(clientId);
     if (client) {
       this.userIdToClient.delete(client.userId);
       this.clients.delete(clientId);
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[SSE] Отключен userId=${client.userId}`);
+      try {
+        if (!client.res.writableEnded) {
+          client.res.end();
+        }
+      } catch (error) {
+        console.error(`[SSE] Ошибка при закрытии клиента ${clientId}:`, error);
       }
+      // Не логируем Отключен — при нестабильном соединении создаёт шум
     }
   }
 

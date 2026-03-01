@@ -1,17 +1,36 @@
 /**
  * Глобальный SSE менеджер — живёт вне React, не разрывается при HMR
  *
- * В dev частые reconnect вызваны Vite HMR (перезагрузка при сохранении файлов)
- * и bun --watch (рестарт сервера). Singleton минимизирует лишние переподключения.
+ * При HMR (Vite) явно закрываем соединение перед заменой модуля — иначе накапливаются
+ * "призрачные" соединения, при refresh дающие лавину "Отключен".
+ *
+ * При вкладке в фоне браузер закрывает соединения — не переподключаемся агрессивно.
  */
 import type { Store } from '@reduxjs/toolkit';
 import { API_BASE_URL, baseApi } from '@/redux/api/base';
 
 let eventSource: EventSource | null = null;
+
+// При HMR закрываем соединение до замены модуля — иначе дублируются подключения
+if (typeof import.meta !== 'undefined' && import.meta.hot) {
+    import.meta.hot.dispose(() => {
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+        if (reconnectTimeoutId) {
+            clearTimeout(reconnectTimeoutId);
+            reconnectTimeoutId = null;
+        }
+        isInitialized = false;
+    });
+}
 let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
 let isInitialized = false;
+let reconnectAttempts = 0;
 
 const RECONNECT_DELAY_MS = 5000;
+const MAX_RECONNECT_DELAY_MS = 60000;
 
 function connect(store: Store): void {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -33,6 +52,7 @@ function connect(store: Store): void {
         eventSource = es;
 
         es.onopen = () => {
+            reconnectAttempts = 0;
             if (import.meta.env.DEV) {
                 console.log('[SSE] ✅ Подключение установлено');
             }
@@ -40,8 +60,20 @@ function connect(store: Store): void {
 
         es.onerror = () => {
             if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId);
-            eventSource = null;
-            reconnectTimeoutId = setTimeout(() => connect(store), RECONNECT_DELAY_MS);
+            // Явно закрываем — иначе браузер сам переподключается, получается гонка
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+            const delay = isHidden
+                ? Math.min(
+                      RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts),
+                      MAX_RECONNECT_DELAY_MS,
+                  )
+                : RECONNECT_DELAY_MS;
+            reconnectAttempts += 1;
+            reconnectTimeoutId = setTimeout(() => connect(store), delay);
         };
 
         es.onmessage = (event) => {
@@ -76,6 +108,23 @@ function disconnect(): void {
         eventSource = null;
     }
     isInitialized = false;
+    reconnectAttempts = 0;
+}
+
+// При возврате на вкладку — переподключаемся сразу (если соединение было разорвано)
+function setupVisibilityListener(store: Store): void {
+    if (typeof document === 'undefined') return;
+    document.addEventListener('visibilitychange', () => {
+        const isDisconnected = !eventSource || eventSource.readyState === EventSource.CLOSED;
+        if (document.visibilityState === 'visible' && isDisconnected) {
+            if (reconnectTimeoutId) {
+                clearTimeout(reconnectTimeoutId);
+                reconnectTimeoutId = null;
+            }
+            reconnectAttempts = 0;
+            connect(store);
+        }
+    });
 }
 
 /**
@@ -87,6 +136,7 @@ export function initSSE(store: Store): void {
     if (isInitialized) return;
     isInitialized = true;
     connect(store);
+    setupVisibilityListener(store);
 }
 
 /**

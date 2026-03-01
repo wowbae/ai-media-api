@@ -334,7 +334,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 ? filePath
                                 : getMediaFileUrl(filePath);
                             const filename = filePath.split('/').pop() || 'file';
-                            await addFileFromUrl(url, filename);
+                            // Для imgbb URL передаём как imgbbUrl — не загружаем повторно
+                            const imgbbUrl = filePath.startsWith('http') ? filePath : undefined;
+                            await addFileFromUrl(url, filename, imgbbUrl);
                         } catch (error) {
                             console.error('[ChatInput] Ошибка при прикреплении файла из запроса:', error);
                             const errorMessage = error instanceof Error

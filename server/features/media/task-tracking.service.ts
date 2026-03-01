@@ -29,6 +29,8 @@ class TaskTrackingService {
   constructor() {
     // Запускаем периодическую очистку старых задач
     setInterval(() => this.cleanupOldTasks(), this.CLEANUP_INTERVAL);
+    // Периодически восстанавливаем зависшие COMPLETING (каждые 30 сек)
+    setInterval(() => this.recoverStuckCompleting(), 30000);
     console.log('[TaskTracking] Сервис запущен');
     
     // Восстанавливаем незавершенные задачи после перезапуска сервера
@@ -42,9 +44,7 @@ class TaskTrackingService {
     try {
       const { prisma } = await import('prisma/client');
       
-      // Находим все задачи со статусом PENDING или PROCESSING
-      // COMPLETING с файлами — идемпотентность в handleTaskCompleted пометит COMPLETED.
-      // COMPLETING без файлов — краш до сохранения, возвращаем в PROCESSING для повтора.
+      // COMPLETING без файлов — краш до сохранения, возвращаем в PROCESSING для повтора
       const completingWithoutFiles = await prisma.mediaRequest.findMany({
         where: {
           status: 'COMPLETING',
@@ -62,6 +62,8 @@ class TaskTrackingService {
       if (completingWithoutFiles.length > 0) {
         console.log(`[TaskTracking] Возвращено ${completingWithoutFiles.length} COMPLETING без файлов в PROCESSING`);
       }
+
+      await this.recoverStuckCompleting();
 
       const pendingRequests = await prisma.mediaRequest.findMany({
         where: {
@@ -347,6 +349,32 @@ class TaskTrackingService {
     };
 
     sseService.sendToUser(task.userId, event);
+  }
+
+  /**
+   * Восстановить зависшие COMPLETING с файлами (краш после сохранения)
+   */
+  private async recoverStuckCompleting(): Promise<void> {
+    const stuck = await prisma.mediaRequest.findMany({
+      where: {
+        status: 'COMPLETING',
+        files: { some: {} },
+      },
+      select: { id: true, chatId: true, files: { select: { id: true } } },
+    });
+    for (const r of stuck) {
+      await prisma.mediaRequest.update({
+        where: { id: r.id },
+        data: { status: 'COMPLETED', completedAt: new Date() },
+      });
+      const { invalidateChatCache } = await import('./routes/cache');
+      const { sendSSENotification } = await import('./sse-notification.utils');
+      invalidateChatCache(r.chatId);
+      await sendSSENotification(r.id, 'COMPLETED', { filesCount: r.files.length });
+    }
+    if (stuck.length > 0) {
+      console.log(`[TaskTracking] Восстановлено ${stuck.length} зависших COMPLETING → COMPLETED`);
+    }
   }
 
   /**
