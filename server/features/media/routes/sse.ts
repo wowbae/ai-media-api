@@ -3,7 +3,7 @@
  */
 import { Router } from 'express';
 import { getSSEService } from '../sse.service';
-import { authenticate } from '../../auth/routes';
+import { authenticate, authenticateSSE } from '../../auth/routes';
 
 /**
  * Создать SSE роуты
@@ -22,7 +22,7 @@ export function createSSERouter(): Router {
    * - REQUEST_FAILED: задача завершилась с ошибкой
    * - REQUEST_PROCESSING: задача в процессе выполнения (опционально)
    */
-  router.get('/sse', authenticate, (req, res) => {
+  router.get('/sse', authenticateSSE, (req, res) => {
     const userId = (req as any).user?.userId || (req as any).user?.id;
 
     if (!userId) {
@@ -49,17 +49,10 @@ export function createSSERouter(): Router {
       timestamp: new Date().toISOString(),
     })}\n\n`);
 
-    // Обработка отключения клиента
-    req.on('close', () => {
-      console.log(`[SSE] 🔌 Клиент отключился: ${clientId}`);
+    // Обработка отключения клиента (close и error могут оба сработать — removeClient идемпотентен)
+    const handleDisconnect = () => {
       sseService.removeClient(clientId);
-    });
-
-    // Обработка ошибок
-    req.on('error', (error) => {
-      console.error(`[SSE] ❌ Ошибка подключения ${clientId}:`, error);
-      sseService.removeClient(clientId);
-    });
+    };
 
     // Heartbeat - отправляем комментарий каждые 30 секунд для поддержания соединения
     const heartbeatInterval = setInterval(() => {
@@ -67,13 +60,21 @@ export function createSSERouter(): Router {
         clearInterval(heartbeatInterval);
         return;
       }
-      // Комментарии не видны клиенту, но поддерживают соединение
       res.write(': heartbeat\n\n');
     }, 30000);
 
-    // Очищаем интервал при отключении
     req.on('close', () => {
       clearInterval(heartbeatInterval);
+      handleDisconnect();
+    });
+
+    // ECONNRESET/aborted — ожидаемо при закрытии клиентом (навигация, HMR, Strict Mode)
+    req.on('error', (error: NodeJS.ErrnoException) => {
+      const isClientDisconnect = error?.code === 'ECONNRESET' || error?.message?.includes('aborted');
+      if (!isClientDisconnect) {
+        console.error(`[SSE] ❌ Ошибка: ${clientId}`, error);
+      }
+      handleDisconnect();
     });
   });
 

@@ -38,8 +38,7 @@ class SSEService {
     this.clients.set(clientId, client);
     this.userIdToClient.set(userId, clientId);
 
-    console.log(`[SSE] ✅ Клиент подключен: ${clientId} (userId: ${userId})`);
-    console.log(`[SSE] 📊 Всего подключений: ${this.clients.size}`);
+    console.log(`[SSE] Подключен userId=${userId}`);
   }
 
   /**
@@ -50,8 +49,7 @@ class SSEService {
     if (client) {
       this.userIdToClient.delete(client.userId);
       this.clients.delete(clientId);
-      console.log(`[SSE] ❌ Клиент отключен: ${clientId} (userId: ${client.userId})`);
-      console.log(`[SSE] 📊 Всего подключений: ${this.clients.size}`);
+      console.log(`[SSE] Отключен userId=${client.userId}`);
     }
   }
 
@@ -88,7 +86,6 @@ class SSEService {
     try {
       const data = JSON.stringify(event);
       client.res.write(`data: ${data}\n\n`);
-      console.log(`[SSE] 📤 Отправлено событие: ${event.type} requestId=${event.requestId}`);
       return true;
     } catch (error) {
       console.error(`[SSE] ❌ Ошибка отправки события:`, error);

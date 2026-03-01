@@ -19,6 +19,11 @@ export function StatusBadge({ status }: StatusBadgeProps) {
             label: 'Генерация',
             className: 'bg-blue-900/30 text-blue-400',
         },
+        COMPLETING: {
+            icon: Loader2,
+            label: 'Сохранение',
+            className: 'bg-blue-900/30 text-blue-400',
+        },
         COMPLETED: {
             icon: CheckCircle2,
             label: 'Готово',
@@ -31,8 +36,8 @@ export function StatusBadge({ status }: StatusBadgeProps) {
         },
     };
 
-    const { icon: Icon, label, className } = config[status];
-    const shouldSpin = status === 'PROCESSING' || status === 'PENDING';
+    const { icon: Icon, label, className } = config[status] ?? config.PROCESSING;
+    const shouldSpin = status === 'PROCESSING' || status === 'PENDING' || status === 'COMPLETING';
 
     return (
         <Badge variant='secondary' className={className}>

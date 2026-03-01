@@ -20,71 +20,100 @@ export async function handleTaskCompleted(
   prompt: string,
   status?: TaskStatusResult
 ): Promise<void> {
-  // Проверка на уже завершённый запрос
-  const existingRequest = await prisma.mediaRequest.findUnique({
+  // Идемпотентность при рестарте: если файлы уже есть (краш после сохранения, до update),
+  // просто помечаем COMPLETED и выходим — без повторной отправки в Telegram
+  const existing = await prisma.mediaRequest.findUnique({
     where: { id: requestId },
-    select: { status: true },
+    select: { status: true, files: { select: { id: true } } },
   });
+  if (existing?.status !== 'COMPLETED' && existing?.files && existing.files.length > 0) {
+    console.log(`[CompletionHandler] Запрос requestId=${requestId} уже имеет файлы, помечаем COMPLETED без повторной обработки`);
+    await prisma.mediaRequest.update({
+      where: { id: requestId },
+      data: { status: 'COMPLETED', completedAt: new Date() },
+    });
+    await sendSSENotification(requestId, 'COMPLETED', { filesCount: existing.files.length });
+    return;
+  }
 
-  if (existingRequest?.status === 'COMPLETED') {
+  if (existing?.status === 'COMPLETED') {
     console.log(`[CompletionHandler] Запрос requestId=${requestId} уже завершён, пропускаем`);
     return;
   }
 
-  const providerManager = getProviderManager();
-  const provider = providerManager.getProvider(model);
-
-  if (!provider.getTaskResult) {
-    throw new Error(`Провайдер ${provider.name} не поддерживает getTaskResult`);
-  }
-
-  let savedFiles: SavedFileInfo[];
-
-  // Используем resultUrls из status чтобы избежать повторного API вызова
-  if (status?.resultUrls && status.resultUrls.length > 0) {
-    console.log(`[CompletionHandler] Используем resultUrls из status (${status.resultUrls.length} файлов)`);
-    savedFiles = await downloadFilesFromUrls(status.resultUrls);
-  } else {
-    savedFiles = await provider.getTaskResult(taskId);
-  }
-
-  if (!savedFiles || savedFiles.length === 0) {
-    throw new Error(`Не удалось получить результат задачи: requestId=${requestId}, taskId=${taskId}`);
-  }
-
-  // Сохраняем файлы в БД
-  const savedMediaFiles = await saveFilesToDatabase(requestId, savedFiles);
-
-  // Отправляем в Telegram (асинхронно, не блокируем)
-  await sendFilesToTelegram(requestId, savedMediaFiles, prompt).catch((error) => {
-    console.error(`[CompletionHandler] ⚠️ Ошибка отправки в Telegram: requestId=${requestId}:`, error.message);
-  });
-
-  // Загружаем на imgbb (асинхронно, не блокируем)
-  try {
-    const { uploadFilesToImgbbAndUpdateDatabase } = await import("./imgbb-upload.service");
-    await uploadFilesToImgbbAndUpdateDatabase(savedFiles, requestId, prompt);
-  } catch (error) {
-    console.error(`[CompletionHandler] ⚠️ Ошибка загрузки на imgbb: requestId=${requestId}:`, error instanceof Error ? error.message : error);
-  }
-
-  // Обновляем статус запроса
-  await prisma.mediaRequest.update({
-    where: { id: requestId },
-    data: {
-      status: 'COMPLETED',
-      completedAt: new Date(),
+  // Атомарная блокировка: только первый вызов (webhook/polling) получает право обработать
+  const claimed = await prisma.mediaRequest.updateMany({
+    where: {
+      id: requestId,
+      status: { in: ['PENDING', 'PROCESSING'] },
     },
+    data: { status: 'COMPLETING' },
   });
 
-  // Отправляем SSE уведомление
-  await sendSSENotification(requestId, 'COMPLETED', {
-    filesCount: savedFiles.length,
-  });
+  if (claimed.count === 0) {
+    console.log(`[CompletionHandler] Запрос requestId=${requestId} уже обработан или в обработке, пропускаем`);
+    return;
+  }
 
-  console.log(
-    `[CompletionHandler] ✅ Генерация завершена: requestId=${requestId}, файлов: ${savedFiles.length}`,
-  );
+  try {
+    const providerManager = getProviderManager();
+    const provider = providerManager.getProvider(model);
+
+    if (!provider.getTaskResult) {
+      throw new Error(`Провайдер ${provider.name} не поддерживает getTaskResult`);
+    }
+
+    let savedFiles: SavedFileInfo[];
+
+    if (status?.resultUrls && status.resultUrls.length > 0) {
+      console.log(`[CompletionHandler] Используем resultUrls из status (${status.resultUrls.length} файлов)`);
+      savedFiles = await downloadFilesFromUrls(status.resultUrls);
+    } else {
+      savedFiles = await provider.getTaskResult(taskId);
+    }
+
+    if (!savedFiles || savedFiles.length === 0) {
+      throw new Error(`Не удалось получить результат задачи: requestId=${requestId}, taskId=${taskId}`);
+    }
+
+    const savedMediaFiles = await saveFilesToDatabase(requestId, savedFiles);
+
+    await sendFilesToTelegram(requestId, savedMediaFiles, prompt).catch((error) => {
+      console.error(`[CompletionHandler] ⚠️ Ошибка отправки в Telegram: requestId=${requestId}:`, error.message);
+    });
+
+    try {
+      const { uploadFilesToImgbbAndUpdateDatabase } = await import("./imgbb-upload.service");
+      await uploadFilesToImgbbAndUpdateDatabase(savedFiles, requestId, prompt);
+    } catch (error) {
+      console.error(`[CompletionHandler] ⚠️ Ошибка загрузки на imgbb: requestId=${requestId}:`, error instanceof Error ? error.message : error);
+    }
+
+    await prisma.mediaRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'COMPLETED',
+        completedAt: new Date(),
+      },
+    });
+
+    await sendSSENotification(requestId, 'COMPLETED', {
+      filesCount: savedFiles.length,
+    });
+
+    console.log(
+      `[CompletionHandler] ✅ Генерация завершена: requestId=${requestId}, файлов: ${savedFiles.length}`,
+    );
+  } catch (error) {
+    await prisma.mediaRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'FAILED',
+        errorMessage: error instanceof Error ? error.message : 'Ошибка обработки завершения',
+      },
+    });
+    throw error;
+  }
 }
 
 /**

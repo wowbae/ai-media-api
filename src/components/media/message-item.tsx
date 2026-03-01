@@ -288,7 +288,8 @@ export function MessageItem({
 
                             {/* Загрузка с скелетоном */}
                             {(request.status === 'PENDING' ||
-                                request.status === 'PROCESSING') && (
+                                request.status === 'PROCESSING' ||
+                                request.status === 'COMPLETING') && (
                                 <div className='mt-3 space-y-3'>
                                     {/* Скелетон-placeholder для изображения */}
                                     <Skeleton className='aspect-square w-48 rounded-xl' />

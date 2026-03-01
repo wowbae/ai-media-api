@@ -24,10 +24,22 @@ export function useSSESubscription() {
         }
 
         // Функция для установки SSE подключения
+        // EventSource не поддерживает кастомные заголовки, токен передаём в query
         const connectSSE = () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                reconnectTimeoutRef.current = setTimeout(connectSSE, 5000);
+                return;
+            }
+
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+                eventSourceRef.current = null;
+            }
+
             try {
-                // Создаем EventSource для SSE подключения
-                const eventSource = new EventSource(`${API_BASE_URL}/sse`, {
+                const url = `${API_BASE_URL}/sse?token=${encodeURIComponent(token)}`;
+                const eventSource = new EventSource(url, {
                     withCredentials: true,
                 });
 

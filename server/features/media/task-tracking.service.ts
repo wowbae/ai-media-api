@@ -43,6 +43,26 @@ class TaskTrackingService {
       const { prisma } = await import('prisma/client');
       
       // Находим все задачи со статусом PENDING или PROCESSING
+      // COMPLETING с файлами — идемпотентность в handleTaskCompleted пометит COMPLETED.
+      // COMPLETING без файлов — краш до сохранения, возвращаем в PROCESSING для повтора.
+      const completingWithoutFiles = await prisma.mediaRequest.findMany({
+        where: {
+          status: 'COMPLETING',
+          taskId: { not: null },
+          files: { none: {} },
+        },
+        select: { id: true },
+      });
+      for (const r of completingWithoutFiles) {
+        await prisma.mediaRequest.update({
+          where: { id: r.id },
+          data: { status: 'PROCESSING' },
+        });
+      }
+      if (completingWithoutFiles.length > 0) {
+        console.log(`[TaskTracking] Возвращено ${completingWithoutFiles.length} COMPLETING без файлов в PROCESSING`);
+      }
+
       const pendingRequests = await prisma.mediaRequest.findMany({
         where: {
           status: { in: ['PENDING', 'PROCESSING'] },
@@ -210,11 +230,14 @@ class TaskTrackingService {
       // Задача завершена успешно
       if (status.status === 'done') {
         console.log(`[TaskTracking] ✅ Задача завершена: requestId=${task.requestId}`);
-        
-        // Отправляем SSE перед обработкой
+
+        // Критично: останавливаем polling ДО handleTaskCompleted, иначе интервал
+        // (каждые 5 сек) вызовет checkTaskStatus снова, и handleTaskCompleted
+        // выполнится несколько раз → тройная отправка в Telegram
+        this.stopTracking(task.requestId);
+
         await this.sendSSECompleted(task);
-        
-        // Обрабатываем завершение
+
         await handleTaskCompleted(
           task.requestId,
           task.taskId,
@@ -222,19 +245,17 @@ class TaskTrackingService {
           task.prompt,
           status
         );
-
-        this.stopTracking(task.requestId);
         return;
       }
 
       // Задача не удалась
       if (status.status === 'failed') {
         console.warn(`[TaskTracking] ❌ Задача не удалась: requestId=${task.requestId}`);
-        
+
+        this.stopTracking(task.requestId);
+
         await this.sendSSEFailed(task, status);
         await handleTaskFailed(task.requestId, task.taskId, status, task.model);
-        
-        this.stopTracking(task.requestId);
         return;
       }
 

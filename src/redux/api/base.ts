@@ -30,7 +30,7 @@ export type MediaModel =
     | 'SEEDANCE_1_5_PRO_KIEAI';
 
 export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
-export type RequestStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type RequestStatus = 'PENDING' | 'PROCESSING' | 'COMPLETING' | 'COMPLETED' | 'FAILED';
 export type MediaProviderType =
     | 'gptunnel'
     | 'laozhang'

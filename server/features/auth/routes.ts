@@ -76,6 +76,28 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     }
 };
 
+/**
+ * Middleware для SSE: EventSource не поддерживает кастомные заголовки,
+ * поэтому токен передаётся в query: ?token=xxx
+ */
+export const authenticateSSE = (req: Request, res: Response, next: NextFunction) => {
+    const token =
+        (req.query.token as string) ||
+        req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
+    }
+
+    try {
+        const payload = AuthService.verifyToken(token);
+        req.user = payload;
+        next();
+    } catch (error) {
+        return res.status(401).json({ error: 'Invalid token' });
+    }
+};
+
 router.get('/me', authenticate, asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) {
         return res.status(401).json({ error: 'Unauthorized' });

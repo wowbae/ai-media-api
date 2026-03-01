@@ -9,8 +9,19 @@ const IMGBB_API_URL = 'https://api.imgbb.com/1/upload';
 // Константы для retry логики
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 2000; // 2 секунды минимум
-const REQUEST_TIMEOUT = 30000; // 30 секунд
+const DEFAULT_REQUEST_TIMEOUT = 60000; // 60 секунд (imgbb может быть медленным для больших файлов)
+const MAX_REQUEST_TIMEOUT = 180000; // 3 минуты максимум для очень больших файлов
 const PARALLEL_DELAY = 2000; // Задержка между файлами при пакетной загрузке (мс)
+
+function getRequestTimeout(base64Length: number): number {
+    const envTimeout = process.env.IMGBB_REQUEST_TIMEOUT;
+    const baseTimeout = envTimeout ? Math.max(10000, parseInt(envTimeout, 10) || DEFAULT_REQUEST_TIMEOUT) : DEFAULT_REQUEST_TIMEOUT;
+    // Для больших файлов (>1MB base64) добавляем 30 сек на каждый мегабайт
+    const extraForSize = base64Length > 1_000_000
+        ? Math.min(MAX_REQUEST_TIMEOUT - baseTimeout, Math.floor(base64Length / 1_000_000) * 30_000)
+        : 0;
+    return Math.min(baseTimeout + extraForSize, MAX_REQUEST_TIMEOUT);
+}
 
 interface ImgbbResponse {
     data: {
@@ -276,6 +287,8 @@ export async function uploadToImgbb(
     formData.append('key', currentKey);
     formData.append('image', base64Data);
 
+    const timeout = getRequestTimeout(base64Data.length);
+
     try {
         const response = await fetchWithTimeout(
             IMGBB_API_URL,
@@ -283,7 +296,7 @@ export async function uploadToImgbb(
                 method: 'POST',
                 body: formData,
             },
-            REQUEST_TIMEOUT
+            timeout
         );
 
         if (!response.ok) {
