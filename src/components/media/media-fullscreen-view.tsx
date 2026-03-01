@@ -9,7 +9,11 @@ import { formatFileSize, downloadFile, getOriginalFileUrl } from '@/lib/utils';
 interface MediaFullscreenViewProps {
     file: MediaFile;
     onClose: () => void;
-    onAttachFile?: (fileUrl: string, filename: string, imgbbUrl?: string) => void;
+    onAttachFile?: (
+        fileUrl: string,
+        filename: string,
+        imgbbUrl?: string,
+    ) => void;
     onRepeatRequest?: (requestId: number) => void;
     isPinned?: boolean;
     onTogglePin?: () => void;
@@ -26,7 +30,7 @@ export function MediaFullscreenView({
     // Получаем оригинальный URL файла для отображения и скачивания
     // Всегда используем path (локальный оригинал) в приоритете
     const fileUrl = getOriginalFileUrl(file);
-    
+
     // Если нет оригинального файла - не показываем компонент
     if (!fileUrl) return null;
 
@@ -45,7 +49,10 @@ export function MediaFullscreenView({
     function handleDownload() {
         const downloadUrl = getOriginalFileUrl(file);
         if (!downloadUrl) {
-            console.warn('[MediaFullscreenView] Невозможно скачать файл: нет оригинального URL', file);
+            console.warn(
+                '[MediaFullscreenView] Невозможно скачать файл: нет оригинального URL',
+                file,
+            );
             return;
         }
         downloadFile(downloadUrl, file.filename);
@@ -82,7 +89,9 @@ export function MediaFullscreenView({
                 {file.type === 'AUDIO' && (
                     <div className='flex flex-col items-center gap-4 rounded-xl bg-secondary p-8 shadow-2xl border border-border'>
                         <audio src={fileUrl} controls />
-                        <p className='text-foreground font-medium'>{file.filename}</p>
+                        <p className='text-foreground font-medium'>
+                            {file.filename}
+                        </p>
                     </div>
                 )}
 
@@ -96,7 +105,11 @@ export function MediaFullscreenView({
                             onClick={(e) => {
                                 e.stopPropagation();
                                 // Передаем file.url как imgbbUrl для изображений, чтобы не загружать на imgbb повторно
-                                onAttachFile(fileUrl, file.filename, file.url || undefined);
+                                onAttachFile(
+                                    fileUrl,
+                                    file.filename,
+                                    file.url || undefined,
+                                );
                             }}
                             className='h-8 w-8 hover:bg-primary hover:text-primary-foreground'
                             title='Прикрепить к промпту'

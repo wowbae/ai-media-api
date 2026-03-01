@@ -32,6 +32,56 @@ import {
     isVideoDataUrl,
     toDirectImageUrl,
 } from '@/lib/media-utils';
+import { ImageIcon } from 'lucide-react';
+
+interface AttachedFileThumbnailProps {
+    urls: string[];
+    alt: string;
+    isVideo: boolean;
+}
+
+function AttachedFileThumbnail({ urls, alt, isVideo }: AttachedFileThumbnailProps) {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [hasError, setHasError] = useState(false);
+    const currentUrl = urls[currentIndex];
+
+    function handleError() {
+        if (currentIndex + 1 < urls.length) {
+            setCurrentIndex((i) => i + 1);
+            setHasError(false);
+        } else {
+            setHasError(true);
+        }
+    }
+
+    if (hasError || !currentUrl) {
+        return (
+            <div className='flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-primary-foreground/20 bg-secondary'>
+                <ImageIcon className='h-8 w-8 text-muted-foreground/50' />
+            </div>
+        );
+    }
+
+    return (
+        <div className='h-16 w-16 overflow-hidden rounded-lg border border-primary-foreground/20'>
+            {isVideo ? (
+                <video
+                    src={currentUrl}
+                    className='h-full w-full object-cover'
+                    onError={handleError}
+                />
+            ) : (
+                <img
+                    src={currentUrl}
+                    alt={alt}
+                    className='h-full w-full object-cover'
+                    referrerPolicy='no-referrer'
+                    onError={handleError}
+                />
+            )}
+        </div>
+    );
+}
 
 interface MessageItemProps {
     request: MediaRequest;
@@ -165,92 +215,66 @@ export function MessageItem({
                         <div className='mt-2 flex flex-wrap gap-2'>
                             {/* Сначала показываем inputFiles, если есть */}
                             {request.inputFiles?.map((fileUrl, index) => {
-                                // Пропускаем пустые значения
-                                if (!fileUrl) {
-                                    return null;
-                                }
+                                if (!fileUrl) return null;
 
                                 const isDataUrl = fileUrl.startsWith('data:');
                                 const isHttpUrl =
                                     fileUrl.startsWith('http://') ||
                                     fileUrl.startsWith('https://');
 
-                                let finalUrl = fileUrl;
-                                if (!isDataUrl && !isHttpUrl && fileUrl) {
-                                    finalUrl = getMediaFileUrl(fileUrl);
-                                } else if (!isDataUrl && !isHttpUrl) {
-                                    return null;
-                                } else if (isHttpUrl) {
-                                    finalUrl = toDirectImageUrl(fileUrl);
+                                // Приоритет: data URL → локальный path (быстрее) → ссылки (imgbb)
+                                const fallbackFile = request.files?.[index];
+                                const localUrls: string[] = [];
+                                const externalUrls: string[] = [];
+                                if (fallbackFile) {
+                                    if (fallbackFile.path) localUrls.push(getMediaFileUrl(fallbackFile.path));
+                                    if (fallbackFile.previewPath) localUrls.push(getMediaFileUrl(fallbackFile.previewPath));
+                                    if (fallbackFile.url) externalUrls.push(toDirectImageUrl(fallbackFile.url));
                                 }
+                                if (isDataUrl) {
+                                    localUrls.unshift(fileUrl);
+                                } else if (!isHttpUrl && fileUrl) {
+                                    const localUrl = getMediaFileUrl(fileUrl);
+                                    if (!localUrls.includes(localUrl)) localUrls.unshift(localUrl);
+                                } else if (isHttpUrl) {
+                                    externalUrls.push(toDirectImageUrl(fileUrl));
+                                } else {
+                                    return null;
+                                }
+                                const allUrls = [...new Set([...localUrls, ...externalUrls])];
 
-                                // Определяем, является ли это видео
-                                // Для data URL проверяем MIME type
-                                // Для HTTP URL - предполагаем изображение (imgbb не поддерживает видео)
-                                // Для относительных путей - проверяем расширение
                                 const isVideo = isDataUrl
                                     ? isVideoDataUrl(fileUrl)
-                                    : fileUrl.match(/\.(mp4|webm|mov)$/i) !==
-                                      null;
+                                    : fileUrl.match(/\.(mp4|webm|mov)$/i) !== null;
 
                                 return (
-                                    <div
+                                    <AttachedFileThumbnail
                                         key={index}
-                                        className='h-16 w-16 overflow-hidden rounded-lg border border-primary-foreground/20'
-                                    >
-                                        {isVideo ? (
-                                            <video
-                                                src={finalUrl}
-                                                className='h-full w-full object-cover'
-                                                // muted
-                                            />
-                                        ) : (
-                                            <img
-                                                src={finalUrl}
-                                                alt={`Прикрепленный файл ${index + 1}`}
-                                                className='h-full w-full object-cover'
-                                                crossOrigin='anonymous'
-                                            />
-                                        )}
-                                    </div>
+                                        urls={allUrls}
+                                        alt={`Прикрепленный файл ${index + 1}`}
+                                        isVideo={isVideo}
+                                    />
                                 );
                             })}
                             {/* Fallback: показываем файлы из request.files, если inputFiles пустое */}
                             {(!request.inputFiles ||
                                 request.inputFiles.length === 0) &&
                                 request.files.map((file) => {
-                                    const rawUrl =
-                                        file.url ||
-                                        (file.path
-                                            ? getMediaFileUrl(file.path)
-                                            : null);
-                                    const previewUrl = rawUrl
-                                        ? toDirectImageUrl(rawUrl)
-                                        : null;
-                                    if (!previewUrl) return null;
-
-                                    const isVideo = file.type === 'VIDEO';
+                                    // Приоритет: локальный path → ссылки
+                                    const urls: string[] = [];
+                                    if (file.path) urls.push(getMediaFileUrl(file.path));
+                                    if (file.previewPath) urls.push(getMediaFileUrl(file.previewPath));
+                                    if (file.url) urls.push(toDirectImageUrl(file.url));
+                                    const uniqueUrls = urls.filter((u, i, a) => a.indexOf(u) === i);
+                                    if (uniqueUrls.length === 0) return null;
 
                                     return (
-                                        <div
+                                        <AttachedFileThumbnail
                                             key={file.id}
-                                            className='h-16 w-16 overflow-hidden rounded-lg border border-primary-foreground/20'
-                                        >
-                                            {isVideo ? (
-                                                <video
-                                                    src={previewUrl}
-                                                    className='h-full w-full object-cover'
-                                                    // muted
-                                                />
-                                            ) : (
-                                                <img
-                                                    src={previewUrl}
-                                                    alt={file.filename}
-                                                    className='h-full w-full object-cover'
-                                                    crossOrigin='anonymous'
-                                                />
-                                            )}
-                                        </div>
+                                            urls={uniqueUrls}
+                                            alt={file.filename}
+                                            isVideo={file.type === 'VIDEO'}
+                                        />
                                     );
                                 })}
                         </div>

@@ -23,9 +23,10 @@ export function createFilesRouter(): Router {
                 : undefined;
 
             if (isNaN(pageParam) || pageParam < 1) {
-                return res
-                    .status(400)
-                    .json({ success: false, error: 'Некорректный параметр page' });
+                return res.status(400).json({
+                    success: false,
+                    error: 'Некорректный параметр page',
+                });
             }
 
             if (isNaN(limitParam) || limitParam < 1 || limitParam > 100) {
@@ -135,7 +136,7 @@ export function createFilesRouter(): Router {
                 ? path.join(
                       process.cwd(),
                       mediaStorageConfig.basePath,
-                      file.path
+                      file.path,
                   )
                 : null;
 
@@ -143,7 +144,7 @@ export function createFilesRouter(): Router {
                 ? path.join(
                       process.cwd(),
                       mediaStorageConfig.basePath,
-                      file.previewPath
+                      file.previewPath,
                   )
                 : null;
 
@@ -155,11 +156,11 @@ export function createFilesRouter(): Router {
                 // Удаляем физический файл только если он существует
                 await deleteFile(absolutePath!, absolutePreviewPath);
                 console.log(
-                    `[MediaRoutes] Физический файл удален: ${file.filename}`
+                    `[MediaRoutes] Физический файл удален: ${file.filename}`,
                 );
             } else {
                 console.warn(
-                    `[MediaRoutes] Физический файл не найден (уже удален?): ${file.filename}`
+                    `[MediaRoutes] Физический файл не найден (уже удален?): ${file.filename}`,
                 );
             }
 
@@ -195,134 +196,131 @@ export function createFilesRouter(): Router {
     });
 
     // Сохранить thumbnail для видео (генерируется на клиенте через canvas)
-    router.post(
-        '/files/:id/thumbnail',
-        async (req: Request, res: Response) => {
-            try {
-                const fileId = parseInt(req.params.id);
-                if (isNaN(fileId)) {
-                    return res
-                        .status(400)
-                        .json({ success: false, error: 'Некорректный ID файла' });
-                }
+    router.post('/files/:id/thumbnail', async (req: Request, res: Response) => {
+        try {
+            const fileId = parseInt(req.params.id);
+            if (isNaN(fileId)) {
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'Некорректный ID файла' });
+            }
 
-                const { thumbnail } = req.body as { thumbnail: string }; // base64 image
+            const { thumbnail } = req.body as { thumbnail: string }; // base64 image
 
-                if (!thumbnail) {
-                    return res
-                        .status(400)
-                        .json({ success: false, error: 'thumbnail обязателен' });
-                }
+            if (!thumbnail) {
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'thumbnail обязателен' });
+            }
 
-                // Проверяем существование файла
-                const file = await prisma.mediaFile.findUnique({
-                    where: { id: fileId },
-                });
+            // Проверяем существование файла
+            const file = await prisma.mediaFile.findUnique({
+                where: { id: fileId },
+            });
 
-                if (!file) {
-                    return res
-                        .status(404)
-                        .json({ success: false, error: 'Файл не найден' });
-                }
+            if (!file) {
+                return res
+                    .status(404)
+                    .json({ success: false, error: 'Файл не найден' });
+            }
 
-                // Проверяем, что это видео
-                if (file.type !== 'VIDEO') {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Thumbnail можно создать только для видео',
-                    });
-                }
-
-                // Если превью уже существует - не перезаписываем
-                if (file.previewPath) {
-                    return res.json({
-                        success: true,
-                        data: { previewPath: file.previewPath },
-                        message: 'Превью уже существует',
-                    });
-                }
-
-                // Извлекаем base64 данные (убираем data:image/jpeg;base64, prefix)
-                const base64Data = thumbnail.replace(
-                    /^data:image\/\w+;base64,/,
-                    ''
-                );
-                const buffer = Buffer.from(base64Data, 'base64');
-
-                // Импортируем sharp для обработки изображения
-                let sharp: typeof import('sharp') | null = null;
-                try {
-                    sharp = (await import('sharp')).default;
-                } catch {
-                    console.warn(
-                        'Sharp не установлен - превью будет сохранено без обработки'
-                    );
-                }
-
-                // Генерируем имя файла для превью
-                const previewFilename = `preview-${file.filename.replace(/\.[^.]+$/, '.jpg')}`;
-                const fullPreviewPath = path.join(
-                    mediaStorageConfig.previewsPath,
-                    previewFilename
-                );
-
-                // Сохраняем превью (с оптимизацией через sharp если доступен)
-                if (sharp) {
-                    const { width, height } = mediaStorageConfig.previewSize;
-                    await sharp(buffer)
-                        .resize(width, height, {
-                            fit: 'cover',
-                            position: 'center',
-                        })
-                        .jpeg({ quality: 80 })
-                        .toFile(fullPreviewPath);
-                } else {
-                    // Fallback: сохраняем как есть
-                    const { writeFile } = await import('fs/promises');
-                    await writeFile(fullPreviewPath, buffer);
-                }
-
-                // Формируем относительный путь
-                const relativePreviewPath = path.relative(
-                    mediaStorageConfig.basePath,
-                    fullPreviewPath
-                );
-
-                // Обновляем запись в БД
-                await prisma.mediaFile.update({
-                    where: { id: fileId },
-                    data: { previewPath: relativePreviewPath },
-                });
-
-                // Инвалидируем кеш чата
-                if (file.requestId) {
-                    const request = await prisma.mediaRequest.findUnique({
-                        where: { id: file.requestId },
-                        select: { chatId: true },
-                    });
-                    if (request) {
-                        invalidateChatCache(request.chatId);
-                    }
-                }
-
-                console.log(
-                    `[API] ✅ Thumbnail создан для файла ${fileId}: ${relativePreviewPath}`
-                );
-
-                res.json({
-                    success: true,
-                    data: { previewPath: relativePreviewPath },
-                    message: 'Превью успешно создано',
-                });
-            } catch (error) {
-                console.error('Ошибка создания превью:', error);
-                res.status(500).json({
+            // Проверяем, что это видео
+            if (file.type !== 'VIDEO') {
+                return res.status(400).json({
                     success: false,
-                    error: 'Ошибка создания превью',
+                    error: 'Thumbnail можно создать только для видео',
                 });
             }
+
+            // Если превью уже существует - не перезаписываем
+            if (file.previewPath) {
+                return res.json({
+                    success: true,
+                    data: { previewPath: file.previewPath },
+                    message: 'Превью уже существует',
+                });
+            }
+
+            // Извлекаем base64 данные (убираем data:image/jpeg;base64, prefix)
+            const base64Data = thumbnail.replace(
+                /^data:image\/\w+;base64,/,
+                '',
+            );
+            const buffer = Buffer.from(base64Data, 'base64');
+
+            // Импортируем sharp для обработки изображения
+            let sharp: typeof import('sharp') | null = null;
+            try {
+                sharp = (await import('sharp')).default;
+            } catch {
+                console.warn(
+                    'Sharp не установлен - превью будет сохранено без обработки',
+                );
+            }
+
+            // Генерируем имя файла для превью
+            const previewFilename = `preview-${file.filename.replace(/\.[^.]+$/, '.jpg')}`;
+            const fullPreviewPath = path.join(
+                mediaStorageConfig.previewsPath,
+                previewFilename,
+            );
+
+            // Сохраняем превью (с оптимизацией через sharp если доступен)
+            if (sharp) {
+                const { width, height } = mediaStorageConfig.previewSize;
+                await sharp(buffer)
+                    .resize(width, height, {
+                        fit: 'cover',
+                        position: 'center',
+                    })
+                    .jpeg({ quality: 80 })
+                    .toFile(fullPreviewPath);
+            } else {
+                // Fallback: сохраняем как есть
+                const { writeFile } = await import('fs/promises');
+                await writeFile(fullPreviewPath, buffer);
+            }
+
+            // Формируем относительный путь
+            const relativePreviewPath = path.relative(
+                mediaStorageConfig.basePath,
+                fullPreviewPath,
+            );
+
+            // Обновляем запись в БД
+            await prisma.mediaFile.update({
+                where: { id: fileId },
+                data: { previewPath: relativePreviewPath },
+            });
+
+            // Инвалидируем кеш чата
+            if (file.requestId) {
+                const request = await prisma.mediaRequest.findUnique({
+                    where: { id: file.requestId },
+                    select: { chatId: true },
+                });
+                if (request) {
+                    invalidateChatCache(request.chatId);
+                }
+            }
+
+            console.log(
+                `[API] ✅ Thumbnail создан для файла ${fileId}: ${relativePreviewPath}`,
+            );
+
+            res.json({
+                success: true,
+                data: { previewPath: relativePreviewPath },
+                message: 'Превью успешно создано',
+            });
+        } catch (error) {
+            console.error('Ошибка создания превью:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Ошибка создания превью',
+            });
         }
-    );
+    });
 
     // Загрузить файлы на imgbb (для inputFiles)
     // Принимает массив base64 строк в JSON body
@@ -339,7 +337,7 @@ export function createFilesRouter(): Router {
 
             console.log(
                 '[API] POST /upload-to-imgbb - получено файлов:',
-                files.length
+                files.length,
             );
 
             const { uploadMultipleToImgbb } = await import('../imgbb.service');
@@ -378,17 +376,29 @@ export function createFilesRouter(): Router {
         try {
             const { chatId, files } = req.body as {
                 chatId: number;
-                files: { base64: string; mimeType: string; filename: string; imgbbUrl?: string }[];
+                files: {
+                    base64: string;
+                    mimeType: string;
+                    filename: string;
+                    imgbbUrl?: string;
+                }[];
             };
 
-            if (!chatId || !files || !Array.isArray(files) || files.length === 0) {
+            if (
+                !chatId ||
+                !files ||
+                !Array.isArray(files) ||
+                files.length === 0
+            ) {
                 return res.status(400).json({
                     success: false,
                     error: 'chatId и массив файлов обязательны',
                 });
             }
 
-            console.log(`[API] POST /upload-user-media - chatId: ${chatId}, файлов: ${files.length}`);
+            console.log(
+                `[API] POST /upload-user-media - chatId: ${chatId}, файлов: ${files.length}`,
+            );
 
             // Проверяем существование чата
             const chat = await prisma.mediaChat.findUnique({
@@ -404,10 +414,11 @@ export function createFilesRouter(): Router {
 
             // Импортируем сервисы
             const { saveBase64File } = await import('../file.service');
-            const { notifyTelegramGroup } = await import('../telegram.notifier');
+            const { notifyTelegramGroup } =
+                await import('../telegram.notifier');
 
             // Создаем MediaRequest для этой загрузки
-            const filenames = files.map(f => f.filename).join(', ');
+            const filenames = files.map((f) => f.filename).join(', ');
             const mediaRequest = await prisma.mediaRequest.create({
                 data: {
                     chatId,
@@ -422,32 +433,48 @@ export function createFilesRouter(): Router {
             // Сохраняем каждый файл
             for (const fileData of files) {
                 try {
-                    console.log(`[API] 📤 Обработка файла: ${fileData.filename} (${fileData.mimeType})`, {
-                        hasImgbbUrl: !!fileData.imgbbUrl,
-                    });
-                    
+                    console.log(
+                        `[API] 📤 Обработка файла: ${fileData.filename} (${fileData.mimeType})`,
+                        {
+                            hasImgbbUrl: !!fileData.imgbbUrl,
+                        },
+                    );
+
                     // Извлекаем чистый base64 если есть префикс data:...;base64,
-                    const base64Clean = fileData.base64.replace(/^data:.*?;base64,/, '');
+                    const base64Clean = fileData.base64.replace(
+                        /^data:.*?;base64,/,
+                        '',
+                    );
 
                     // imgbbUrl: клиент уже загрузил на imgbb при прикреплении — не дублируем
-                    const savedFileInfo = await saveBase64File(base64Clean, fileData.mimeType, {
-                        imgbbUrl: fileData.imgbbUrl,
-                    });
-                    
-                    console.log(`[API] ✅ Файл сохранен: ${savedFileInfo.filename}`, {
-                        type: savedFileInfo.type,
-                        path: savedFileInfo.path,
-                        url: savedFileInfo.url || 'null (не загружен на imgbb)',
-                        previewPath: savedFileInfo.previewPath || 'null',
-                        previewUrl: savedFileInfo.previewUrl || 'null',
-                    });
+                    const savedFileInfo = await saveBase64File(
+                        base64Clean,
+                        fileData.mimeType,
+                        {
+                            imgbbUrl: fileData.imgbbUrl,
+                        },
+                    );
+
+                    console.log(
+                        `[API] ✅ Файл сохранен: ${savedFileInfo.filename}`,
+                        {
+                            type: savedFileInfo.type,
+                            path: savedFileInfo.path,
+                            url:
+                                savedFileInfo.url ||
+                                'null (не загружен на imgbb)',
+                            previewPath: savedFileInfo.previewPath || 'null',
+                            previewUrl: savedFileInfo.previewUrl || 'null',
+                        },
+                    );
 
                     // Создаем запись в БД
                     const mediaFile = await prisma.mediaFile.create({
                         data: {
                             requestId: mediaRequest.id,
                             type: savedFileInfo.type,
-                            filename: fileData.filename || savedFileInfo.filename,
+                            filename:
+                                fileData.filename || savedFileInfo.filename,
                             path: savedFileInfo.path,
                             url: savedFileInfo.url,
                             previewPath: savedFileInfo.previewPath,
@@ -461,31 +488,49 @@ export function createFilesRouter(): Router {
                     savedFiles.push(mediaFile);
 
                     // Уведомляем Telegram
-                    notifyTelegramGroup(mediaFile, chat.name, `User Upload: ${fileData.filename}`).catch(err => {
-                        console.error('[API] Ошибка уведомления в Telegram (upload):', err);
+                    notifyTelegramGroup(
+                        mediaFile,
+                        chat.name,
+                        `User Upload: ${fileData.filename}`,
+                    ).catch((err) => {
+                        console.error(
+                            '[API] Ошибка уведомления в Telegram (upload):',
+                            err,
+                        );
                     });
                 } catch (error) {
-                    console.error(`[API] ❌ Ошибка сохранения файла ${fileData.filename}:`, error);
+                    console.error(
+                        `[API] ❌ Ошибка сохранения файла ${fileData.filename}:`,
+                        error,
+                    );
                 }
             }
 
             // Собираем URL из сохраненных файлов для inputFiles
             const inputFilesUrls: string[] = [];
             for (const savedFile of savedFiles) {
-                // Для изображений используем url (imgbb URL)
-                if (savedFile.type === 'IMAGE' && savedFile.url) {
-                    inputFilesUrls.push(savedFile.url);
-                    console.log(`[API] 📎 Добавлен imgbb URL в inputFiles для изображения: ${savedFile.filename}`, {
-                        url: savedFile.url,
-                    });
-                } else if (savedFile.type === 'IMAGE' && !savedFile.url) {
-                    console.warn(`[API] ⚠️ Изображение ${savedFile.filename} не имеет imgbb URL, пропускаем в inputFiles`);
+                // Для изображений: imgbb URL приоритетнее, иначе локальный путь (для превью)
+                if (savedFile.type === 'IMAGE') {
+                    if (savedFile.url) {
+                        inputFilesUrls.push(savedFile.url);
+                        console.log(
+                            `[API] 📎 Добавлен imgbb URL в inputFiles для изображения: ${savedFile.filename}`,
+                        );
+                    } else if (savedFile.path) {
+                        inputFilesUrls.push(savedFile.path);
+                        console.log(
+                            `[API] 📎 Добавлен путь в inputFiles для изображения (без imgbb): ${savedFile.filename}`,
+                        );
+                    }
                 } else if (savedFile.type === 'VIDEO' && savedFile.path) {
                     // Для видео используем относительный путь (клиент преобразует его в полный URL через getMediaFileUrl)
                     inputFilesUrls.push(savedFile.path);
-                    console.log(`[API] 📎 Добавлен путь в inputFiles для видео: ${savedFile.filename}`, {
-                        path: savedFile.path,
-                    });
+                    console.log(
+                        `[API] 📎 Добавлен путь в inputFiles для видео: ${savedFile.filename}`,
+                        {
+                            path: savedFile.path,
+                        },
+                    );
                 }
             }
 
@@ -495,11 +540,16 @@ export function createFilesRouter(): Router {
                     where: { id: mediaRequest.id },
                     data: { inputFiles: inputFilesUrls },
                 });
-                console.log(`[API] ✅ inputFiles сохранены для запроса ${mediaRequest.id}: ${inputFilesUrls.length} файлов`, {
-                    urls: inputFilesUrls,
-                });
+                console.log(
+                    `[API] ✅ inputFiles сохранены для запроса ${mediaRequest.id}: ${inputFilesUrls.length} файлов`,
+                    {
+                        urls: inputFilesUrls,
+                    },
+                );
             } else {
-                console.warn(`[API] ⚠️ Нет файлов для сохранения в inputFiles для запроса ${mediaRequest.id}`);
+                console.warn(
+                    `[API] ⚠️ Нет файлов для сохранения в inputFiles для запроса ${mediaRequest.id}`,
+                );
             }
 
             // Обновляем updatedAt чата
@@ -519,7 +569,10 @@ export function createFilesRouter(): Router {
                 },
             });
         } catch (error) {
-            console.error('[API] ❌ Ошибка загрузки пользовательских медиа:', error);
+            console.error(
+                '[API] ❌ Ошибка загрузки пользовательских медиа:',
+                error,
+            );
             res.status(500).json({
                 success: false,
                 error: 'Ошибка при загрузке файлов',

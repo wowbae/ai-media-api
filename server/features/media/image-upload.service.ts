@@ -6,11 +6,12 @@ import { updateFileUrlsInDatabase } from './database.service';
 
 type ImageHostService = 'postimages.org' | 'new.fastpic.org' | 'pixhost.to' | 'upload.cc';
 
+// postimages.org первым — возвращает прямые ссылки (i.postimg.cc), более понятный формат
 const HOST_SERVICES: ImageHostService[] = [
-  'new.fastpic.org',
-  'postimages.org',
   'pixhost.to',
   'upload.cc',
+  'new.fastpic.org',
+  'postimages.org',
 ];
 
 const PARALLEL_DELAY = 1500;

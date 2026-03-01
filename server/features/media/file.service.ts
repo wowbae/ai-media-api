@@ -30,20 +30,22 @@ async function checkFFmpeg(): Promise<boolean> {
         return true;
     } catch {
         hasFFmpeg = false;
-        console.warn('FFmpeg не найден - превью видео будут недоступны. Установите FFmpeg для создания превью видео.');
+        console.warn(
+            'FFmpeg не найден - превью видео будут недоступны. Установите FFmpeg для создания превью видео.',
+        );
         return false;
     }
 }
 
 export interface SavedFileInfo {
     filename: string;
-    path: string | null;      // Локальный путь (для VIDEO и отображения IMAGE)
-    url: string | null;       // URL на imgbb (для IMAGE, используется для отправки в нейросеть)
+    path: string | null; // Локальный путь (для VIDEO и отображения IMAGE)
+    url: string | null; // URL на imgbb (для IMAGE, используется для отправки в нейросеть)
     previewPath: string | null; // Локальный путь превью (для VIDEO и отображения IMAGE)
-    previewUrl: string | null;  // URL превью на imgbb (для IMAGE, создается асинхронно)
+    previewUrl: string | null; // URL превью на imgbb (для IMAGE, создается асинхронно)
     size: number | null;
     type: MediaType;
-    width?: number;  // Ширина изображения (только для IMAGE)
+    width?: number; // Ширина изображения (только для IMAGE)
     height?: number; // Высота изображения (только для IMAGE)
 }
 
@@ -110,7 +112,7 @@ function getMediaDirectory(type: MediaType): string {
 // Создание превью для изображения
 async function createImagePreview(
     sourcePath: string,
-    previewPath: string
+    previewPath: string,
 ): Promise<boolean> {
     if (!sharp) return false;
 
@@ -133,13 +135,15 @@ async function createImagePreview(
 // Создание превью для видео (извлечение первого кадра)
 async function createVideoPreview(
     sourcePath: string,
-    previewPath: string
+    previewPath: string,
 ): Promise<boolean> {
     const ffmpegAvailable = await checkFFmpeg();
     if (!ffmpegAvailable) return false;
 
     if (!sharp) {
-        console.warn('Sharp не доступен - не удастся обработать извлеченный кадр');
+        console.warn(
+            'Sharp не доступен - не удастся обработать извлеченный кадр',
+        );
         return false;
     }
 
@@ -149,7 +153,7 @@ async function createVideoPreview(
 
         // Извлекаем первый кадр через ffmpeg
         await execAsync(
-            `ffmpeg -i "${sourcePath}" -ss 00:00:00 -vframes 1 -q:v 2 "${tempFramePath}" -y`
+            `ffmpeg -i "${sourcePath}" -ss 00:00:00 -vframes 1 -q:v 2 "${tempFramePath}" -y`,
         );
 
         // Проверяем, что временный файл создан
@@ -197,10 +201,13 @@ async function createVideoPreview(
 async function createPreview(
     filePath: string,
     filename: string,
-    mediaType: MediaType
+    mediaType: MediaType,
 ): Promise<string | null> {
     const previewFilename = `preview-${filename.replace(/\.[^.]+$/, '.jpg')}`;
-    const fullPreviewPath = path.join(mediaStorageConfig.previewsPath, previewFilename);
+    const fullPreviewPath = path.join(
+        mediaStorageConfig.previewsPath,
+        previewFilename,
+    );
 
     let isPreviewCreated = false;
 
@@ -216,13 +223,15 @@ async function createPreview(
 // Общая функция сохранения буфера в файл с превью и метаданными
 async function saveBufferToFile(
     buffer: Buffer,
-    mimeType: string
+    mimeType: string,
 ): Promise<SavedFileInfo> {
     await initMediaStorage();
 
     // Валидация размера
     if (buffer.length > mediaStorageConfig.maxFileSize) {
-        throw new Error(`Файл превышает максимальный размер ${mediaStorageConfig.maxFileSize / 1024 / 1024}MB`);
+        throw new Error(
+            `Файл превышает максимальный размер ${mediaStorageConfig.maxFileSize / 1024 / 1024}MB`,
+        );
     }
 
     // Определяем тип и путь
@@ -267,7 +276,7 @@ async function saveBufferToFile(
 export async function saveBase64File(
     base64Data: string,
     mimeType: string,
-    options?: { deferImgbb?: boolean; imgbbUrl?: string }
+    options?: { deferImgbb?: boolean; imgbbUrl?: string },
 ): Promise<SavedFileInfo> {
     const buffer = Buffer.from(base64Data, 'base64');
     const isImage = mimeType.startsWith('image/');
@@ -281,10 +290,13 @@ export async function saveBase64File(
         if (options?.imgbbUrl) {
             const savedFile = await saveBufferToFile(buffer, mimeType);
             savedFile.url = options.imgbbUrl;
-            console.log('[file.service] ✅ Изображение сохранено локально, imgbbUrl передан (без повторной загрузки):', {
-                filename: savedFile.filename,
-                path: savedFile.path,
-            });
+            console.log(
+                '[file.service] ✅ Изображение сохранено локально, imgbbUrl передан (без повторной загрузки):',
+                {
+                    filename: savedFile.filename,
+                    path: savedFile.path,
+                },
+            );
             return savedFile;
         }
         return saveImageWithImgbb(buffer, mimeType);
@@ -312,19 +324,25 @@ export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
 
     // Для изображений: url=null, imgbb загрузится после отправки в Telegram (uploadFilesToImgbbAndUpdateDatabase)
     if (isImage) {
-        console.log('[file.service] ✅ Изображение сохранено локально (imgbb — после Telegram):', {
-            filename: savedFile.filename,
-            path: savedFile.path,
-        });
+        console.log(
+            '[file.service] ✅ Изображение сохранено локально (imgbb — после Telegram):',
+            {
+                filename: savedFile.filename,
+                path: savedFile.path,
+            },
+        );
     } else if (isVideo) {
         // Для видео: сохраняем оригинальный URL провайдера для последующего использования
         // когда файл будет удален с сервера после отправки в Telegram
         savedFile.url = url;
-        console.log('[file.service] ✅ Видео сохранено локально, URL провайдера сохранен:', {
-            filename: savedFile.filename,
-            path: savedFile.path,
-            providerUrl: url,
-        });
+        console.log(
+            '[file.service] ✅ Видео сохранено локально, URL провайдера сохранен:',
+            {
+                filename: savedFile.filename,
+                path: savedFile.path,
+                providerUrl: url,
+            },
+        );
     }
 
     return savedFile;
@@ -333,7 +351,7 @@ export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
 // Сохранение изображения с загрузкой на хостинг (гибридное сохранение)
 export async function saveImageWithImgbb(
     buffer: Buffer,
-    mimeType: string
+    mimeType: string,
 ): Promise<SavedFileInfo> {
     // Сохраняем локально
     const savedFile = await saveBufferToFile(buffer, mimeType);
@@ -342,13 +360,19 @@ export async function saveImageWithImgbb(
         const { uploadToImgbb } = await import('./imgbb.service');
         const imgbbUrl = await uploadToImgbb(buffer);
         savedFile.url = imgbbUrl;
-        console.log('[file.service] ✅ Изображение сохранено локально и загружено на хостинг:', {
-            filename: savedFile.filename,
-            path: savedFile.path,
-            url: imgbbUrl,
-        });
+        console.log(
+            '[file.service] ✅ Изображение сохранено локально и загружено на хостинг:',
+            {
+                filename: savedFile.filename,
+                path: savedFile.path,
+                url: imgbbUrl,
+            },
+        );
     } catch (error) {
-        console.error('[file.service] ❌ Ошибка загрузки на хостинг (продолжаем с локальным сохранением):', error);
+        console.error(
+            '[file.service] ❌ Ошибка загрузки на хостинг (продолжаем с локальным сохранением):',
+            error,
+        );
         // Не прерываем процесс, просто url останется null
     }
 
@@ -358,7 +382,7 @@ export async function saveImageWithImgbb(
 // Получение размеров изображения (только width и height для оптимизации)
 async function getImageDimensions(
     filePath: string,
-    type: MediaType
+    type: MediaType,
 ): Promise<{ width?: number; height?: number }> {
     // Для изображений получаем размеры через sharp
     if (type === 'IMAGE' && sharp) {
@@ -377,7 +401,10 @@ async function getImageDimensions(
 }
 
 // Удаление файла и его превью
-export async function deleteFile(filePath: string, previewPath?: string | null): Promise<void> {
+export async function deleteFile(
+    filePath: string,
+    previewPath?: string | null,
+): Promise<void> {
     try {
         if (existsSync(filePath)) {
             await unlink(filePath);
@@ -403,7 +430,7 @@ export function isValidMimeType(mimeType: string): boolean {
 // Копирование файла (для тестового режима)
 export async function copyFile(
     sourcePath: string,
-    sourcePreviewPath: string | null
+    sourcePreviewPath: string | null,
 ): Promise<{ path: string; previewPath: string | null }> {
     await initMediaStorage();
 
@@ -437,9 +464,15 @@ export async function copyFile(
 
         if (existsSync(absolutePreviewPath)) {
             const previewFilename = `preview-${newFilename}`;
-            const newPreviewFilePath = path.join(mediaStorageConfig.previewsPath, previewFilename);
+            const newPreviewFilePath = path.join(
+                mediaStorageConfig.previewsPath,
+                previewFilename,
+            );
             await fsCopyFile(absolutePreviewPath, newPreviewFilePath);
-            newPreviewPath = path.relative(mediaStorageConfig.basePath, newPreviewFilePath);
+            newPreviewPath = path.relative(
+                mediaStorageConfig.basePath,
+                newPreviewFilePath,
+            );
         }
     }
 

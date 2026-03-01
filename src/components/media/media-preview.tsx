@@ -1,608 +1,642 @@
 // Компонент превью медиа-файлов (изображения, видео, аудио)
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from 'react';
 import {
-  Download,
-  Maximize2,
-  X,
-  ImageIcon,
-  Video,
-  AudioLines,
-  FileIcon,
-  Trash2,
-  Paperclip,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn, formatFileSize, downloadFile, getOriginalFileUrl } from "@/lib/utils";
-import { getMediaFileUrl } from "@/lib/constants";
+    Download,
+    Maximize2,
+    X,
+    ImageIcon,
+    Video,
+    AudioLines,
+    FileIcon,
+    Trash2,
+    Paperclip,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  type MediaFile,
-  type MediaType,
-  useDeleteFileMutation,
-  useUploadThumbnailMutation,
-} from "@/redux/media-api";
-import { toDirectImageUrl } from "@/lib/media-utils";
+    cn,
+    formatFileSize,
+    downloadFile,
+    getOriginalFileUrl,
+} from '@/lib/utils';
+import { getMediaFileUrl } from '@/lib/constants';
 import {
-  extractVideoThumbnail,
-  isThumbnailPending,
-  markThumbnailPending,
-  unmarkThumbnailPending,
-} from "@/lib/video-thumbnail";
-import { cacheVideo, getCachedVideo } from "@/lib/video-cache";
+    type MediaFile,
+    type MediaType,
+    useDeleteFileMutation,
+    useUploadThumbnailMutation,
+} from '@/redux/media-api';
+import { toDirectImageUrl } from '@/lib/media-utils';
+import {
+    extractVideoThumbnail,
+    isThumbnailPending,
+    markThumbnailPending,
+    unmarkThumbnailPending,
+} from '@/lib/video-thumbnail';
+import { cacheVideo, getCachedVideo } from '@/lib/video-cache';
 
 interface MediaPreviewProps {
-  file: MediaFile;
-  showDelete?: boolean;
-  className?: string;
-  onAttach?: (fileUrl: string, filename: string, imgbbUrl?: string) => void;
+    file: MediaFile;
+    showDelete?: boolean;
+    className?: string;
+    onAttach?: (fileUrl: string, filename: string, imgbbUrl?: string) => void;
 }
 
 export function MediaPreview({
-  file,
-  showDelete = false,
-  className,
-  onAttach,
+    file,
+    showDelete = false,
+    className,
+    onAttach,
 }: MediaPreviewProps) {
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
 
-  // Для полноэкранного просмотра и скачивания используем оригинальный файл
-  // Всегда используем path (локальный оригинал) в приоритете, не используем previewUrl/url (сжатые версии)
-  const originalFileUrl = getOriginalFileUrl(file);
+    // Для полноэкранного просмотра и скачивания используем оригинальный файл
+    // Всегда используем path (локальный оригинал) в приоритете, не используем previewUrl/url (сжатые версии)
+    const originalFileUrl = getOriginalFileUrl(file);
 
-  // previewUrl для изображений (для видео логика внутри VideoPreview)
-  // Формируем список всех возможных URL для fallback при ошибке загрузки
-  // Приоритет: локальные пути (быстрые) > imgbb URL (медленные)
-  // previewPath (локальный превью) > path (локальный оригинал) > previewUrl > url
-  const imagePreviewUrls = [
-    file.previewPath ? getMediaFileUrl(file.previewPath) : null,
-    file.path ? getMediaFileUrl(file.path) : null,
-    file.previewUrl ? toDirectImageUrl(file.previewUrl) : null,
-    file.url ? toDirectImageUrl(file.url) : null,
-  ]
-    .filter((url): url is string => url !== null && url !== undefined)
-    .filter((url, index, self) => self.indexOf(url) === index);
+    // previewUrl для изображений (для видео логика внутри VideoPreview)
+    // Формируем список всех возможных URL для fallback при ошибке загрузки
+    // Приоритет: локальные пути (быстрые) > imgbb URL (медленные)
+    // previewPath (локальный превью) > path (локальный оригинал) > previewUrl > url
+    const imagePreviewUrls = [
+        file.previewPath ? getMediaFileUrl(file.previewPath) : null,
+        file.path ? getMediaFileUrl(file.path) : null,
+        file.previewUrl ? toDirectImageUrl(file.previewUrl) : null,
+        file.url ? toDirectImageUrl(file.url) : null,
+    ]
+        .filter((url): url is string => url !== null && url !== undefined)
+        .filter((url, index, self) => self.indexOf(url) === index);
 
-  const imagePreviewUrl = imagePreviewUrls[0] || null;
+    const imagePreviewUrl = imagePreviewUrls[0] || null;
 
-
-  async function handleDelete() {
-    try {
-      await deleteFile(file.id).unwrap();
-    } catch (error) {
-      console.error("Ошибка удаления:", error);
+    async function handleDelete() {
+        try {
+            await deleteFile(file.id).unwrap();
+        } catch (error) {
+            console.error('Ошибка удаления:', error);
+        }
     }
-  }
 
-  function handleDownload() {
-    const downloadUrl = getOriginalFileUrl(file);
-    if (downloadUrl) {
-      downloadFile(downloadUrl, file.filename);
-    } else {
-      console.warn('[MediaPreview] Невозможно скачать файл: нет оригинального URL', file);
+    function handleDownload() {
+        const downloadUrl = getOriginalFileUrl(file);
+        if (downloadUrl) {
+            downloadFile(downloadUrl, file.filename);
+        } else {
+            console.warn(
+                '[MediaPreview] Невозможно скачать файл: нет оригинального URL',
+                file,
+            );
+        }
     }
-  }
 
-  return (
-    <>
-      <div
-        className={cn(
-          "group relative overflow-hidden rounded-xl border border-border bg-secondary",
-          className,
-        )}
-      >
-        {/* Контент в зависимости от типа */}
-        {file.type === "IMAGE" && (
-          <ImagePreview
-            src={imagePreviewUrl || ''}
-            fallbackUrls={imagePreviewUrls.slice(1)}
-            alt={file.filename}
-            onClick={() => setIsFullscreen(true)}
-          />
-        )}
-
-        {file.type === "VIDEO" && (
-          <VideoPreview
-            fileId={file.id}
-            previewUrl={file.previewPath || file.previewUrl || null}
-            originalUrl={originalFileUrl || ''}
-            filename={file.filename}
-          />
-        )}
-
-        {file.type === "AUDIO" && (
-          <AudioPreview originalUrl={originalFileUrl || ''} filename={file.filename} />
-        )}
-
-        {/* Overlay с действиями (не показываем для видео и аудио, чтобы не перекрывать нативные контролы) */}
-        {file.type !== "VIDEO" && file.type !== "AUDIO" && (
-          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-            {file.type === "IMAGE" && (
-              <Button
-                size="icon"
-                variant="secondary"
-                className="h-8 w-8"
-                onClick={() => setIsFullscreen(true)}
-              >
-                <Maximize2 className="h-4 w-4" />
-              </Button>
-            )}
-
-            <Button
-              size="icon"
-              variant="secondary"
-              className="h-8 w-8"
-              onClick={handleDownload}
+    return (
+        <>
+            <div
+                className={cn(
+                    'group relative overflow-hidden rounded-xl border border-border bg-secondary',
+                    className,
+                )}
             >
-              <Download className="h-4 w-4" />
-            </Button>
+                {/* Контент в зависимости от типа */}
+                {file.type === 'IMAGE' && (
+                    <ImagePreview
+                        src={imagePreviewUrl || ''}
+                        fallbackUrls={imagePreviewUrls.slice(1)}
+                        alt={file.filename}
+                        onClick={() => setIsFullscreen(true)}
+                    />
+                )}
 
-            {showDelete && (
-              <Button
-                size="icon"
-                variant="destructive"
-                className="h-8 w-8"
-                onClick={handleDelete}
-                disabled={isDeleting}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        )}
+                {file.type === 'VIDEO' && (
+                    <VideoPreview
+                        fileId={file.id}
+                        previewUrl={file.previewPath || file.previewUrl || null}
+                        originalUrl={originalFileUrl || ''}
+                        filename={file.filename}
+                    />
+                )}
 
-        {/* Кнопка удаления для видео (не перекрывает нативные контролы) */}
-        {file.type === "VIDEO" && showDelete && (
-          <div className="absolute right-2 top-2 z-10">
-            <Button
-              size="icon"
-              variant="destructive"
-              className="h-8 w-8 bg-black/70 hover:bg-red-600/80"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
+                {file.type === 'AUDIO' && (
+                    <AudioPreview
+                        originalUrl={originalFileUrl || ''}
+                        filename={file.filename}
+                    />
+                )}
 
-        {/* Информация о файле */}
-        <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-2">
-          <div className="flex items-center justify-between">
-            <TypeIcon type={file.type} />
-            <span className="text-xs text-muted-foreground">
-              {formatFileSize(file.size || 0)}
-            </span>
-          </div>
-        </div>
-      </div>
+                {/* Overlay с действиями (не показываем для видео и аудио, чтобы не перекрывать нативные контролы) */}
+                {file.type !== 'VIDEO' && file.type !== 'AUDIO' && (
+                    <div className='absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100'>
+                        {file.type === 'IMAGE' && (
+                            <Button
+                                size='icon'
+                                variant='secondary'
+                                className='h-8 w-8'
+                                onClick={() => setIsFullscreen(true)}
+                            >
+                                <Maximize2 className='h-4 w-4' />
+                            </Button>
+                        )}
 
-      {/* Полноэкранный просмотр для изображений */}
-      {file.type === "IMAGE" && (
-        <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-          <DialogContent
-            showCloseButton={false}
-            className="max-h-[95vh] max-w-[95vw] overflow-hidden border-border bg-background p-0"
-          >
-            <DialogTitle className="sr-only">
-              Просмотр изображения: {file.filename}
-            </DialogTitle>
-            <div className="relative">
-              <img
-                src={originalFileUrl || file.url || ''}
-                alt={file.filename}
-                className="max-h-[90vh] w-full object-contain"
-              />
-              <div className="absolute right-2 top-2 flex gap-2">
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  onClick={handleDownload}
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  onClick={() => setIsFullscreen(false)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-4">
-                <div className="flex items-center justify-between text-white">
-                  <span className="font-medium text-foreground">{file.filename}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {getImageDimensions(file.width, file.height)}
-                  </span>
+                        <Button
+                            size='icon'
+                            variant='secondary'
+                            className='h-8 w-8'
+                            onClick={handleDownload}
+                        >
+                            <Download className='h-4 w-4' />
+                        </Button>
+
+                        {showDelete && (
+                            <Button
+                                size='icon'
+                                variant='destructive'
+                                className='h-8 w-8'
+                                onClick={handleDelete}
+                                disabled={isDeleting}
+                            >
+                                <Trash2 className='h-4 w-4' />
+                            </Button>
+                        )}
+                    </div>
+                )}
+
+                {/* Кнопка удаления для видео (не перекрывает нативные контролы) */}
+                {file.type === 'VIDEO' && showDelete && (
+                    <div className='absolute right-2 top-2 z-10'>
+                        <Button
+                            size='icon'
+                            variant='destructive'
+                            className='h-8 w-8 bg-black/70 hover:bg-red-600/80'
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                        >
+                            <Trash2 className='h-4 w-4' />
+                        </Button>
+                    </div>
+                )}
+
+                {/* Информация о файле */}
+                <div className='absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-2'>
+                    <div className='flex items-center justify-between'>
+                        <TypeIcon type={file.type} />
+                        <span className='text-xs text-muted-foreground'>
+                            {formatFileSize(file.size || 0)}
+                        </span>
+                    </div>
                 </div>
-              </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
-    </>
-  );
+
+            {/* Полноэкранный просмотр для изображений */}
+            {file.type === 'IMAGE' && (
+                <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+                    <DialogContent
+                        showCloseButton={false}
+                        className='max-h-[95vh] max-w-[95vw] overflow-hidden border-border bg-background p-0'
+                    >
+                        <DialogTitle className='sr-only'>
+                            Просмотр изображения: {file.filename}
+                        </DialogTitle>
+                        <div className='relative'>
+                            <img
+                                src={originalFileUrl || file.url || ''}
+                                alt={file.filename}
+                                className='max-h-[90vh] w-full object-contain'
+                            />
+                            <div className='absolute right-2 top-2 flex gap-2'>
+                                <Button
+                                    size='icon'
+                                    variant='secondary'
+                                    onClick={handleDownload}
+                                >
+                                    <Download className='h-4 w-4' />
+                                </Button>
+                                <Button
+                                    size='icon'
+                                    variant='secondary'
+                                    onClick={() => setIsFullscreen(false)}
+                                >
+                                    <X className='h-4 w-4' />
+                                </Button>
+                            </div>
+                            <div className='absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-4'>
+                                <div className='flex items-center justify-between text-white'>
+                                    <span className='font-medium text-foreground'>
+                                        {file.filename}
+                                    </span>
+                                    <span className='text-sm text-muted-foreground'>
+                                        {getImageDimensions(
+                                            file.width,
+                                            file.height,
+                                        )}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
+        </>
+    );
 }
 
 // Превью изображения
 interface ImagePreviewProps {
-  src: string;
-  fallbackUrls?: string[];
-  alt: string;
-  onClick?: () => void;
+    src: string;
+    fallbackUrls?: string[];
+    alt: string;
+    onClick?: () => void;
 }
 
-function ImagePreview({ src, fallbackUrls = [], alt, onClick }: ImagePreviewProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
-  const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
-  const [currentSrc, setCurrentSrc] = useState(src);
+function ImagePreview({
+    src,
+    fallbackUrls = [],
+    alt,
+    onClick,
+}: ImagePreviewProps) {
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [hasError, setHasError] = useState(false);
+    const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
+    const [currentSrc, setCurrentSrc] = useState(src);
 
-  // При ошибке загрузки пробуем следующий URL из fallback списка
-  function handleError() {
-    console.warn('[ImagePreview] Ошибка загрузки изображения:', {
-      currentSrc,
-      currentUrlIndex,
-      fallbackUrls,
-      alt,
-    });
+    // При ошибке загрузки пробуем следующий URL из fallback списка
+    function handleError() {
+        console.warn('[ImagePreview] Ошибка загрузки изображения:', {
+            currentSrc,
+            currentUrlIndex,
+            fallbackUrls,
+            alt,
+        });
 
-    if (currentUrlIndex < fallbackUrls.length) {
-      const nextIndex = currentUrlIndex + 1;
-      setCurrentUrlIndex(nextIndex);
-      const nextUrl = fallbackUrls[currentUrlIndex];
-      console.log('[ImagePreview] Пробуем следующий URL:', nextUrl);
-      setCurrentSrc(nextUrl);
-      setIsLoaded(false);
-      setHasError(false);
-    } else {
-      console.error('[ImagePreview] Все URL исчерпаны, показываем иконку файла');
-      setHasError(true);
+        if (currentUrlIndex < fallbackUrls.length) {
+            const nextIndex = currentUrlIndex + 1;
+            setCurrentUrlIndex(nextIndex);
+            const nextUrl = fallbackUrls[currentUrlIndex];
+            console.log('[ImagePreview] Пробуем следующий URL:', nextUrl);
+            setCurrentSrc(nextUrl);
+            setIsLoaded(false);
+            setHasError(false);
+        } else {
+            console.error(
+                '[ImagePreview] Все URL исчерпаны, показываем иконку файла',
+            );
+            setHasError(true);
+        }
     }
-  }
 
-  // Синхронизируем currentSrc с src при изменении src извне
-  useEffect(() => {
-    setCurrentSrc(src);
-    setCurrentUrlIndex(0);
-    setIsLoaded(false);
-    setHasError(false);
-  }, [src]);
+    // Синхронизируем currentSrc с src при изменении src извне
+    useEffect(() => {
+        setCurrentSrc(src);
+        setCurrentUrlIndex(0);
+        setIsLoaded(false);
+        setHasError(false);
+    }, [src]);
 
-  // Сбрасываем состояние при изменении currentSrc
-  useEffect(() => {
-    setIsLoaded(false);
-    setHasError(false);
-  }, [currentSrc]);
+    // Сбрасываем состояние при изменении currentSrc
+    useEffect(() => {
+        setIsLoaded(false);
+        setHasError(false);
+    }, [currentSrc]);
 
-  return (
-    <div
-      className="relative aspect-square cursor-pointer overflow-hidden"
-      onClick={onClick}
-    >
-      {!isLoaded && !hasError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-secondary">
-          <ImageIcon className="h-8 w-8 animate-pulse text-muted-foreground/50" />
+    return (
+        <div
+            className='relative aspect-square cursor-pointer overflow-hidden'
+            onClick={onClick}
+        >
+            {!isLoaded && !hasError && (
+                <div className='absolute inset-0 flex items-center justify-center bg-secondary'>
+                    <ImageIcon className='h-8 w-8 animate-pulse text-muted-foreground/50' />
+                </div>
+            )}
+            {hasError ? (
+                <div className='flex h-full items-center justify-center bg-secondary'>
+                    <FileIcon className='h-8 w-8 text-muted-foreground/50' />
+                </div>
+            ) : (
+                <img
+                    src={currentSrc}
+                    alt={alt}
+                    loading='lazy'
+                    className={cn(
+                        'h-full w-full object-cover transition-opacity',
+                        isLoaded ? 'opacity-100' : 'opacity-0',
+                    )}
+                    onLoad={() => setIsLoaded(true)}
+                    onError={handleError}
+                />
+            )}
         </div>
-      )}
-      {hasError ? (
-        <div className="flex h-full items-center justify-center bg-secondary">
-          <FileIcon className="h-8 w-8 text-muted-foreground/50" />
-        </div>
-      ) : (
-        <img
-          src={currentSrc}
-          alt={alt}
-          loading="lazy"
-          className={cn(
-            "h-full w-full object-cover transition-opacity",
-            isLoaded ? "opacity-100" : "opacity-0",
-          )}
-          onLoad={() => setIsLoaded(true)}
-          onError={handleError}
-        />
-      )}
-    </div>
-  );
+    );
 }
 
 // Превью видео - показывает только превью, оригинал загружается по требованию
 // Автоматически генерирует thumbnail если его нет
 interface VideoPreviewProps {
-  fileId: number;
-  previewUrl: string | null;
-  originalUrl: string;
-  filename: string;
+    fileId: number;
+    previewUrl: string | null;
+    originalUrl: string;
+    filename: string;
 }
 
 function VideoPreview({
-  fileId,
-  previewUrl,
-  originalUrl,
-  filename,
+    fileId,
+    previewUrl,
+    originalUrl,
+    filename,
 }: VideoPreviewProps) {
-  const [shouldLoadOriginal, setShouldLoadOriginal] = useState(false);
-  const [isPreviewLoaded, setIsPreviewLoaded] = useState(false);
-  const [hasPreviewError, setHasPreviewError] = useState(false);
-  const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
-  const [localThumbnail, setLocalThumbnail] = useState<string | null>(null);
-  const thumbnailGeneratedRef = useRef(false);
-  const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
-  const [isLoadingVideo, setIsLoadingVideo] = useState(false);
+    const [shouldLoadOriginal, setShouldLoadOriginal] = useState(false);
+    const [isPreviewLoaded, setIsPreviewLoaded] = useState(false);
+    const [hasPreviewError, setHasPreviewError] = useState(false);
+    const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
+    const [localThumbnail, setLocalThumbnail] = useState<string | null>(null);
+    const thumbnailGeneratedRef = useRef(false);
+    const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
+    const [isLoadingVideo, setIsLoadingVideo] = useState(false);
 
-  const [uploadThumbnail] = useUploadThumbnailMutation();
+    const [uploadThumbnail] = useUploadThumbnailMutation();
 
-  // Проверяем, является ли previewUrl временным (оптимистичное обновление)
-  const isPendingPreview = previewUrl?.startsWith("__pending__") ?? false;
-  const actualPreviewUrl =
-    isPendingPreview && previewUrl
-      ? previewUrl.replace("__pending__", "")
-      : previewUrl;
+    // Проверяем, является ли previewUrl временным (оптимистичное обновление)
+    const isPendingPreview = previewUrl?.startsWith('__pending__') ?? false;
+    const actualPreviewUrl =
+        isPendingPreview && previewUrl
+            ? previewUrl.replace('__pending__', '')
+            : previewUrl;
 
-  // Автоматическая генерация thumbnail если его нет
-  useEffect(() => {
-    // Пропускаем если:
-    // - уже есть превью
-    // - генерация уже запущена
-    // - уже пытались генерировать
-    // - файл в процессе генерации глобально
-    // - нет originalUrl для генерации
-    if (
-      previewUrl ||
-      isGeneratingThumbnail ||
-      thumbnailGeneratedRef.current ||
-      isThumbnailPending(fileId) ||
-      !originalUrl
-    ) {
-      return;
-    }
-
-    async function generateThumbnail() {
-      thumbnailGeneratedRef.current = true;
-      markThumbnailPending(fileId);
-      setIsGeneratingThumbnail(true);
-
-      try {
-        const thumbnail = await extractVideoThumbnail(originalUrl);
-
-        if (thumbnail) {
-          // Сразу показываем локально
-          setLocalThumbnail(thumbnail);
-
-          // Отправляем на сервер в фоне
-          uploadThumbnail({ fileId, thumbnail }).catch((error) => {
-            console.warn(
-              "[VideoPreview] Ошибка загрузки thumbnail на сервер:",
-              error,
-            );
-          });
-        }
-      } catch (error) {
-        console.warn("[VideoPreview] Ошибка генерации thumbnail:", error);
-      } finally {
-        setIsGeneratingThumbnail(false);
-        unmarkThumbnailPending(fileId);
-      }
-    }
-
-    generateThumbnail();
-  }, [fileId, previewUrl, originalUrl, isGeneratingThumbnail, uploadThumbnail]);
-
-  // Загрузка и кеширование видео при попытке воспроизведения
-  useEffect(() => {
-    if (!shouldLoadOriginal || !originalUrl) return;
-
-    let blobUrl: string | null = null;
-
-    async function loadVideo() {
-      setIsLoadingVideo(true);
-
-      try {
-        // 1. Проверяем кеш браузера
-        const cached = await getCachedVideo(fileId);
-
-        if (cached) {
-          // Видео найдено в кеше
-          const blob = await cached.blob();
-          blobUrl = URL.createObjectURL(blob);
-          setVideoBlobUrl(blobUrl);
-          setIsLoadingVideo(false);
-          return;
+    // Автоматическая генерация thumbnail если его нет
+    useEffect(() => {
+        // Пропускаем если:
+        // - уже есть превью
+        // - генерация уже запущена
+        // - уже пытались генерировать
+        // - файл в процессе генерации глобально
+        // - нет originalUrl для генерации
+        if (
+            previewUrl ||
+            isGeneratingThumbnail ||
+            thumbnailGeneratedRef.current ||
+            isThumbnailPending(fileId) ||
+            !originalUrl
+        ) {
+            return;
         }
 
-        // 2. Видео нет в кеше - загружаем с сервера или URL провайдера
-        const response = await fetch(originalUrl);
+        async function generateThumbnail() {
+            thumbnailGeneratedRef.current = true;
+            markThumbnailPending(fileId);
+            setIsGeneratingThumbnail(true);
 
-        if (!response.ok) {
-          throw new Error(`Не удалось загрузить видео: ${response.status}`);
+            try {
+                const thumbnail = await extractVideoThumbnail(originalUrl);
+
+                if (thumbnail) {
+                    // Сразу показываем локально
+                    setLocalThumbnail(thumbnail);
+
+                    // Отправляем на сервер в фоне
+                    uploadThumbnail({ fileId, thumbnail }).catch((error) => {
+                        console.warn(
+                            '[VideoPreview] Ошибка загрузки thumbnail на сервер:',
+                            error,
+                        );
+                    });
+                }
+            } catch (error) {
+                console.warn(
+                    '[VideoPreview] Ошибка генерации thumbnail:',
+                    error,
+                );
+            } finally {
+                setIsGeneratingThumbnail(false);
+                unmarkThumbnailPending(fileId);
+            }
         }
 
-        const blob = await response.blob();
-        blobUrl = URL.createObjectURL(blob);
-        setVideoBlobUrl(blobUrl);
+        generateThumbnail();
+    }, [
+        fileId,
+        previewUrl,
+        originalUrl,
+        isGeneratingThumbnail,
+        uploadThumbnail,
+    ]);
 
-        // 3. Кешируем видео для будущего использования
-        await cacheVideo(originalUrl, fileId);
+    // Загрузка и кеширование видео при попытке воспроизведения
+    useEffect(() => {
+        if (!shouldLoadOriginal || !originalUrl) return;
 
-        setIsLoadingVideo(false);
-      } catch (error) {
-        console.error('[VideoPreview] Ошибка загрузки видео:', error);
-        setIsLoadingVideo(false);
-        // В случае ошибки пробуем использовать originalUrl напрямую
-        setVideoBlobUrl(originalUrl);
-      }
+        let blobUrl: string | null = null;
+
+        async function loadVideo() {
+            setIsLoadingVideo(true);
+
+            try {
+                // 1. Проверяем кеш браузера
+                const cached = await getCachedVideo(fileId);
+
+                if (cached) {
+                    // Видео найдено в кеше
+                    const blob = await cached.blob();
+                    blobUrl = URL.createObjectURL(blob);
+                    setVideoBlobUrl(blobUrl);
+                    setIsLoadingVideo(false);
+                    return;
+                }
+
+                // 2. Видео нет в кеше - загружаем с сервера или URL провайдера
+                const response = await fetch(originalUrl);
+
+                if (!response.ok) {
+                    throw new Error(
+                        `Не удалось загрузить видео: ${response.status}`,
+                    );
+                }
+
+                const blob = await response.blob();
+                blobUrl = URL.createObjectURL(blob);
+                setVideoBlobUrl(blobUrl);
+
+                // 3. Кешируем видео для будущего использования
+                await cacheVideo(originalUrl, fileId);
+
+                setIsLoadingVideo(false);
+            } catch (error) {
+                console.error('[VideoPreview] Ошибка загрузки видео:', error);
+                setIsLoadingVideo(false);
+                // В случае ошибки пробуем использовать originalUrl напрямую
+                setVideoBlobUrl(originalUrl);
+            }
+        }
+
+        loadVideo();
+
+        // Очистка blob URL при размонтировании
+        return () => {
+            if (blobUrl) {
+                URL.revokeObjectURL(blobUrl);
+            }
+        };
+    }, [shouldLoadOriginal, originalUrl, fileId]);
+
+    function handlePlay() {
+        // Загружаем оригинал только при попытке воспроизведения
+        setShouldLoadOriginal(true);
     }
 
-    loadVideo();
+    // Определяем какой URL использовать для превью
+    // Приоритет: base64 (data:) > локальный путь > HTTP URL (imgbb)
+    // Локальные пути быстрее, поэтому используем их в приоритете
+    const displayPreviewUrl = actualPreviewUrl
+        ? actualPreviewUrl.startsWith('data:')
+            ? actualPreviewUrl // base64 из оптимистичного обновления
+            : actualPreviewUrl.startsWith('http://') ||
+                actualPreviewUrl.startsWith('https://')
+              ? actualPreviewUrl // HTTP URL на imgbb (медленнее)
+              : getMediaFileUrl(actualPreviewUrl) // локальный путь (быстрее)
+        : localThumbnail;
 
-    // Очистка blob URL при размонтировании
-    return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
-    };
-  }, [shouldLoadOriginal, originalUrl, fileId]);
+    // Если пользователь хочет воспроизвести - показываем оригинал
+    if (shouldLoadOriginal) {
+        // Используем blob URL из кеша, если есть, иначе originalUrl
+        const videoSrc = videoBlobUrl || originalUrl;
 
-  function handlePlay() {
-    // Загружаем оригинал только при попытке воспроизведения
-    setShouldLoadOriginal(true);
-  }
-
-  // Определяем какой URL использовать для превью
-  // Приоритет: base64 (data:) > локальный путь > HTTP URL (imgbb)
-  // Локальные пути быстрее, поэтому используем их в приоритете
-  const displayPreviewUrl = actualPreviewUrl
-    ? actualPreviewUrl.startsWith("data:")
-      ? actualPreviewUrl // base64 из оптимистичного обновления
-      : actualPreviewUrl.startsWith("http://") || actualPreviewUrl.startsWith("https://")
-        ? actualPreviewUrl // HTTP URL на imgbb (медленнее)
-        : getMediaFileUrl(actualPreviewUrl) // локальный путь (быстрее)
-    : localThumbnail;
-
-  // Если пользователь хочет воспроизвести - показываем оригинал
-  if (shouldLoadOriginal) {
-    // Используем blob URL из кеша, если есть, иначе originalUrl
-    const videoSrc = videoBlobUrl || originalUrl;
-
-    return (
-      <div className="group/video relative aspect-square">
-        {isLoadingVideo && (
-          <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
-            <div className="flex flex-col items-center gap-2">
-              <Video className="h-8 w-8 animate-pulse text-muted-foreground/50" />
-              <span className="text-xs text-muted-foreground">Загрузка видео...</span>
+        return (
+            <div className='group/video relative aspect-square'>
+                {isLoadingVideo && (
+                    <div className='absolute inset-0 flex items-center justify-center bg-secondary z-10'>
+                        <div className='flex flex-col items-center gap-2'>
+                            <Video className='h-8 w-8 animate-pulse text-muted-foreground/50' />
+                            <span className='text-xs text-muted-foreground'>
+                                Загрузка видео...
+                            </span>
+                        </div>
+                    </div>
+                )}
+                <video
+                    src={videoSrc}
+                    poster={displayPreviewUrl || undefined}
+                    controls
+                    className='h-full w-full object-cover video-controls-on-hover'
+                />
             </div>
-          </div>
-        )}
-        <video
-          src={videoSrc}
-          poster={displayPreviewUrl || undefined}
-          controls
-          className="h-full w-full object-cover video-controls-on-hover"
-        />
-      </div>
-    );
-  }
+        );
+    }
 
-  // Если генерируется thumbnail - показываем скелетон
-  if (isGeneratingThumbnail && !localThumbnail) {
+    // Если генерируется thumbnail - показываем скелетон
+    if (isGeneratingThumbnail && !localThumbnail) {
+        return (
+            <div
+                className='relative aspect-square cursor-pointer overflow-hidden'
+                onClick={handlePlay}
+            >
+                <Skeleton className='h-full w-full rounded-none' />
+                <div className='absolute inset-0 flex items-center justify-center'>
+                    <div className='rounded-full bg-white/20 p-4 backdrop-blur-sm animate-pulse'>
+                        <Video className='h-8 w-8 text-white' />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Если нет превью и нет локального thumbnail - показываем плейсхолдер
+    if (!displayPreviewUrl || hasPreviewError) {
+        return (
+            <div
+                className='relative aspect-square cursor-pointer overflow-hidden bg-secondary'
+                onClick={handlePlay}
+            >
+                <div className='absolute inset-0 flex flex-col items-center justify-center gap-3'>
+                    <div className='rounded-full bg-white/20 p-6 backdrop-blur-sm'>
+                        <Video className='h-12 w-12 text-white' />
+                    </div>
+                    <p className='text-sm text-muted-foreground'>
+                        Нажмите для воспроизведения
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    // Показываем превью (серверное или локальное)
     return (
-      <div
-        className="relative aspect-square cursor-pointer overflow-hidden"
-        onClick={handlePlay}
-      >
-        <Skeleton className="h-full w-full rounded-none" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="rounded-full bg-white/20 p-4 backdrop-blur-sm animate-pulse">
-            <Video className="h-8 w-8 text-white" />
-          </div>
+        <div
+            className='relative aspect-square cursor-pointer overflow-hidden'
+            onClick={handlePlay}
+        >
+            <img
+                src={displayPreviewUrl}
+                alt={filename}
+                loading='lazy'
+                className={cn(
+                    'h-full w-full object-cover transition-opacity',
+                    isPreviewLoaded ? 'opacity-100' : 'opacity-0',
+                )}
+                onLoad={() => setIsPreviewLoaded(true)}
+                onError={(e) => {
+                    console.warn('[VideoPreview] Ошибка загрузки превью:', {
+                        fileId,
+                        filename,
+                        displayPreviewUrl,
+                        error: e,
+                    });
+                    setHasPreviewError(true);
+                }}
+            />
+            {!isPreviewLoaded && (
+                <div className='absolute inset-0 flex items-center justify-center bg-secondary'>
+                    <Video className='h-8 w-8 animate-pulse text-muted-foreground/50' />
+                </div>
+            )}
+            {/* Тонкий hover эффект для индикации кликабельности */}
+            <div className='absolute inset-0 bg-black/0 transition-colors hover:bg-black/10' />
         </div>
-      </div>
     );
-  }
-
-  // Если нет превью и нет локального thumbnail - показываем плейсхолдер
-  if (!displayPreviewUrl || hasPreviewError) {
-    return (
-      <div
-        className="relative aspect-square cursor-pointer overflow-hidden bg-secondary"
-        onClick={handlePlay}
-      >
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-          <div className="rounded-full bg-white/20 p-6 backdrop-blur-sm">
-            <Video className="h-12 w-12 text-white" />
-          </div>
-          <p className="text-sm text-muted-foreground">Нажмите для воспроизведения</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Показываем превью (серверное или локальное)
-  return (
-    <div
-      className="relative aspect-square cursor-pointer overflow-hidden"
-      onClick={handlePlay}
-    >
-      <img
-        src={displayPreviewUrl}
-        alt={filename}
-        loading="lazy"
-        className={cn(
-          "h-full w-full object-cover transition-opacity",
-          isPreviewLoaded ? "opacity-100" : "opacity-0",
-        )}
-        onLoad={() => setIsPreviewLoaded(true)}
-        onError={(e) => {
-          console.warn('[VideoPreview] Ошибка загрузки превью:', {
-            fileId,
-            filename,
-            displayPreviewUrl,
-            error: e,
-          });
-          setHasPreviewError(true);
-        }}
-      />
-      {!isPreviewLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-secondary">
-          <Video className="h-8 w-8 animate-pulse text-muted-foreground/50" />
-        </div>
-      )}
-      {/* Тонкий hover эффект для индикации кликабельности */}
-      <div className="absolute inset-0 bg-black/0 transition-colors hover:bg-black/10" />
-    </div>
-  );
 }
 
 // Превью аудио - показывает иконку, оригинал загружается по требованию
 interface AudioPreviewProps {
-  originalUrl: string;
-  filename: string;
+    originalUrl: string;
+    filename: string;
 }
 
 function AudioPreview({ originalUrl, filename }: AudioPreviewProps) {
-  // Загружаем аудио сразу, чтобы можно было воспроизвести
-  return (
-    <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-secondary p-4">
-      <AudioLines className="h-12 w-12 text-primary" />
-      <p className="text-xs text-muted-foreground text-center max-w-full truncate">
-        {filename}
-      </p>
-      <audio
-        src={originalUrl}
-        controls
-        className="w-full"
-      />
-    </div>
-  );
+    // Загружаем аудио сразу, чтобы можно было воспроизвести
+    return (
+        <div className='flex aspect-video flex-col items-center justify-center gap-3 bg-secondary p-4'>
+            <AudioLines className='h-12 w-12 text-primary' />
+            <p className='text-xs text-muted-foreground text-center max-w-full truncate'>
+                {filename}
+            </p>
+            <audio src={originalUrl} controls className='w-full' />
+        </div>
+    );
 }
 
 // Иконка типа файла
 interface TypeIconProps {
-  type: MediaType;
+    type: MediaType;
 }
 
 function TypeIcon({ type }: TypeIconProps) {
-  const config = {
-    IMAGE: { icon: ImageIcon },
-    VIDEO: { icon: Video },
-    AUDIO: { icon: AudioLines },
-  };
+    const config = {
+        IMAGE: { icon: ImageIcon },
+        VIDEO: { icon: Video },
+        AUDIO: { icon: AudioLines },
+    };
 
-  const { icon: Icon } = config[type];
+    const { icon: Icon } = config[type];
 
-  return <Icon className="h-4 w-4 text-muted-foreground" />;
+    return <Icon className='h-4 w-4 text-muted-foreground' />;
 }
 
 // Получение размеров изображения
 function getImageDimensions(
-  width: number | null | undefined,
-  height: number | null | undefined,
+    width: number | null | undefined,
+    height: number | null | undefined,
 ): string {
-  if (width && height) {
-    return `${width} × ${height}`;
-  }
-  return "";
+    if (width && height) {
+        return `${width} × ${height}`;
+    }
+    return '';
 }
