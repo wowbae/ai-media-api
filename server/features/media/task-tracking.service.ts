@@ -13,7 +13,7 @@ interface TrackedTask {
   model: MediaModel;
   prompt: string;
   chatId: number;
-  userId: number;
+  userId?: number; // Опционально - только для SSE уведомлений
   createdAt: number;
   lastCheckedAt?: number;
   checkCount: number;
@@ -30,6 +30,81 @@ class TaskTrackingService {
     // Запускаем периодическую очистку старых задач
     setInterval(() => this.cleanupOldTasks(), this.CLEANUP_INTERVAL);
     console.log('[TaskTracking] Сервис запущен');
+    
+    // Восстанавливаем незавершенные задачи после перезапуска сервера
+    this.recoverPendingTasks();
+  }
+
+  /**
+   * Восстановить незавершенные задачи из БД
+   */
+  private async recoverPendingTasks(): Promise<void> {
+    try {
+      const { prisma } = await import('prisma/client');
+      
+      // Находим все задачи со статусом PENDING или PROCESSING
+      const pendingRequests = await prisma.mediaRequest.findMany({
+        where: {
+          status: { in: ['PENDING', 'PROCESSING'] },
+          taskId: { not: null },
+        },
+        select: {
+          id: true,
+          taskId: true,
+          model: true,
+          prompt: true,
+          chatId: true,
+          userId: true,
+          createdAt: true,
+        },
+      });
+
+      if (pendingRequests.length === 0) {
+        console.log('[TaskTracking] Нет незавершенных задач для восстановления');
+        return;
+      }
+
+      console.log(`[TaskTracking] 🔄 Восстановление ${pendingRequests.length} незавершенных задач...`);
+
+      let recovered = 0;
+      for (const request of pendingRequests) {
+        if (!request.taskId) {
+          console.warn(`[TaskTracking] ⚠️ Пропущена задача requestId=${request.id}: нет taskId`);
+          continue;
+        }
+
+        // Проверяем, не слишком ли старая задача (больше 15 минут)
+        const age = Date.now() - request.createdAt.getTime();
+        if (age > 15 * 60 * 1000) {
+          console.warn(`[TaskTracking] ⏰ Пропущена старая задача requestId=${request.id}: возраст ${Math.round(age / 1000)} сек`);
+          // Помечаем как failed
+          await prisma.mediaRequest.update({
+            where: { id: request.id },
+            data: {
+              status: 'FAILED',
+              errorMessage: 'Задача прервана из-за перезапуска сервера',
+            },
+          });
+          continue;
+        }
+
+        // Запускаем отслеживание (userId опционально - только для SSE)
+        await this.startTracking({
+          requestId: request.id,
+          taskId: request.taskId,
+          model: request.model as MediaModel,
+          prompt: request.prompt,
+          chatId: request.chatId,
+          userId: request.userId || undefined,
+        });
+
+        recovered++;
+      }
+
+      console.log(`[TaskTracking] ✅ Восстановлено ${recovered} из ${pendingRequests.length} задач`);
+    } catch (error) {
+      console.error('[TaskTracking] Ошибка восстановления задач:', error);
+    }
   }
 
   /**
@@ -41,7 +116,7 @@ class TaskTrackingService {
     model: MediaModel;
     prompt: string;
     chatId: number;
-    userId: number;
+    userId?: number; // Опционально - только для SSE уведомлений
   }): Promise<void> {
     const key = this.getTaskKey(params.requestId);
     
@@ -197,6 +272,8 @@ class TaskTrackingService {
    * Отправить SSE уведомление о процессе
    */
   private async sendSSEProgress(task: TrackedTask, status: any): Promise<void> {
+    if (!task.userId) return; // Нет пользователя - не отправляем SSE
+    
     const sseService = getSSEService();
     const event: SSEEvent = {
       type: 'REQUEST_PROCESSING',
@@ -216,6 +293,8 @@ class TaskTrackingService {
    * Отправить SSE уведомление о завершении
    */
   private async sendSSECompleted(task: TrackedTask): Promise<void> {
+    if (!task.userId) return; // Нет пользователя - не отправляем SSE
+    
     const sseService = getSSEService();
     const event: SSEEvent = {
       type: 'REQUEST_COMPLETED',
@@ -232,6 +311,8 @@ class TaskTrackingService {
    * Отправить SSE уведомление об ошибке
    */
   private async sendSSEFailed(task: TrackedTask, status: any): Promise<void> {
+    if (!task.userId) return; // Нет пользователя - не отправляем SSE
+    
     const sseService = getSSEService();
     const event: SSEEvent = {
       type: 'REQUEST_FAILED',

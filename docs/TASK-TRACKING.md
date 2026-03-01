@@ -11,6 +11,39 @@
 1. **TaskTrackingService** - основной сервис
 2. **SSE Service** - отправка real-time уведомлений
 3. **Generation Service** - запуск отслеживания после создания задачи
+4. **Recovery Service** - восстановление задач после перезапуска сервера
+
+## Инициализация
+
+TaskTrackingService автоматически запускается при старте сервера:
+
+```typescript
+// server/init.ts
+import { getTaskTrackingService } from "./features/media/task-tracking.service";
+
+const server = app.listen(serverConfig.port, () => {
+  console.log(`🚀 Server is running on port ${serverConfig.port}`);
+  
+  // Инициализируем TaskTrackingService для восстановления задач
+  getTaskTrackingService();
+  console.log('✅ TaskTrackingService инициализирован');
+});
+```
+
+### Восстановление задач после перезапуска
+
+При старте сервера TaskTrackingService автоматически:
+
+1. Находит в БД все задачи со статусом `PENDING` или `PROCESSING`
+2. Проверяет возраст задачи (не старше 15 минут)
+3. Запускает отслеживание для актуальных задач
+4. Помечает как `FAILED` старые задачи (> 15 минут)
+
+```
+[TaskTracking] 🔄 Восстановление 3 незавершенных задач...
+[TaskTracking] ✅ Восстановлено 2 из 3 задач
+[TaskTracking] ⏰ Пропущена старая задача requestId=123: возраст 1200 сек
+```
 
 ## Как это работает
 

@@ -12,6 +12,9 @@ import { syncMediaFilesWithFileSystem } from "./features/media/database.service"
 import { getTelegramBotService, getBot } from "./features/telegram/bot/bot.service";
 import { serverConfig } from "./config";
 
+// Импортируем TaskTrackingService для запуска восстановления задач
+import { getTaskTrackingService } from "./features/media/task-tracking.service";
+
 dotenv.config();
 
 export const app = express();
@@ -63,6 +66,10 @@ const server = app.listen(serverConfig.port, () => {
   console.log(`🚀 Server is running on port ${serverConfig.port}`);
 
   syncMediaFilesWithFileSystem(5000);
+  
+  // Инициализируем TaskTrackingService для восстановления задач
+  getTaskTrackingService();
+  console.log('✅ TaskTrackingService инициализирован');
 });
 
 // Обработка ошибок сервера

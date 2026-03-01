@@ -169,6 +169,7 @@ export function createGenerateRouter(): Router {
             // Создаём запрос в БД
             const mediaRequest = await prisma.mediaRequest.create({
                 data: {
+                    userId: user?.userId,
                     chatId,
                     prompt: prompt.trim(),
                     model: selectedModel,
@@ -205,12 +206,6 @@ export function createGenerateRouter(): Router {
             });
 
             // Запускаем генерацию асинхронно
-            console.log('[API] 🚀 Запуск генерации:', {
-                requestId: mediaRequest.id,
-                model: selectedModel,
-                filesCount: processedFiles.length,
-            });
-
             generateMedia({
                 requestId: mediaRequest.id,
                 prompt: prompt.trim(),
@@ -316,6 +311,7 @@ export function createGenerateRouter(): Router {
             // Создаём запрос со статусом COMPLETED
             const mediaRequest = await prisma.mediaRequest.create({
                 data: {
+                    userId: chat.userId,
                     chatId,
                     prompt: prompt.trim(),
                     model: chat.model,

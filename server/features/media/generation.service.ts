@@ -98,26 +98,29 @@ export async function generateMedia(options: GenerateMediaOptions): Promise<void
         },
       });
 
-      // Получаем chatId и userId из БД для отслеживания
+      // Получаем userId и chatId из БД для отслеживания
       const request = await prisma.mediaRequest.findUnique({
         where: { id: requestId },
-        select: { chatId: true, chat: { select: { userId: true } } },
+        select: { userId: true, chatId: true },
       });
 
-      if (request && request.chat?.userId) {
-        // Запускаем отслеживание задачи
-        const { getTaskTrackingService } = await import('./task-tracking.service');
-        const taskTrackingService = getTaskTrackingService();
-        
-        await taskTrackingService.startTracking({
-          requestId,
-          taskId: result.taskId,
-          model,
-          prompt,
-          chatId: request.chatId,
-          userId: request.chat.userId,
-        });
+      if (!request?.chatId) {
+        console.warn(`[MediaService] ⚠️ Не удалось получить chatId для requestId=${requestId}, отслеживание невозможно`);
+        return;
       }
+
+      // Запускаем отслеживание задачи (userId опционально - только для SSE)
+      const { getTaskTrackingService } = await import('./task-tracking.service');
+      const taskTrackingService = getTaskTrackingService();
+      
+      await taskTrackingService.startTracking({
+        requestId,
+        taskId: result.taskId,
+        model,
+        prompt,
+        chatId: request.chatId,
+        userId: request.userId || undefined,
+      });
 
       console.log(
         `[MediaService] ✅ Async задача создана: requestId=${requestId}, taskId=${result.taskId}, provider=${provider.name}`,
