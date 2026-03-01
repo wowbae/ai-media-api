@@ -33,29 +33,6 @@ export interface ModelConfig {
 
 // Конфигурация для каждой модели
 const MODEL_CONFIGS: Record<MediaModel, ModelConfig> = {
-    NANO_BANANA_OPENROUTER: {
-        isNanoBanana: true,
-        isNanoBananaPro: false,
-        isNanoBananaProKieai: false,
-        isVeo: false,
-        isKling: false,
-        isKling25: false,
-        isImagen4: false,
-        isImagen4Ultra: false,
-        isSeedream4_5: false,
-        isSeedream4_5_Edit: false,
-        isElevenLabs: false,
-        supportsFormat: true,
-        supportsQuality: true,
-        supportsDuration: false,
-        supportsSound: false,
-        supportsVeoGenerationType: false,
-        supportsNegativePrompt: false,
-        supportsSeed: false,
-        supportsCfgScale: false,
-        supportsTailImageUrl: false,
-        supportsElevenLabsParams: false,
-    },
     MIDJOURNEY: {
         isNanoBanana: false,
         isNanoBananaPro: false,

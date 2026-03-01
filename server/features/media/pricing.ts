@@ -5,7 +5,6 @@ const MARKUP = 1.4; // 40% прибыль
 
 // Себестоимость (USD) из прежнего cost-utils.ts
 const BASE_COSTS: Partial<Record<MediaModel, number>> = {
-    NANO_BANANA_OPENROUTER: 0.05,
     NANO_BANANA_PRO_KIEAI: 0.09,
     NANO_BANANA_PRO_LAOZHANG: 0.05,
     IMAGEN4_KIEAI: 0.02,

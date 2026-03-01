@@ -9,13 +9,6 @@ export {
     type GPTunnelConfig,
 } from './gptunnel';
 
-// OpenRouter провайдер
-export {
-    createOpenRouterProvider,
-    getOpenRouterModels,
-    type OpenRouterConfig,
-} from './openrouter';
-
 // LaoZhang провайдер (Nano Banana Pro, Sora 2, Veo 3.1)
 export {
     createLaoZhangProvider,

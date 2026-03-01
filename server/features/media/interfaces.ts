@@ -2,7 +2,6 @@
 // Типы теперь строковые вместо enum
 
 export type MediaModel =
-    | 'NANO_BANANA_OPENROUTER'
     | 'MIDJOURNEY'
     | 'VEO_3_1_FAST_KIEAI'
     | 'SORA'
@@ -103,46 +102,6 @@ export interface MediaChatWithRequests {
   createdAt: Date;
   updatedAt: Date;
   requests: MediaRequestWithFiles[];
-}
-
-// OpenRouter API типы
-export interface OpenRouterMessage {
-  role: "user" | "assistant" | "system";
-  content: string | OpenRouterContent[];
-}
-
-export interface OpenRouterContent {
-  type: "text" | "image_url";
-  text?: string;
-  image_url?: {
-    url: string;
-  };
-}
-
-export interface OpenRouterImageResponse {
-  id: string;
-  choices: {
-    message: {
-      content: string;
-      role: string;
-    };
-    finish_reason: string;
-  }[];
-  model: string;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-}
-
-// Для генерации изображений Gemini возвращает base64
-export interface GeminiImagePart {
-  inlineData?: {
-    mimeType: string;
-    data: string; // base64
-  };
-  text?: string;
 }
 
 export interface PaginationParams {

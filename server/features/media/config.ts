@@ -3,7 +3,6 @@
 import "dotenv/config";
 
 export type MediaProviderType =
-  | "openrouter"
   | "gptunnel"
   | "laozhang"
   | "kieai"
@@ -25,18 +24,6 @@ export interface MediaModelConfig {
 
 // ИСХОДНЫЙ ОСНОВНОЙ ГЛАВНЫЙ СПИСОК ВСЕХ МОДЕЛЕЙ
 export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
-    NANO_BANANA_OPENROUTER: {
-        id: 'google/gemini-3-pro-image-preview',
-        name: 'Nano Banana Pro',
-        types: ['IMAGE'] as const,
-        maxPromptLength: 8192,
-        promptLimit: 5000,
-        supportsImageInput: true,
-        provider: 'openrouter',
-        pricing: {
-            output: 0.05,
-        },
-    },
     KLING_2_6_KIEAI: {
         id: 'kling-2-6',
         name: 'Kling 2.6',
@@ -272,16 +259,6 @@ export function getModelsByProvider(
 export function getModelConfig(modelKey: string): MediaModelConfig | undefined {
   return MEDIA_MODELS[modelKey];
 }
-
-// Конфигурация OpenRouter API
-export const openRouterConfig = {
-  apiKey: process.env.OPENROUTER_API_KEY || "",
-  baseURL: "https://openrouter.ai/api/v1",
-  defaultHeaders: {
-    "HTTP-Referer": process.env.APP_URL || "http://localhost:3000",
-    "X-Title": "AI Media API",
-  },
-};
 
 // Пути для сохранения файлов
 export const mediaStorageConfig = {

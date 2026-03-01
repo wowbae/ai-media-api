@@ -65,13 +65,18 @@ export const PROVIDER_STATUS_MAP: Record<string, TaskStatusResult["status"]> = {
 };
 
 // Абстрактный интерфейс провайдера медиа-генерации
+// Большинство провайдеров работают по async-схеме
 export interface MediaProvider {
   readonly name: string;
   readonly isAsync: boolean;
-  generate(
-    params: GenerateParams,
-  ): Promise<SavedFileInfo[] | TaskCreatedResult>;
+  
+  // Создать задачу (async провайдеры возвращают taskId, sync - сразу файлы)
+  generate(params: GenerateParams): Promise<TaskCreatedResult | SavedFileInfo[]>;
+  
+  // Проверить статус задачи (обязательно для async провайдеров)
   checkTaskStatus?(taskId: string): Promise<TaskStatusResult>;
+  
+  // Получить результат задачи (обязательно для async провайдеров)
   getTaskResult?(taskId: string): Promise<SavedFileInfo[]>;
 }
 

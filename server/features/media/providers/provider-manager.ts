@@ -1,7 +1,6 @@
 // Менеджер провайдеров - фабрика и маппинг моделей на провайдеры
 import type { MediaModel } from '../config';
 import type { MediaProvider } from './interfaces';
-import { createOpenRouterProvider } from './openrouter';
 import { createGPTunnelMediaProvider } from './gptunnel';
 import { createLaoZhangProvider } from './laozhang';
 import {
@@ -41,19 +40,6 @@ export interface ProviderManager {
 export function createProviderManager(): ProviderManager {
     // Создаём провайдеры
     const providers: Record<string, MediaProvider> = {};
-
-    // OpenRouter провайдер
-    const openRouterApiKey = process.env.OPENROUTER_API_KEY || '';
-    if (openRouterApiKey) {
-        providers.openrouter = createOpenRouterProvider({
-            apiKey: openRouterApiKey,
-            baseURL: 'https://openrouter.ai/api/v1',
-            defaultHeaders: {
-                'HTTP-Referer': process.env.APP_URL || 'http://localhost:3000',
-                'X-Title': 'AI Media API',
-            },
-        });
-    }
 
     // GPTunnel провайдеры
     const gptunnelApiKey = process.env.GPTUNNEL_API_KEY || '';

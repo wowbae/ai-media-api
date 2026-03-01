@@ -157,16 +157,6 @@ const GENERATION_TYPE_OPTIONS: GenerationTypeOption[] = [
 
 // Конфигурация настроек для всех моделей (значения по умолчанию прописываем здесь)
 export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
-    NANO_BANANA_OPENROUTER: {
-        format: {
-            options: FORMAT_OPTIONS_WITH_DEFAULT,
-            allowDefault: true,
-        },
-        quality: {
-            options: QUALITY_OPTIONS_WITH_DEFAULT,
-            allowDefault: true,
-        },
-    },
     NANO_BANANA_PRO_LAOZHANG: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,

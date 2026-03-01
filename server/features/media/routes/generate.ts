@@ -1,388 +1,265 @@
 // Роуты для генерации медиа
 import { Router, Request, Response } from 'express';
-import path from 'path';
 import { prisma } from 'prisma/client';
 import { Prisma } from '@prisma/client';
 import { generateMedia } from '../generation.service';
 import { copyFile } from '../file.service';
 import { mediaStorageConfig } from '../config';
 import { notifyTelegramGroup } from '../telegram.notifier';
-import type {
-    GenerateMediaRequest,
-    MediaModel,
-    RequestStatus,
-} from '../interfaces';
+import type { GenerateMediaRequest, MediaModel } from '../interfaces';
 import { invalidateChatCache } from './cache';
 import { authenticate } from '../../auth/routes';
 import { TokenService } from '../../tokens/token.service';
-import { MEDIA_MODELS } from '../config';
 import { getModelPricing } from '../pricing';
+import { convertBase64FilesToUrls } from '../file-converter.service';
 
 export function createGenerateRouter(): Router {
     const router = Router();
 
-    // Отправить запрос на генерацию
-    router.post(
-        '/generate',
-        authenticate,
-        async (req: Request, res: Response) => {
-            try {
-                const user = (req as any).user;
-                if (!user) {
-                    return res
-                        .status(401)
-                        .json({ success: false, error: 'Unauthorized' });
-                }
-                const {
-                    chatId,
-                    prompt,
-                    model,
-                    inputFiles,
-                    format,
-                    quality,
-                    videoQuality,
-                    duration: durationRaw,
-                    ar,
-                    sound,
-                    fixedLens,
-                    outputFormat,
-                    negativePrompt,
-                    seed,
-                    cfgScale,
-                    tailImageUrl,
-                    voice,
-                    stability,
-                    similarityBoost,
-                    speed,
-                    languageCode,
-                    generationType,
-                    originalTaskId,
-                } = req.body as GenerateMediaRequest;
+    /**
+     * POST /generate - Создать запрос на генерацию
+     * Возвращает requestId для отслеживания статуса через SSE
+     */
+    router.post('/generate', authenticate, async (req: Request, res: Response) => {
+        try {
+            const user = (req as any).user;
+            if (!user) {
+                return res.status(401).json({ success: false, error: 'Unauthorized' });
+            }
 
-                // Преобразуем duration в число, если оно передано
-                const duration = durationRaw !== undefined && durationRaw !== null
-                    ? (() => {
-                        const num = typeof durationRaw === 'string' 
-                            ? parseInt(durationRaw, 10) 
-                            : Number(durationRaw);
-                        return !isNaN(num) && isFinite(num) ? num : undefined;
-                    })()
-                    : undefined;
+            const {
+                chatId,
+                prompt,
+                model,
+                inputFiles,
+                format,
+                quality,
+                videoQuality,
+                duration: durationRaw,
+                ar,
+                sound,
+                fixedLens,
+                outputFormat,
+                negativePrompt,
+                seed,
+                cfgScale,
+                tailImageUrl,
+                voice,
+                stability,
+                similarityBoost,
+                speed,
+                languageCode,
+                generationType,
+                originalTaskId,
+            } = req.body as GenerateMediaRequest;
 
-                console.log('[API] POST /generate - получен запрос:', {
-                    chatId,
-                    prompt: prompt?.substring(0, 50),
-                    model,
-                    format,
-                    quality,
-                    videoQuality,
-                    duration,
-                    ar,
-                    generationType,
-                    outputFormat,
-                    negativePrompt: negativePrompt?.substring(0, 50),
-                    seed,
-                    cfgScale,
-                    tailImageUrl: tailImageUrl ? 'provided' : undefined,
-                    fixedLens,
-                    inputFilesCount: inputFiles?.length || 0,
-                    inputFiles: inputFiles?.map((f) => f.substring(0, 50) + "...") || [],
-                    timestamp: new Date().toISOString(),
-                });
+            // Преобразуем duration в число
+            const duration = durationRaw !== undefined && durationRaw !== null
+                ? (() => {
+                    const num = typeof durationRaw === 'string'
+                        ? parseInt(durationRaw, 10)
+                        : Number(durationRaw);
+                    return !isNaN(num) && isFinite(num) ? num : undefined;
+                })()
+                : undefined;
 
-                if (!chatId || typeof chatId !== 'number' || isNaN(chatId)) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'chatId обязателен и должен быть числом',
-                    });
-                }
-
-                if (!prompt || prompt.trim().length === 0) {
-                    return res
-                        .status(400)
-                        .json({ success: false, error: 'Промпт обязателен' });
-                }
-
-                // Проверяем существование чата
-                const chat = await prisma.mediaChat.findUnique({
-                    where: { id: chatId },
-                });
-
-                if (!chat) {
-                    return res
-                        .status(404)
-                        .json({ success: false, error: 'Чат не найден' });
-                }
-
-                // Определяем модель (из запроса или из настроек чата)
-                const selectedModel: MediaModel =
-                    model || (chat.model as MediaModel);
-
-                // Стоимость запроса
-                const pricing = getModelPricing(selectedModel as any);
-                const costUsd = pricing?.finalPrice ?? null;
-                const costTokens = pricing?.tokens ?? null;
-
-                if (user && (costTokens ?? 0) > 0) {
-                    const balance = await TokenService.getBalance(user.userId);
-                    if (balance < (costTokens ?? 0)) {
-                        return res.status(402).json({
-                            success: false,
-                            error: 'Недостаточно токенов',
-                        });
-                    }
-                }
-
-                // Обрабатываем inputFiles: конвертируем base64 в URL для обратной совместимости
-                // По умолчанию файлы уже загружены на imgbb и приходят как URL
-                let processedInputFiles: string[] = inputFiles || [];
-                if (inputFiles && inputFiles.length > 0) {
-                    const base64Files = inputFiles.filter(
-                        (file) =>
-                            file.startsWith('data:image') ||
-                            file.startsWith('data:video')
-                    );
-
-                    if (base64Files.length > 0) {
-                        console.warn(
-                            `[API] ⚠️ DEPRECATED: Обнаружены base64 файлы (${base64Files.length}), конвертируем в URL для обратной совместимости. ` +
-                                `Новый клиент должен отправлять файлы уже как URL через imgbb.`
-                        );
-
-                        try {
-                            const { uploadMultipleToImgbb, isImgbbConfigured } =
-                                await import('../imgbb.service');
-
-                            if (isImgbbConfigured()) {
-                                // Загружаем только изображения на imgbb (видео не поддерживаются imgbb)
-                                const imageFiles = base64Files.filter((file) =>
-                                    file.startsWith('data:image')
-                                );
-                                const videoFiles = base64Files.filter((file) =>
-                                    file.startsWith('data:video')
-                                );
-
-                                if (imageFiles.length > 0) {
-                                    const urls =
-                                        await uploadMultipleToImgbb(imageFiles);
-                                    // Заменяем base64 на URL для изображений
-                                    let urlIndex = 0;
-                                    let successCount = 0;
-                                    processedInputFiles = inputFiles.map(
-                                        (file) => {
-                                            if (file.startsWith('data:image')) {
-                                                const url = urls[urlIndex++];
-                                                // Используем URL только если он не пустой, иначе fallback на base64
-                                                if (url && url.trim() !== '') {
-                                                    successCount++;
-                                                    return url;
-                                                }
-                                                return file; // Fallback на base64 если загрузка не удалась
-                                            }
-                                            return file;
-                                        }
-                                    );
-                                    console.log(
-                                        `[API] ✅ Конвертировано ${successCount} из ${imageFiles.length} base64 изображений в URL`
-                                    );
-                                }
-
-                                // Видео остаются как base64 (imgbb их не поддерживает)
-                                if (videoFiles.length > 0) {
-                                    console.log(
-                                        `[API] ℹ️ Видео файлы (${videoFiles.length}) остаются как base64 (imgbb их не поддерживает)`
-                                    );
-                                }
-                            }
-                        } catch (error) {
-                            console.error(
-                                '[API] ❌ Ошибка конвертации base64 в URL (используем исходные файлы):',
-                                error
-                            );
-                            // Продолжаем с исходными файлами (base64)
-                        }
-                    }
-                }
-
-                // Проверяем, нет ли активных запросов с таким же промптом (защита от дубликатов)
-                const recentRequest = await prisma.mediaRequest.findFirst({
-                    where: {
-                        chatId,
-                        prompt: prompt.trim(),
-                        status: {
-                            in: ['PENDING', 'PROCESSING'],
-                        },
-                        createdAt: {
-                            gte: new Date(Date.now() - 5000), // последние 5 секунд
-                        },
-                    },
-                    orderBy: {
-                        createdAt: 'desc',
-                    },
-                });
-
-                if (recentRequest) {
-                    console.log('[API] ⚠️ Обнаружен дубликат запроса:', {
-                        existingRequestId: recentRequest.id,
-                        status: recentRequest.status,
-                        createdAt: recentRequest.createdAt,
-                    });
-                    return res.status(202).json({
-                        success: true,
-                        data: {
-                            requestId: recentRequest.id,
-                            status: recentRequest.status,
-                            message: 'Запрос уже обрабатывается',
-                        },
-                    });
-                }
-
-                // Создаем запрос в БД (сохраняем обработанные inputFiles - URL для изображений, base64 для видео)
-                // Сохраняем все параметры запроса в поле settings для возможности повтора
-                const requestSettings: Record<string, unknown> = {};
-                if (format !== undefined) requestSettings.format = format;
-                if (quality !== undefined) requestSettings.quality = quality;
-                if (videoQuality !== undefined)
-                    requestSettings.videoQuality = videoQuality;
-                if (duration !== undefined) requestSettings.duration = duration;
-                if (ar !== undefined) requestSettings.ar = ar;
-                if (generationType !== undefined)
-                    requestSettings.generationType = generationType;
-                if (sound !== undefined) requestSettings.sound = sound;
-                if (fixedLens !== undefined)
-                    requestSettings.fixedLens = fixedLens;
-                if (outputFormat !== undefined)
-                    requestSettings.outputFormat = outputFormat;
-                if (
-                    negativePrompt !== undefined &&
-                    negativePrompt.trim() !== ''
-                )
-                    requestSettings.negativePrompt = negativePrompt;
-                if (cfgScale !== undefined) requestSettings.cfgScale = cfgScale;
-                if (tailImageUrl !== undefined && tailImageUrl.trim() !== '')
-                    requestSettings.tailImageUrl = tailImageUrl;
-                if (voice !== undefined && voice.trim() !== '')
-                    requestSettings.voice = voice;
-                if (stability !== undefined)
-                    requestSettings.stability = stability;
-                if (similarityBoost !== undefined)
-                    requestSettings.similarityBoost = similarityBoost;
-                if (speed !== undefined) requestSettings.speed = speed;
-                if (languageCode !== undefined && languageCode.trim() !== '')
-                    requestSettings.languageCode = languageCode;
-
-                const mediaRequest = await prisma.mediaRequest.create({
-                    data: {
-                        chatId,
-                        prompt: prompt.trim(),
-                        model: selectedModel, // Сохраняем модель, использованную для этого запроса
-                        inputFiles: processedInputFiles,
-                        status: 'PENDING',
-                        seed:
-                            seed !== undefined &&
-                            seed !== null &&
-                            String(seed).trim() !== ''
-                                ? String(seed)
-                                : null,
-                        settings: requestSettings as Prisma.InputJsonValue,
-                        costUsd:
-                            costUsd !== null
-                                ? new Prisma.Decimal(costUsd)
-                                : null,
-                        costTokens: costTokens ?? null,
-                    },
-                });
-
-                // Deduct tokens
-                if (user && (costTokens ?? 0) > 0) {
-                    try {
-                        await TokenService.deductTokens(
-                            user.userId,
-                            costTokens ?? 0,
-                            `Generation: ${selectedModel}`,
-                            mediaRequest.id
-                        );
-                    } catch (e) {
-                        console.error(
-                            '[API] Failed to deduct tokens, but request was created:',
-                            e
-                        );
-                    }
-                }
-
-                // Инвалидируем кеш чата (новый запрос создан)
-                invalidateChatCache(chatId);
-
-                console.log('[API] ✅ Создан новый запрос на генерацию:', {
-                    requestId: mediaRequest.id,
-                    chatId,
-                    model: selectedModel,
-                });
-
-                // Обновляем updatedAt чата
-                await prisma.mediaChat.update({
-                    where: { id: chatId },
-                    data: { updatedAt: new Date() },
-                });
-
-                // Запускаем генерацию асинхронно (передаем обработанные inputFiles - URL для изображений)
-                console.log('[API] Запуск generateMedia с параметрами:', {
-                    requestId: mediaRequest.id,
-                    model: selectedModel,
-                    processedInputFilesCount: processedInputFiles.length,
-                    processedInputFiles: processedInputFiles.map((f) => f.substring(0, 50) + "..."),
-                    fixedLens,
-                    sound,
-                });
-
-                generateMedia({
-                    requestId: mediaRequest.id,
-                    prompt: prompt.trim(),
-                    model: selectedModel,
-                    inputFiles: processedInputFiles,
-                    format,
-                    quality,
-                    videoQuality,
-                    duration,
-                    ar,
-                    generationType,
-                    originalTaskId,
-                    sound,
-                    fixedLens,
-                    outputFormat,
-                    negativePrompt,
-                    seed,
-                    cfgScale,
-                    tailImageUrl,
-                    voice,
-                    stability,
-                    similarityBoost,
-                    speed,
-                    languageCode
-                }).catch((error) => {
-                    console.error('Ошибка генерации:', error);
-                });
-
-                res.status(202).json({
-                    success: true,
-                    data: {
-                        requestId: mediaRequest.id,
-                        status: mediaRequest.status,
-                        message: 'Запрос на генерацию принят',
-                    },
-                });
-            } catch (error) {
-                console.error('Ошибка создания запроса:', error);
-                res.status(500).json({
+            // Валидация
+            if (!chatId || typeof chatId !== 'number' || isNaN(chatId)) {
+                return res.status(400).json({
                     success: false,
-                    error: 'Ошибка создания запроса',
+                    error: 'chatId обязателен и должен быть числом',
                 });
             }
-        }
-    );
 
-    // Тестовый режим: создать запрос с последним файлом из чата (ЗАГЛУШКА - НЕ вызывает нейронку!)
-    // ВАЖНО: Этот эндпоинт НЕ вызывает generateMedia() и НЕ отправляет запросы в API нейронки
+            if (!prompt || prompt.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Промпт обязателен',
+                });
+            }
+
+            // Проверяем существование чата
+            const chat = await prisma.mediaChat.findUnique({
+                where: { id: chatId },
+            });
+
+            if (!chat) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Чат не найден',
+                });
+            }
+
+            // Определяем модель
+            const selectedModel: MediaModel = model || (chat.model as MediaModel);
+
+            // Рассчитываем стоимость
+            const pricing = getModelPricing(selectedModel as any);
+            const costUsd = pricing?.finalPrice ?? null;
+            const costTokens = pricing?.tokens ?? null;
+
+            // Проверяем баланс
+            if (user && (costTokens ?? 0) > 0) {
+                const balance = await TokenService.getBalance(user.userId);
+                if (balance < (costTokens ?? 0)) {
+                    return res.status(402).json({
+                        success: false,
+                        error: 'Недостаточно токенов',
+                    });
+                }
+            }
+
+            // Конвертируем base64 файлы в URL (изображения → imgbb, видео → base64)
+            const { processedFiles } = await convertBase64FilesToUrls(inputFiles);
+
+            // Проверяем дубликаты запросов
+            const recentRequest = await prisma.mediaRequest.findFirst({
+                where: {
+                    chatId,
+                    prompt: prompt.trim(),
+                    status: { in: ['PENDING', 'PROCESSING'] },
+                    createdAt: { gte: new Date(Date.now() - 5000) },
+                },
+                orderBy: { createdAt: 'desc' },
+            });
+
+            if (recentRequest) {
+                console.log('[API] ⚠️ Обнаружен дубликат запроса:', {
+                    existingRequestId: recentRequest.id,
+                    status: recentRequest.status,
+                });
+                return res.status(202).json({
+                    success: true,
+                    data: {
+                        requestId: recentRequest.id,
+                        status: recentRequest.status,
+                        message: 'Запрос уже обрабатывается',
+                    },
+                });
+            }
+
+            // Сохраняем настройки запроса
+            const requestSettings: Record<string, unknown> = {};
+            if (format !== undefined) requestSettings.format = format;
+            if (quality !== undefined) requestSettings.quality = quality;
+            if (videoQuality !== undefined) requestSettings.videoQuality = videoQuality;
+            if (duration !== undefined) requestSettings.duration = duration;
+            if (ar !== undefined) requestSettings.ar = ar;
+            if (generationType !== undefined) requestSettings.generationType = generationType;
+            if (sound !== undefined) requestSettings.sound = sound;
+            if (fixedLens !== undefined) requestSettings.fixedLens = fixedLens;
+            if (outputFormat !== undefined) requestSettings.outputFormat = outputFormat;
+            if (negativePrompt !== undefined && negativePrompt.trim() !== '') {
+                requestSettings.negativePrompt = negativePrompt;
+            }
+            if (cfgScale !== undefined) requestSettings.cfgScale = cfgScale;
+            if (tailImageUrl !== undefined && tailImageUrl.trim() !== '') {
+                requestSettings.tailImageUrl = tailImageUrl;
+            }
+            if (voice !== undefined && voice.trim() !== '') {
+                requestSettings.voice = voice;
+            }
+            if (stability !== undefined) requestSettings.stability = stability;
+            if (similarityBoost !== undefined) requestSettings.similarityBoost = similarityBoost;
+            if (speed !== undefined) requestSettings.speed = speed;
+            if (languageCode !== undefined && languageCode.trim() !== '') {
+                requestSettings.languageCode = languageCode;
+            }
+
+            // Создаём запрос в БД
+            const mediaRequest = await prisma.mediaRequest.create({
+                data: {
+                    chatId,
+                    prompt: prompt.trim(),
+                    model: selectedModel,
+                    inputFiles: processedFiles,
+                    status: 'PENDING',
+                    seed: seed !== undefined && seed !== null && String(seed).trim() !== ''
+                        ? String(seed)
+                        : null,
+                    settings: requestSettings as Prisma.InputJsonValue,
+                    costUsd: costUsd !== null ? new Prisma.Decimal(costUsd) : null,
+                    costTokens: costTokens ?? null,
+                },
+            });
+
+            // Списываем токены
+            if (user && (costTokens ?? 0) > 0) {
+                try {
+                    await TokenService.deductTokens(
+                        user.userId,
+                        costTokens ?? 0,
+                        `Generation: ${selectedModel}`,
+                        mediaRequest.id
+                    );
+                } catch (e) {
+                    console.error('[API] Failed to deduct tokens:', e);
+                }
+            }
+
+            // Инвалидируем кеш и обновляем чат
+            invalidateChatCache(chatId);
+            await prisma.mediaChat.update({
+                where: { id: chatId },
+                data: { updatedAt: new Date() },
+            });
+
+            // Запускаем генерацию асинхронно
+            console.log('[API] 🚀 Запуск генерации:', {
+                requestId: mediaRequest.id,
+                model: selectedModel,
+                filesCount: processedFiles.length,
+            });
+
+            generateMedia({
+                requestId: mediaRequest.id,
+                prompt: prompt.trim(),
+                model: selectedModel,
+                inputFiles: processedFiles,
+                format,
+                quality,
+                videoQuality,
+                duration,
+                ar,
+                generationType,
+                originalTaskId,
+                sound,
+                fixedLens,
+                outputFormat,
+                negativePrompt,
+                seed,
+                cfgScale,
+                tailImageUrl,
+                voice,
+                stability,
+                similarityBoost,
+                speed,
+                languageCode,
+            }).catch((error) => {
+                console.error('[API] Ошибка генерации:', error);
+            });
+
+            res.status(202).json({
+                success: true,
+                data: {
+                    requestId: mediaRequest.id,
+                    status: mediaRequest.status,
+                    message: 'Запрос на генерацию принят',
+                },
+            });
+        } catch (error) {
+            console.error('Ошибка создания запроса:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Ошибка создания запроса',
+            });
+        }
+    });
+
+    /**
+     * POST /generate-test - Тестовый режим (копирование последнего файла из чата)
+     * НЕ вызывает нейронку, используется для тестирования
+     */
     router.post('/generate-test', async (req: Request, res: Response) => {
         try {
             const { chatId, prompt, seed } = req.body as {
@@ -391,15 +268,10 @@ export function createGenerateRouter(): Router {
                 seed?: string | number;
             };
 
-            console.log(
-                '[API] 🧪 POST /generate-test - ТЕСТОВЫЙ РЕЖИМ (заглушка, БЕЗ вызова нейронки):',
-                {
-                    chatId,
-                    prompt: prompt?.substring(0, 50),
-                    note: 'Используется последний файл из чата, запрос в API нейронки НЕ отправляется',
-                    timestamp: new Date().toISOString(),
-                }
-            );
+            console.log('[API] 🧪 POST /generate-test - ТЕСТОВЫЙ РЕЖИМ:', {
+                chatId,
+                prompt: prompt?.substring(0, 50),
+            });
 
             if (!chatId || typeof chatId !== 'number' || isNaN(chatId)) {
                 return res.status(400).json({
@@ -409,70 +281,57 @@ export function createGenerateRouter(): Router {
             }
 
             if (!prompt || prompt.trim().length === 0) {
-                return res
-                    .status(400)
-                    .json({ success: false, error: 'Промпт обязателен' });
+                return res.status(400).json({
+                    success: false,
+                    error: 'Промпт обязателен',
+                });
             }
 
-            // Проверяем существование чата
             const chat = await prisma.mediaChat.findUnique({
                 where: { id: chatId },
             });
 
             if (!chat) {
-                return res
-                    .status(404)
-                    .json({ success: false, error: 'Чат не найден' });
+                return res.status(404).json({
+                    success: false,
+                    error: 'Чат не найден',
+                });
             }
 
             // Находим последний файл в чате
             const lastFile = await prisma.mediaFile.findFirst({
                 where: {
-                    request: {
-                        chatId,
-                    },
+                    request: { chatId },
                 },
-                orderBy: {
-                    createdAt: 'desc',
-                },
+                orderBy: { createdAt: 'desc' },
             });
 
             if (!lastFile) {
-                console.log('[API] 🧪 Тестовый режим: файлов в чате нет');
                 return res.status(404).json({
                     success: false,
                     error: 'В чате нет файлов для тестового режима',
                 });
             }
 
-            console.log('[API] 🧪 Тестовый режим: найден последний файл:', {
-                fileId: lastFile.id,
-                filename: lastFile.filename,
-                path: lastFile.path,
-            });
-
-            // Создаем новый запрос со статусом COMPLETED
+            // Создаём запрос со статусом COMPLETED
             const mediaRequest = await prisma.mediaRequest.create({
                 data: {
                     chatId,
                     prompt: prompt.trim(),
-                    model: chat.model, // Сохраняем модель чата для тестового режима
+                    model: chat.model,
                     inputFiles: [],
                     status: 'COMPLETED',
                     completedAt: new Date(),
-                    seed:
-                        seed !== undefined &&
-                        seed !== null &&
-                        String(seed).trim() !== ''
-                            ? String(seed)
-                            : null,
+                    seed: seed !== undefined && seed !== null && String(seed).trim() !== ''
+                        ? String(seed)
+                        : null,
                 },
             });
 
             if (!lastFile.path) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Последний файл не имеет локального пути и не может быть скопирован',
+                    error: 'Последний файл не имеет локального пути',
                 });
             }
 
@@ -480,19 +339,19 @@ export function createGenerateRouter(): Router {
             const { path: newFilePath, previewPath: newPreviewPath } =
                 await copyFile(lastFile.path, lastFile.previewPath);
 
-            // Получаем размер исходного файла
+            // Получаем размер файла
             const { stat } = await import('fs/promises');
-            const absolutePath = path.isAbsolute(newFilePath)
+            const absolutePath = require('path').isAbsolute(newFilePath)
                 ? newFilePath
-                : path.join(mediaStorageConfig.basePath, newFilePath);
+                : require('path').join(mediaStorageConfig.basePath, newFilePath);
             const fileStat = await stat(absolutePath);
 
-            // Создаем новую запись файла
+            // Создаём запись файла
             const newMediaFile = await prisma.mediaFile.create({
                 data: {
                     requestId: mediaRequest.id,
                     type: lastFile.type,
-                    filename: path.basename(newFilePath),
+                    filename: require('path').basename(newFilePath),
                     path: newFilePath,
                     previewPath: newPreviewPath,
                     size: fileStat.size,
@@ -501,53 +360,36 @@ export function createGenerateRouter(): Router {
                 },
             });
 
-            // Обновляем updatedAt чата
+            // Обновляем чат
             await prisma.mediaChat.update({
                 where: { id: chatId },
                 data: { updatedAt: new Date() },
             });
 
-            // Инвалидируем кеш
             invalidateChatCache(chatId);
 
             console.log('[API] 🧪 Тестовый режим: запрос создан:', {
                 requestId: mediaRequest.id,
                 fileId: newMediaFile.id,
-                chatId,
             });
 
-            // Возвращаем ответ фронтенду сразу, чтобы файл появился в чате без задержки
+            // Возвращаем ответ сразу
             res.status(201).json({
                 success: true,
                 data: {
                     requestId: mediaRequest.id,
-                    status: 'COMPLETED' as const,
+                    status: 'COMPLETED',
                     message: 'Тестовый запрос создан',
                 },
             });
 
-            // Отправляем уведомление в Telegram асинхронно (не ждем, чтобы не блокировать ответ)
-            console.log(
-                '[API] 🧪 Тестовый режим: отправка уведомления в Telegram (асинхронно)'
-            );
+            // Отправляем уведомление в Telegram асинхронно
             notifyTelegramGroup(newMediaFile, chat.name, prompt.trim())
-                .then((telegramResult) => {
-                    console.log(
-                        `[API] 🧪 Тестовый режим: Telegram уведомление ${telegramResult ? 'отправлено' : 'не отправлено'}`
-                    );
-                })
-                .catch((telegramError) => {
-                    console.error(
-                        '[API] 🧪 Тестовый режим: ошибка отправки в Telegram:',
-                        telegramError
-                    );
-                    // Не прерываем выполнение если Telegram не работает
+                .catch((error) => {
+                    console.error('[API] Ошибка отправки в Telegram:', error);
                 });
         } catch (error) {
-            console.error(
-                '[API] 🧪 Тестовый режим: ошибка создания запроса:',
-                error
-            );
+            console.error('[API] Ошибка создания тестового запроса:', error);
             res.status(500).json({
                 success: false,
                 error: 'Ошибка создания тестового запроса',

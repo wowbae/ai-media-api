@@ -1,5 +1,6 @@
 // LaoZhang провайдер для работы с моделями через LaoZhang API
 // Используется для Nano Banana Pro (изображения), Sora 2 и Veo 3.1 (видео)
+// Все модели работают по async-схеме с использованием временного хранилища
 import type {
   MediaProvider,
   GenerateParams,
@@ -11,6 +12,7 @@ import type { SavedFileInfo } from "../../file.service";
 import { saveBase64File, saveFileFromUrl } from "../../file.service";
 import { MEDIA_MODELS } from "../../config";
 import type { MediaModelConfig } from "../../config";
+import { createTask, completeTask, failTask, getTaskStatus, getTaskResult, updateTaskStatus } from "../task-storage.utils";
 import type {
   LaoZhangConfig,
   LaoZhangMessage,

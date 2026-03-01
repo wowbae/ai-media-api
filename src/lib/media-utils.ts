@@ -26,13 +26,13 @@ export function formatTime(dateString: string): string {
 }
 
 // Получить отображаемое название провайдера
-// Провайдеры: openrouter, gptunnel, laozhang, kieai
+// Провайдеры: gptunnel, laozhang, kieai, wavespeed
 export function getProviderDisplayName(provider: string): string {
     const providerNames: Record<string, string> = {
-        openrouter: 'OpenRouter',
         gptunnel: 'GPTunnel',
         laozhang: 'LaoZhang',
         kieai: 'Kie.ai',
+        wavespeed: 'Wavespeed',
     };
     return providerNames[provider] || provider;
 }

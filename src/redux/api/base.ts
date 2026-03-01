@@ -9,7 +9,6 @@ export const API_BASE_URL = config.apiUrl;
 // ==================== Базовые типы ====================
 
 export type MediaModel =
-    | 'NANO_BANANA_OPENROUTER'
     | 'MIDJOURNEY'
     | 'VEO_3_1_FAST_KIEAI'
     | 'NANO_BANANA_PRO_LAOZHANG'
@@ -30,7 +29,6 @@ export type MediaModel =
 export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
 export type RequestStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 export type MediaProviderType =
-    | 'openrouter'
     | 'gptunnel'
     | 'laozhang'
     | 'kieai'

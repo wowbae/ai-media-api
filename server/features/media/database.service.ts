@@ -1,19 +1,19 @@
 // Сервис для работы с базой данных медиа-файлов
-// Отвечает за сохранение, отправку в Telegram и синхронизацию файлов
+// Отвечает только за сохранение файлов в БД
 import { MediaFile } from "@prisma/client";
 import { prisma } from "prisma/client";
-import { notifyTelegramGroupBatch } from "./telegram.notifier";
 import type { SavedFileInfo } from "./file.service";
 import { existsSync } from "fs";
 import path from "path";
 import { mediaStorageConfig } from "./config";
 
-// Сохранение файлов в БД (атомарная операция с транзакцией)
-// Все файлы сохраняются в рамках одной транзакции для целостности данных
+/**
+ * Сохранение файлов в БД (атомарная операция с транзакцией)
+ * Все файлы сохраняются в рамках одной транзакции для целостности данных
+ */
 export async function saveFilesToDatabase(
   requestId: number,
   savedFiles: SavedFileInfo[],
-  prompt: string,
 ): Promise<MediaFile[]> {
   const request = await prisma.mediaRequest.findUnique({
     where: { id: requestId },
@@ -71,82 +71,12 @@ export async function saveFilesToDatabase(
     return files;
   });
 
-  // Асинхронная загрузка превью на imgbb (не блокирует ответ, не в транзакции)
-  for (const file of savedMediaFiles) {
-    if (file.type === "IMAGE" && file.previewPath && !file.previewUrl) {
-      uploadPreviewToImgbb(file.id, file.previewPath).catch((error) => {
-        console.error(
-          `[MediaDatabase] ❌ Ошибка загрузки превью на imgbb (fileId=${file.id}):`,
-          error
-        );
-      });
-    }
-  }
-
   return savedMediaFiles;
 }
 
-// Отправка файлов в Telegram
-export async function sendFilesToTelegram(
-  requestId: number,
-  files: MediaFile[],
-  prompt: string,
-): Promise<void> {
-  if (files.length === 0) {
-    console.warn(`[MediaDatabase] ⚠️ Нет файлов для отправки в Telegram: requestId=${requestId}`);
-    return;
-  }
-
-  console.log(`[MediaDatabase] 📤 Начало отправки файлов в Telegram: requestId=${requestId}, файлов: ${files.length}`);
-  
-  // Логируем информацию о файлах
-  for (const file of files) {
-    console.log(`[MediaDatabase] Файл для отправки: id=${file.id}, type=${file.type}, path=${file.path ? 'есть' : 'нет'}, url=${file.url ? 'есть' : 'нет'}, filename=${file.filename}`);
-  }
-
-  const request = await prisma.mediaRequest.findUnique({
-    where: { id: requestId },
-    include: { chat: true },
-  });
-
-  if (!request) {
-    console.error(`[MediaDatabase] ❌ Request не найден для отправки в Telegram: ${requestId}`);
-    return;
-  }
-
-  if (!request.chat) {
-    console.error(`[MediaDatabase] ❌ Чат не найден для requestId=${requestId}`);
-    return;
-  }
-
-  console.log(`[MediaDatabase] Чат найден: name=${request.chat.name}, id=${request.chat.id}`);
-
-  try {
-    const telegramResult = await notifyTelegramGroupBatch(
-      files,
-      request.chat.name,
-      prompt,
-    );
-    
-    if (telegramResult) {
-      console.log(
-        `[MediaDatabase] ✅ Telegram: успешно отправлено (${files.length} файлов)`,
-      );
-    } else {
-      console.error(
-        `[MediaDatabase] ❌ Telegram: не удалось отправить (${files.length} файлов)`,
-      );
-    }
-  } catch (telegramError) {
-    console.error("[MediaDatabase] ❌ Ошибка Telegram:", telegramError);
-    if (telegramError instanceof Error) {
-      console.error("[MediaDatabase] Stack trace:", telegramError.stack);
-    }
-    // Не прерываем выполнение, просто логируем ошибку
-  }
-}
-
-// Обновление URL файлов в БД после загрузки на imgbb
+/**
+ * Обновление URL файлов в БД после загрузки на imgbb
+ */
 export async function updateFileUrlsInDatabase(
   requestId: number,
   files: Array<{
@@ -184,54 +114,9 @@ export async function updateFileUrlsInDatabase(
   }
 }
 
-// Асинхронная загрузка превью на imgbb в фоне
-async function uploadPreviewToImgbb(
-  fileId: number,
-  previewPath: string
-): Promise<void> {
-  try {
-    const { uploadToImgbb, isImgbbConfigured } = await import("./imgbb.service");
-    const { readFile } = await import("fs/promises");
-    const { join } = await import("path");
-
-    if (!isImgbbConfigured()) {
-      console.log(
-        `[MediaDatabase] IMGBB_API_KEY не настроен, пропускаем загрузку превью для fileId=${fileId}`
-      );
-      return;
-    }
-
-    // Читаем файл превью
-    const absolutePreviewPath = join(
-      process.cwd(),
-      mediaStorageConfig.basePath,
-      previewPath
-    );
-
-    const previewBuffer = await readFile(absolutePreviewPath);
-
-    // Загружаем на imgbb (используем display_url для превью - сжатая версия для быстрой загрузки)
-    const previewUrl = await uploadToImgbb(previewBuffer, 0, true);
-
-    // Обновляем запись в БД
-    await prisma.mediaFile.update({
-      where: { id: fileId },
-      data: { previewUrl },
-    });
-
-    console.log(
-      `[MediaDatabase] ✅ Превью загружено на imgbb: fileId=${fileId}, url=${previewUrl}`
-    );
-  } catch (error) {
-    console.error(
-      `[MediaDatabase] ❌ Ошибка загрузки превью на imgbb (fileId=${fileId}):`,
-      error
-    );
-    // Не выбрасываем ошибку, просто логируем
-  }
-}
-
-// Синхронизация БД с файловой системой - удаление записей о несуществующих файлах
+/**
+ * Синхронизация БД с файловой системой - удаление записей о несуществующих файлах
+ */
 export function syncMediaFilesWithFileSystem(delayMs: number = 5000): void {
   // Откладываем запуск, чтобы не блокировать старт сервера
   setTimeout(() => {
@@ -242,7 +127,9 @@ export function syncMediaFilesWithFileSystem(delayMs: number = 5000): void {
   }, delayMs);
 }
 
-// Внутренняя функция для выполнения синхронизации
+/**
+ * Внутренняя функция для выполнения синхронизации
+ */
 async function performSync(): Promise<void> {
   console.log(
     "[MediaDatabase] 🔄 Начало синхронизации БД с файловой системой...",

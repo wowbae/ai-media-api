@@ -8,7 +8,6 @@ import { handlers } from "./features/telegram/bot/handlers/export";
 import { authRouter } from "./features/auth/routes";
 import { mediaRouter } from "./features/media/routes/index";
 import { telegramRouter } from "./features/telegram/routes";
-import { recoverUnfinishedTasks } from "./features/media/generation.service";
 import { syncMediaFilesWithFileSystem } from "./features/media/database.service";
 import { getTelegramBotService, getBot } from "./features/telegram/bot/bot.service";
 import { serverConfig } from "./config";
@@ -64,9 +63,6 @@ const server = app.listen(serverConfig.port, () => {
   console.log(`🚀 Server is running on port ${serverConfig.port}`);
 
   syncMediaFilesWithFileSystem(5000);
-  recoverUnfinishedTasks().catch((error) => {
-    console.error("❌ Ошибка при восстановлении незавершенных задач:", error);
-  });
 });
 
 // Обработка ошибок сервера

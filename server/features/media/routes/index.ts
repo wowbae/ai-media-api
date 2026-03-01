@@ -9,6 +9,7 @@ import { createModelsRouter } from './models';
 import { createPricingRouter } from './pricing';
 import { createKieCreditsRouter } from './kie-credits';
 import { createSSERouter } from './sse';
+import { createCompletionRouter } from './completion';
 
 export const mediaRouter = Router();
 
@@ -24,3 +25,4 @@ mediaRouter.use(createModelsRouter());
 mediaRouter.use(createPricingRouter());
 mediaRouter.use(createKieCreditsRouter());
 mediaRouter.use(createSSERouter());
+mediaRouter.use(createCompletionRouter());
