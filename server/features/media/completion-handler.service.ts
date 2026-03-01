@@ -8,6 +8,7 @@ import { sendFilesToTelegram } from "./telegram-notify.service";
 import { saveFileFromUrl, type SavedFileInfo } from "./file.service";
 import { sendSSENotification } from "./sse-notification.utils";
 import { formatErrorMessage } from "./error-utils";
+import { invalidateChatCache } from "./routes/cache";
 
 /**
  * Обработать завершение задачи (успех)
@@ -24,7 +25,7 @@ export async function handleTaskCompleted(
   // просто помечаем COMPLETED и выходим — без повторной отправки в Telegram
   const existing = await prisma.mediaRequest.findUnique({
     where: { id: requestId },
-    select: { status: true, files: { select: { id: true } } },
+    select: { status: true, chatId: true, files: { select: { id: true } } },
   });
   if (existing?.status !== 'COMPLETED' && existing?.files && existing.files.length > 0) {
     console.log(`[CompletionHandler] Запрос requestId=${requestId} уже имеет файлы, помечаем COMPLETED без повторной обработки`);
@@ -32,6 +33,7 @@ export async function handleTaskCompleted(
       where: { id: requestId },
       data: { status: 'COMPLETED', completedAt: new Date() },
     });
+    if (existing.chatId) invalidateChatCache(existing.chatId);
     await sendSSENotification(requestId, 'COMPLETED', { filesCount: existing.files.length });
     return;
   }
@@ -89,13 +91,15 @@ export async function handleTaskCompleted(
       console.error(`[CompletionHandler] ⚠️ Ошибка загрузки на imgbb: requestId=${requestId}:`, error instanceof Error ? error.message : error);
     }
 
-    await prisma.mediaRequest.update({
+    const request = await prisma.mediaRequest.update({
       where: { id: requestId },
       data: {
         status: 'COMPLETED',
         completedAt: new Date(),
       },
+      select: { chatId: true },
     });
+    invalidateChatCache(request.chatId);
 
     await sendSSENotification(requestId, 'COMPLETED', {
       filesCount: savedFiles.length,
@@ -105,13 +109,15 @@ export async function handleTaskCompleted(
       `[CompletionHandler] ✅ Генерация завершена: requestId=${requestId}, файлов: ${savedFiles.length}`,
     );
   } catch (error) {
-    await prisma.mediaRequest.update({
+    const failed = await prisma.mediaRequest.update({
       where: { id: requestId },
       data: {
         status: 'FAILED',
         errorMessage: error instanceof Error ? error.message : 'Ошибка обработки завершения',
       },
+      select: { chatId: true },
     });
+    invalidateChatCache(failed.chatId);
     throw error;
   }
 }
@@ -142,13 +148,15 @@ export async function handleTaskFailed(
     { error: status.error, provider: provider.name, model },
   );
 
-  await prisma.mediaRequest.update({
+  const updated = await prisma.mediaRequest.update({
     where: { id: requestId },
     data: {
       status: 'FAILED',
       errorMessage: formattedErrorMessage,
     },
+    select: { chatId: true },
   });
+  invalidateChatCache(updated.chatId);
 
   // Отправляем SSE уведомление об ошибке
   await sendSSENotification(requestId, 'FAILED', {

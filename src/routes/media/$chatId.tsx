@@ -56,7 +56,7 @@ function MediaChatPage() {
             // Всегда обновлять при монтировании или изменении аргументов
             refetchOnMountOrArgChange: true,
             skip: false,
-        }
+        },
     );
 
     // Debug logging для отслеживания загрузки чата
@@ -78,11 +78,11 @@ function MediaChatPage() {
     const { isTestMode } = useTestMode();
 
     const [currentModel, setCurrentModel] = useState<MediaModel>(
-        'NANO_BANANA_PRO_KIEAI'
+        'NANO_BANANA_PRO_KIEAI',
     );
     // Локальное состояние для оптимистичного отображения pending-сообщения
     const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(
-        null
+        null,
     );
     const chatInputRef = useRef<ChatInputRef>(null);
     const isInitialLoadRef = useRef(true);
@@ -180,7 +180,7 @@ function MediaChatPage() {
     function handleRequestCreated(requestId: number) {
         console.log(
             '[Chat] ✅ Новый запрос создан, SSE автоматически обновит UI:',
-            { requestId }
+            { requestId },
         );
 
         // Сохраняем requestId в pending для точного сравнения
@@ -205,14 +205,14 @@ function MediaChatPage() {
     // Убираем pending-сообщение если реальный запрос появился
     const activeRequests = useMemo(
         () => chat?.requests || [],
-        [chat?.requests]
+        [chat?.requests],
     );
 
     useEffect(() => {
         if (!pendingMessage?.requestId) return;
 
         const requestAppeared = activeRequests.some(
-            (r) => r.id === pendingMessage.requestId
+            (r) => r.id === pendingMessage.requestId,
         );
 
         if (requestAppeared) {
@@ -282,7 +282,7 @@ function MediaChatPage() {
     // Сортируем запросы по дате (старые сверху)
     const sortedRequests = [...(activeChat.requests || [])].sort(
         (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
 
     // SSE автоматически обновляет кеш - просто используем sortedRequests
@@ -291,11 +291,10 @@ function MediaChatPage() {
     // Добавляем pending-сообщение в конец списка (если есть)
     const hasPendingInList =
         pendingMessage &&
-        !requests.some(
-            (r) =>
-                pendingMessage.requestId
-                    ? r.id === pendingMessage.requestId
-                    : false
+        !requests.some((r) =>
+            pendingMessage.requestId
+                ? r.id === pendingMessage.requestId
+                : false,
         );
 
     // Создаем объект для pending-сообщения в формате MediaRequest
@@ -330,15 +329,20 @@ function MediaChatPage() {
     async function handleAttachFile(
         fileUrl: string,
         filename: string,
-        imgbbUrl?: string
+        imgbbUrl?: string,
     ) {
         try {
-            await chatInputRef.current?.addFileFromUrl(fileUrl, filename, imgbbUrl);
+            await chatInputRef.current?.addFileFromUrl(
+                fileUrl,
+                filename,
+                imgbbUrl,
+            );
         } catch (error) {
             console.error('[Chat] Ошибка при прикреплении файла:', error);
-            const errorMessage = error instanceof Error 
-                ? error.message 
-                : 'Неизвестная ошибка при прикреплении файла';
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : 'Неизвестная ошибка при прикреплении файла';
             alert(`Ошибка при прикреплении файла: ${errorMessage}`);
         }
     }
@@ -346,7 +350,7 @@ function MediaChatPage() {
     // Обработчик повторения запроса (теперь просто заполняет форму)
     async function handleRepeatRequest(
         request: MediaRequest,
-        model?: MediaModel
+        model?: MediaModel,
     ) {
         // Если указана другая модель, переключаем её
         const selectedModel = model || request.model;

@@ -37,8 +37,10 @@ export const mediaEndpoints = baseApi.injectEndpoints({
         // Остаток кредитов Kie.ai (GET api.kie.ai/api/v1/chat/credit)
         getKieCredits: build.query<number | null, void>({
             query: () => '/kie-credits',
-            transformResponse: (response: { success: boolean; credits: number | null }) =>
-                response.success ? response.credits : null,
+            transformResponse: (response: {
+                success: boolean;
+                credits: number | null;
+            }) => (response.success ? response.credits : null),
             providesTags: [{ type: 'Model', id: 'KIE_CREDITS' }],
         }),
 
@@ -83,7 +85,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                     req.files.map((file) => ({
                         type: 'File' as const,
                         id: file.id,
-                    }))
+                    })),
                 ) || []),
             ],
         }),
@@ -150,11 +152,11 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 };
             },
             transformResponse: (
-                response: ApiResponse<GenerateMediaResponse>
+                response: ApiResponse<GenerateMediaResponse>,
             ) => {
                 console.log(
                     '[RTK Query] generateMedia response получен:',
-                    response.data
+                    response.data,
                 );
                 return response.data;
             },
@@ -180,7 +182,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                         prompt: body.prompt?.substring(0, 50),
                         seed: body.seed,
                         timestamp: new Date().toISOString(),
-                    }
+                    },
                 );
                 return {
                     url: '/generate-test',
@@ -195,11 +197,11 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 };
             },
             transformResponse: (
-                response: ApiResponse<GenerateMediaResponse>
+                response: ApiResponse<GenerateMediaResponse>,
             ) => {
                 console.log(
                     '[RTK Query] 🧪 generateMediaTest response получен (тестовый режим):',
-                    response.data
+                    response.data,
                 );
                 return response.data;
             },
@@ -256,7 +258,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
             transformResponse: (
                 response: ApiResponse<MediaFile[]> & {
                     pagination: PaginatedResponse<unknown>['pagination'];
-                }
+                },
             ) => ({
                 data: response.data as (MediaFile & {
                     request: { prompt: string; chat: { name: string } };
@@ -295,12 +297,12 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 body: { thumbnail },
             }),
             transformResponse: (
-                response: ApiResponse<{ previewPath: string }>
+                response: ApiResponse<{ previewPath: string }>,
             ) => response.data,
             // Оптимистичное обновление - сразу показываем превью
             async onQueryStarted(
                 { fileId, thumbnail },
-                { dispatch, queryFulfilled, getState }
+                { dispatch, queryFulfilled, getState },
             ) {
                 const apiState = getApiState(getState, baseApi.reducerPath);
                 if (!apiState) return;
@@ -322,8 +324,8 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                                     ...file,
                                     previewPath: `__pending__${thumbnail}`,
                                 }));
-                            }
-                        )
+                            },
+                        ),
                     );
                     chatPatches.push({ undo: patchResult.undo });
                 }
@@ -341,8 +343,8 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                                         ...file,
                                         previewPath: data.previewPath,
                                     }));
-                                }
-                            )
+                                },
+                            ),
                         );
                     }
                 } catch {
@@ -367,11 +369,11 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                     urls: string[];
                     uploaded: number;
                     total: number;
-                }>
+                }>,
             ) => {
                 console.log(
                     '[RTK Query] uploadToImgbb response получен:',
-                    response.data
+                    response.data,
                 );
                 return response.data;
             },
@@ -391,7 +393,10 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 body,
             }),
             transformResponse: (
-                response: ApiResponse<{ requestId: number; files: MediaFile[] }>
+                response: ApiResponse<{
+                    requestId: number;
+                    files: MediaFile[];
+                }>,
             ) => response.data,
             invalidatesTags: (result, _error, { chatId }) => [
                 { type: 'Chat', id: chatId },
@@ -410,7 +415,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
             }),
             async onQueryStarted(
                 fileId,
-                { dispatch, queryFulfilled, getState }
+                { dispatch, queryFulfilled, getState },
             ) {
                 const apiState = getApiState(getState, baseApi.reducerPath);
                 if (!apiState) return;
@@ -433,8 +438,8 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                             args,
                             (draft) => {
                                 removeFileFromChat(draft, fileId);
-                            }
-                        )
+                            },
+                        ),
                     );
                     chatPatches.push({
                         undo: patchResult.undo,
@@ -451,8 +456,8 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                             requestId,
                             (draft) => {
                                 removeFileFromRequest(draft, fileId);
-                            }
-                        )
+                            },
+                        ),
                     );
                 }
 
@@ -466,7 +471,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                             (draft) => {
                                 if (draft) {
                                     const chat = draft.find(
-                                        (c) => c.id === chatId
+                                        (c) => c.id === chatId,
                                     );
                                     if (
                                         chat &&
@@ -476,8 +481,8 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                                         chat._count.files -= 1;
                                     }
                                 }
-                            }
-                        )
+                            },
+                        ),
                     );
                 }
 

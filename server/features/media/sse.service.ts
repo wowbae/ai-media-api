@@ -38,7 +38,9 @@ class SSEService {
     this.clients.set(clientId, client);
     this.userIdToClient.set(userId, clientId);
 
-    console.log(`[SSE] Подключен userId=${userId}`);
+    if (process.env.NODE_ENV === 'development') {
+        console.log(`[SSE] Подключен userId=${userId}`);
+    }
   }
 
   /**
@@ -49,7 +51,9 @@ class SSEService {
     if (client) {
       this.userIdToClient.delete(client.userId);
       this.clients.delete(clientId);
-      console.log(`[SSE] Отключен userId=${client.userId}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[SSE] Отключен userId=${client.userId}`);
+      }
     }
   }
 
