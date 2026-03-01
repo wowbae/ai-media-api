@@ -7,8 +7,8 @@ import { updateFileUrlsInDatabase } from './database.service';
 type ImageHostService = 'postimages.org' | 'new.fastpic.org' | 'pixhost.to' | 'upload.cc';
 
 const HOST_SERVICES: ImageHostService[] = [
-  'postimages.org',
   'new.fastpic.org',
+  'postimages.org',
   'pixhost.to',
   'upload.cc',
 ];
