@@ -40,7 +40,8 @@ const baseApi = createApi({
   baseQuery: baseQueryWithErrorHandling,
   tagTypes: ["Chat", "Request", "File", "Model"],
   keepUnusedDataFor: 60,
-  refetchOnMountOrArgChange: 10,
+  // 60 сек вместо 10 — снижает нагрузку при бездействии (было: постоянные запросы каждые 10 сек)
+  refetchOnMountOrArgChange: 60,
   refetchOnFocus: true,
   refetchOnReconnect: true,
   endpoints: () => ({})
@@ -74,6 +75,27 @@ const { setCredentials, logout } = authSlice.actions;
 const authReducer = authSlice.reducer;
 const selectCurrentUser = (state) => state.auth.user;
 const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
+let reconnectTimeoutId = null;
+const RECONNECT_DELAY_MS = 5e3;
+function connect(store2) {
+  {
+    reconnectTimeoutId = setTimeout(() => connect(), RECONNECT_DELAY_MS);
+    return;
+  }
+}
+function disconnect() {
+  if (reconnectTimeoutId) {
+    clearTimeout(reconnectTimeoutId);
+    reconnectTimeoutId = null;
+  }
+}
+function closeSSE() {
+  disconnect();
+}
+function reconnectSSE(store2) {
+  disconnect();
+  connect();
+}
 function getApiState(getState, reducerPath) {
   const state = getState();
   return state[reducerPath] || null;
@@ -577,12 +599,20 @@ const authEndpoints = baseApi.injectEndpoints({
   })
 });
 const { useLoginMutation, useRegisterMutation, useGetMeQuery } = authEndpoints;
+const sseMiddleware = () => (next) => (action) => {
+  if (action && typeof action === "object" && "type" in action) {
+    const a = action;
+    if (a.type === logout.type) closeSSE();
+    if (a.type === setCredentials.type) reconnectSSE();
+  }
+  return next(action);
+};
 const store = configureStore({
   reducer: {
     [baseApi.reducerPath]: baseApi.reducer,
     auth: authReducer
   },
-  middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(baseApi.middleware)
+  middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(sseMiddleware, baseApi.middleware)
 });
 setupListeners(store.dispatch);
 function KieCredits() {
@@ -887,26 +917,11 @@ const Header = () => {
     columnNumber: 9
   }, void 0);
 };
-function useSSESubscription() {
-  const dispatch = useDispatch();
-  const eventSourceRef = useRef(null);
-  useRef(null);
-  useEffect(() => {
-    {
-      return;
-    }
-  }, [dispatch]);
-  return {
-    isConnected: false,
-    readyState: eventSourceRef.current?.readyState
-  };
-}
 function AuthInitializer() {
   const dispatch = useDispatch();
   const location = useLocation();
   const hasCheckedRef = useRef(false);
   const token = null;
-  useSSESubscription();
   const isPublicRoute = location.pathname === "/login" || location.pathname === "/register";
   const { data: user, isSuccess, error } = useGetMeQuery(void 0, {
     skip: !token
@@ -1527,15 +1542,15 @@ const Login = () => {
 const Route$3 = createFileRoute("/login")({
   component: Login
 });
-const $$splitComponentImporter$2 = () => import('./index-vRGhebwl.mjs');
+const $$splitComponentImporter$2 = () => import('./index-DtKfhDc_.mjs');
 const Route$2 = createFileRoute("/")({
   component: lazyRouteComponent($$splitComponentImporter$2, "component")
 });
-const $$splitComponentImporter$1 = () => import('./index-DtHH9iF7.mjs');
+const $$splitComponentImporter$1 = () => import('./index-DY8T1a7x.mjs');
 const Route$1 = createFileRoute("/media/")({
   component: lazyRouteComponent($$splitComponentImporter$1, "component")
 });
-const $$splitComponentImporter = () => import('./_chatId-DkEsJPvp.mjs');
+const $$splitComponentImporter = () => import('./_chatId-B_71A_JN.mjs');
 const Route = createFileRoute("/media/$chatId")({
   component: lazyRouteComponent($$splitComponentImporter, "component")
 });
@@ -1586,4 +1601,4 @@ const router = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProper
 }, Symbol.toStringTag, { value: "Module" }));
 
 export { Route as R, useCreateChatMutation as a, useDeleteFileMutation as b, useUploadThumbnailMutation as c, useGetModelsQuery as d, useGetFilesQuery as e, useGetChatQuery as f, useGetPricingQuery as g, useUpdateChatMutation as h, useGenerateMediaMutation as i, useLazyGetRequestQuery as j, useDeleteChatMutation as k, useUploadToImgbbMutation as l, useUploadUserMediaMutation as m, handleSessionTimeout as n, useGenerateMediaTestMutation as o, router as r, useGetChatsQuery as u };
-//# sourceMappingURL=router-CgddXcVw.mjs.map
+//# sourceMappingURL=router-BnT0GI2Q.mjs.map

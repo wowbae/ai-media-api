@@ -330,8 +330,7 @@ export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
     return savedFile;
 }
 
-// Сохранение изображения с загрузкой на imgbb (гибридное сохранение)
-// Сохраняет локально + загружает на imgbb, возвращает оба пути
+// Сохранение изображения с загрузкой на хостинг (гибридное сохранение)
 export async function saveImageWithImgbb(
     buffer: Buffer,
     mimeType: string
@@ -339,20 +338,17 @@ export async function saveImageWithImgbb(
     // Сохраняем локально
     const savedFile = await saveBufferToFile(buffer, mimeType);
 
-    // Загружаем на imgbb
     try {
-        const { uploadToImgbb, isImgbbConfigured } = await import('./imgbb.service');
-        if (isImgbbConfigured()) {
-            const imgbbUrl = await uploadToImgbb(buffer);
-            savedFile.url = imgbbUrl;
-            console.log('[file.service] ✅ Изображение сохранено локально и загружено на imgbb:', {
-                filename: savedFile.filename,
-                path: savedFile.path,
-                url: imgbbUrl,
-            });
-        }
+        const { uploadToImgbb } = await import('./imgbb.service');
+        const imgbbUrl = await uploadToImgbb(buffer);
+        savedFile.url = imgbbUrl;
+        console.log('[file.service] ✅ Изображение сохранено локально и загружено на хостинг:', {
+            filename: savedFile.filename,
+            path: savedFile.path,
+            url: imgbbUrl,
+        });
     } catch (error) {
-        console.error('[file.service] ❌ Ошибка загрузки на imgbb (продолжаем с локальным сохранением):', error);
+        console.error('[file.service] ❌ Ошибка загрузки на хостинг (продолжаем с локальным сохранением):', error);
         // Не прерываем процесс, просто url останется null
     }
 

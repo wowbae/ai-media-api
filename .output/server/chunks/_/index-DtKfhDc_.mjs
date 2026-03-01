@@ -116,7 +116,7 @@ function HomePage() {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/index.tsx?tsr-split=component",
           lineNumber: 42,
           columnNumber: 40
-        }, this), title: "\u0411\u044B\u0441\u0442\u0440\u0430\u044F \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0430", description: "\u0410\u0441\u0438\u043D\u0445\u0440\u043E\u043D\u043D\u0430\u044F \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u044F \u0441 polling \u0441\u0442\u0430\u0442\u0443\u0441\u043E\u043C \u0438 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F\u043C\u0438" }, void 0, false, {
+        }, this), title: "\u0411\u044B\u0441\u0442\u0440\u0430\u044F \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0430", description: "\u0410\u0441\u0438\u043D\u0445\u0440\u043E\u043D\u043D\u0430\u044F \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u044F \u0441 SSE \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F\u043C\u0438 \u0432 \u0440\u0435\u0430\u043B\u044C\u043D\u043E\u043C \u0432\u0440\u0435\u043C\u0435\u043D\u0438" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/index.tsx?tsr-split=component",
           lineNumber: 42,
           columnNumber: 21
@@ -256,4 +256,4 @@ function ModelBadge({
 }
 
 export { HomePage as component };
-//# sourceMappingURL=index-vRGhebwl.mjs.map
+//# sourceMappingURL=index-DtKfhDc_.mjs.map

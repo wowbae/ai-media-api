@@ -103,7 +103,7 @@ export async function handleTaskCompleted(
       `[CompletionHandler] ✅ Генерация завершена: requestId=${requestId}, файлов: ${savedFiles.length}`,
     );
 
-    // Загрузка на imgbb в фоне — не блокирует статус "Сохранение"
+    // Загрузка на хостинг в фоне — не блокирует статус "Сохранение"
     import("./imgbb-upload.service")
       .then(({ uploadFilesToImgbbAndUpdateDatabase }) =>
         uploadFilesToImgbbAndUpdateDatabase(savedFiles, requestId, prompt),
@@ -112,7 +112,7 @@ export async function handleTaskCompleted(
         if (request.chatId) invalidateChatCache(request.chatId);
       })
       .catch((error) => {
-        console.error(`[CompletionHandler] ⚠️ Ошибка загрузки на imgbb: requestId=${requestId}:`, error instanceof Error ? error.message : error);
+        console.error(`[CompletionHandler] ⚠️ Ошибка загрузки на хостинг: requestId=${requestId}:`, error instanceof Error ? error.message : error);
       });
   } catch (error) {
     const failed = await prisma.mediaRequest.update({

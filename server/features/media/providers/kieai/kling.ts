@@ -9,7 +9,7 @@ import type {
 import { PROVIDER_STATUS_MAP } from "../interfaces";
 import type { SavedFileInfo } from "../../file.service";
 import { saveFileFromUrl } from "../../file.service";
-import { uploadToImgbb, isImgbbConfigured } from "../../imgbb.service";
+import { uploadToImgbb } from "../../imgbb.service";
 import type {
   KieAiConfig,
   KieAiCreateResponse,
@@ -80,15 +80,9 @@ export function createKieAiKlingProvider(config: KieAiConfig): MediaProvider {
       // Image-to-Video режим
       const inputImage = params.inputFiles![0];
 
-      // Если это data URL (base64) - загружаем на imgbb
       let imageUrl: string;
       if (inputImage.startsWith("data:")) {
-        if (!isImgbbConfigured()) {
-          throw new Error(
-            "IMGBB_API_KEY не настроен. Для image-to-video нужен imgbb.",
-          );
-        }
-        console.log("[Kie.ai Kling 2.6] Загрузка изображения на imgbb...");
+        console.log("[Kie.ai Kling 2.6] Загрузка изображения на хостинг...");
         imageUrl = await uploadToImgbb(inputImage);
       } else {
         // Уже URL - используем как есть

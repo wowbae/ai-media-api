@@ -8,7 +8,7 @@ import type {
 } from "../interfaces";
 import type { SavedFileInfo } from "../../file.service";
 import { saveFileFromUrl } from "../../file.service";
-import { uploadToImgbb, isImgbbConfigured } from "../../imgbb.service";
+import { uploadToImgbb } from "../../imgbb.service";
 import type {
   KieAiConfig,
   KieAiNanoBananaRequest,
@@ -83,15 +83,9 @@ export function createKieAiNanoBananaProvider(
       return fileUrlOrPath;
     }
 
-    // Если это data URL (base64) - загружаем на imgbb
     if (fileUrlOrPath.startsWith("data:")) {
-      if (!isImgbbConfigured()) {
-        throw new Error(
-          "IMGBB_API_KEY не настроен. Для image-to-image с base64 нужен imgbb.",
-        );
-      }
       console.log(
-        "[Kie.ai Nano Banana Pro] Загрузка base64 изображения на imgbb...",
+        "[Kie.ai Nano Banana Pro] Загрузка base64 изображения на хостинг...",
       );
       const publicUrl = await uploadToImgbb(fileUrlOrPath);
       console.log("[Kie.ai Nano Banana Pro] Изображение загружено:", publicUrl);

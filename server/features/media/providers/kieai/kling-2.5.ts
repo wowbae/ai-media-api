@@ -9,7 +9,7 @@ import type {
 import { PROVIDER_STATUS_MAP } from "../interfaces";
 import type { SavedFileInfo } from "../../file.service";
 import { saveFileFromUrl } from "../../file.service";
-import { uploadToImgbb, isImgbbConfigured } from "../../imgbb.service";
+import { uploadToImgbb } from "../../imgbb.service";
 import type {
   KieAiConfig,
   KieAiCreateResponse,
@@ -85,16 +85,10 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
       // Image-to-Video режим
       const inputImage = params.inputFiles![0];
 
-      // Если это data URL (base64) - загружаем на imgbb
       let imageUrl: string;
       if (inputImage.startsWith("data:")) {
-        if (!isImgbbConfigured()) {
-          throw new Error(
-            "IMGBB_API_KEY не настроен. Для image-to-video нужен imgbb.",
-          );
-        }
         console.log(
-          "[Kie.ai Kling 2.5 Turbo Pro] Загрузка изображения на imgbb...",
+          "[Kie.ai Kling 2.5 Turbo Pro] Загрузка изображения на хостинг...",
         );
         imageUrl = await uploadToImgbb(inputImage);
       } else {
@@ -105,17 +99,10 @@ export function createKieAiKling25Provider(config: KieAiConfig): MediaProvider {
       // Для Kling 2.5 Turbo Pro используется image_url (строка), а не image_urls (массив)
       input.image_url = imageUrl;
 
-      // Добавляем tail_image_url если указан
       if (params.tailImageUrl) {
-        // Если tail_image_url это data URL - загружаем на imgbb
         if (params.tailImageUrl.startsWith("data:")) {
-          if (!isImgbbConfigured()) {
-            throw new Error(
-              "IMGBB_API_KEY не настроен. Для tail_image_url нужен imgbb.",
-            );
-          }
           console.log(
-            "[Kie.ai Kling 2.5 Turbo Pro] Загрузка tail изображения на imgbb...",
+            "[Kie.ai Kling 2.5 Turbo Pro] Загрузка tail изображения на хостинг...",
           );
           input.tail_image_url = await uploadToImgbb(params.tailImageUrl);
         } else {

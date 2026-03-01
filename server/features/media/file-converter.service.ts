@@ -1,6 +1,5 @@
-// Сервис для конвертации файлов: base64 → URL (imgbb)
-// Используется для обработки входных файлов перед генерацией
-import { isImgbbConfigured, uploadMultipleToImgbb } from "./imgbb.service";
+// Сервис конвертации файлов: base64 → URL (postimages.org и др.)
+import { uploadMultipleToImgbb } from "./imgbb.service";
 
 export interface FileConversionResult {
   /** Обработанные файлы (URL для изображений, base64 для видео) */
@@ -11,7 +10,7 @@ export interface FileConversionResult {
 
 /**
  * Конвертировать base64 файлы в URL
- * Изображения загружаются на imgbb, видео остаются как base64
+ * Изображения загружаются на хостинг, видео остаются как base64
  */
 export async function convertBase64FilesToUrls(
   inputFiles?: string[]
@@ -42,8 +41,7 @@ export async function convertBase64FilesToUrls(
   let processedFiles = [...inputFiles];
   let convertedCount = 0;
 
-  // Загружаем изображения на imgbb
-  if (imageFiles.length > 0 && isImgbbConfigured()) {
+  if (imageFiles.length > 0) {
     try {
       const urls = await uploadMultipleToImgbb(imageFiles);
       
@@ -75,7 +73,7 @@ export async function convertBase64FilesToUrls(
     }
   }
 
-  // Видео остаются как base64 (imgbb их не поддерживает)
+  // Видео остаются как base64
   if (videoFiles.length > 0) {
     console.log(
       `[FileConverter] ℹ️ Видео файлы (${videoFiles.length}) остаются как base64 (imgbb их не поддерживает)`

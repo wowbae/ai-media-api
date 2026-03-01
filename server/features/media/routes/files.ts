@@ -342,23 +342,12 @@ export function createFilesRouter(): Router {
                 files.length
             );
 
-            // Импортируем сервис imgbb
-            const {
-                uploadMultipleToImgbb,
-                isImgbbConfigured,
-            } = await import('../imgbb.service');
+            const { uploadMultipleToImgbb } = await import('../imgbb.service');
 
-            if (!isImgbbConfigured()) {
-                return res.status(500).json({
-                    success: false,
-                    error: 'IMGBB_API_KEY не настроен',
-                });
-            }
-
-            // Загружаем файлы на imgbb
+            // Загружаем файлы на хостинг изображений (postimages.org и др.)
             const urls = await uploadMultipleToImgbb(files);
 
-            console.log('[API] ✅ POST /upload-to-imgbb - успешно загружено:', {
+            console.log('[API] ✅ POST /upload-to-imgbb - загружено:', {
                 uploaded: urls.length,
                 total: files.length,
             });
@@ -372,11 +361,11 @@ export function createFilesRouter(): Router {
                 },
             });
         } catch (error) {
-            console.error('[API] ❌ Ошибка загрузки на imgbb:', error);
+            console.error('[API] ❌ Ошибка загрузки изображений:', error);
             const errorMessage =
                 error instanceof Error
                     ? error.message
-                    : 'Ошибка загрузки на imgbb';
+                    : 'Ошибка загрузки изображений';
             res.status(500).json({
                 success: false,
                 error: errorMessage,
