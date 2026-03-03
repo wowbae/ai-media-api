@@ -9,10 +9,7 @@ const MODEL_ICONS: Record<string, string> = {
     MIDJOURNEY: '🎨',
     VEO_3_1_FAST_KIEAI: '🎥',
     NANO_BANANA_PRO_LAOZHANG: '🍌',
-    SORA_2: '🌊',
-    VEO_3_1_KIEAI: '🎥',
     KLING_2_6_KIEAI: '🎬',
-    KLING_2_5_TURBO_PRO_KIEAI: '🎬',
     KLING_3_0_KIEAI: '🎬',
     IMAGEN4_KIEAI: '🖼️',
     IMAGEN4_ULTRA_KIEAI: '💎',
@@ -22,6 +19,7 @@ const MODEL_ICONS: Record<string, string> = {
     SEEDREAM_5_0_LITE_EDIT_KIEAI: '✨',
     ELEVENLABS_MULTILINGUAL_V2_KIEAI: '🎤',
     KLING_VIDEO_O1_WAVESPEED: '🎥',
+    KLING_2_6_MOTION_CONTROL_KIEAI: '🔄',
 };
 
 const DEFAULT_ICON = '✨';

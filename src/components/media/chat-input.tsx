@@ -118,6 +118,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         // Используем хук для управления настройками модели
         const {
             settings,
+            setKlingMotionCharacterOrientation,
+            setKlingMotionVideoQuality,
             setFormat,
             setQuality,
             setDuration,
@@ -447,8 +449,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         resetModelSpecificSettings();
                         clearFiles();
                     },
-                    // fixedLens устанавливаем ниже при вызове handleSubmit
                     fixedLens: undefined,
+                    klingMotionCharacterOrientation: settings.klingMotionCharacterOrientation,
+                    klingMotionVideoQuality: settings.klingMotionVideoQuality,
                 };
                 handleSubmit(event, {
                     ...params,
@@ -575,6 +578,63 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         Seedream 5.0 Edit поддерживает до 14 изображений для
                         редактирования
                     </p>
+                )}
+
+                {/* Подсказка для Kling Motion Control */}
+                {modelType.isKlingMotionControl && (
+                    <p className='mb-2 text-xs text-muted-foreground'>
+                        Требуется 1 изображение (персонаж) и 1 видео (референс
+                        движения). Сначала прикрепите файлы.
+                    </p>
+                )}
+
+                {/* Настройки Kling Motion Control */}
+                {modelType.isKlingMotionControl && (
+                    <div className='mb-2 flex flex-wrap items-center gap-2 text-xs'>
+                        <Select
+                            value={
+                                settings.klingMotionCharacterOrientation ??
+                                'image'
+                            }
+                            onValueChange={(v) =>
+                                setKlingMotionCharacterOrientation(
+                                    v as 'image' | 'video'
+                                )
+                            }
+                            disabled={isDisabled}
+                        >
+                            <SelectTrigger className='w-[200px] border-border bg-secondary text-foreground rounded-xl'>
+                                <SelectValue placeholder='Ориентация' />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value='image'>
+                                    Как на изображении (макс 10с)
+                                </SelectItem>
+                                <SelectItem value='video'>
+                                    Как на видео (макс 30с)
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select
+                            value={
+                                settings.klingMotionVideoQuality ?? '720p'
+                            }
+                            onValueChange={(v) =>
+                                setKlingMotionVideoQuality(
+                                    v as '720p' | '1080p'
+                                )
+                            }
+                            disabled={isDisabled}
+                        >
+                            <SelectTrigger className='w-[100px] border-border bg-secondary text-foreground rounded-xl'>
+                                <SelectValue placeholder='Разрешение' />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value='720p'>720p</SelectItem>
+                                <SelectItem value='1080p'>1080p</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 )}
 
                 {/* Дополнительные параметры Seedance 1.5 Pro */}

@@ -12,3 +12,4 @@ export { createKieAiSeedream5Provider } from "./seedream-5.0";
 export { createKieAiVeo3Provider } from "./veo";
 export { createKieAiElevenLabsProvider } from "./elevenlabs";
 export { createKieAiSeedanceProvider } from "./seedance";
+export { createKieAiKlingMotionControlProvider } from "./kling-motion-control";

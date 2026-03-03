@@ -10,6 +10,7 @@ import type { AttachedFile } from './use-chat-input-files';
 import { savePrompt } from '@/lib/saved-prompts';
 import type { ModelConfig } from '@/lib/model-config';
 import { handleSessionTimeout } from '@/redux/api/utils';
+import { getMediaFileUrl } from '@/lib/constants';
 
 interface UseChatInputSubmitParams {
     chatId: number;
@@ -48,6 +49,8 @@ export interface SubmitParams {
     languageCode: string;
     isLockEnabled: boolean;
     onClearForm: () => void;
+    klingMotionCharacterOrientation?: 'image' | 'video';
+    klingMotionVideoQuality?: '720p' | '1080p';
 }
 
 export function useChatInputSubmit({
@@ -111,6 +114,26 @@ export function useChatInputSubmit({
                     );
                 }
                 return;
+            }
+
+            // Валидация для Kling Motion Control: требуется 1 изображение + 1 видео
+            if (params.modelType.isKlingMotionControl) {
+                const imageCount = params.attachedFiles.filter((f) =>
+                    f.file.type.startsWith('image/')
+                ).length;
+                const videoCount = params.attachedFiles.filter((f) =>
+                    f.file.type.startsWith('video/')
+                ).length;
+                if (imageCount !== 1 || videoCount !== 1) {
+                    submitInProgressRef.current = false;
+                    setIsSubmitting(false);
+                    if (onSendError) {
+                        onSendError(
+                            'Kling Motion Control требует ровно 1 изображение (персонаж) и 1 видео (референс движения)'
+                        );
+                    }
+                    return;
+                }
             }
 
             // Устанавливаем флаг атомарно (до всех асинхронных операций)
@@ -290,11 +313,27 @@ export function useChatInputSubmit({
                         }
                     }
 
+                    // Для Kling Motion Control: собираем inputVideoFiles из видео
+                    let inputVideoFilesUrls: string[] | undefined;
+                    if (params.modelType.isKlingMotionControl) {
+                        const videoFiles = params.attachedFiles.filter((f) =>
+                            f.file.type.startsWith('video/')
+                        );
+                        inputVideoFilesUrls = await Promise.all(
+                            videoFiles.map(async (f) => {
+                                if (f.serverPath) {
+                                    return getMediaFileUrl(f.serverPath);
+                                }
+                                return getFileAsBase64(f.file);
+                            })
+                        );
+                    }
+
                     console.log('[ChatInput] 📤 Отправка запроса generateMedia:', {
                         chatId,
                         model: currentModel,
                         inputFilesUrlsCount: inputFilesUrls.length,
-                        inputFilesUrls: inputFilesUrls.map((url) => url.substring(0, 50) + "..."),
+                        inputVideoFilesCount: inputVideoFilesUrls?.length ?? 0,
                         hasInputFiles: inputFilesUrls.length > 0,
                     });
 
@@ -369,6 +408,17 @@ export function useChatInputSubmit({
                             speed: params.speed,
                             ...(params.languageCode && { languageCode: params.languageCode }),
                         }),
+                        ...(params.modelType.isKlingMotionControl &&
+                            inputVideoFilesUrls &&
+                            inputVideoFilesUrls.length > 0 && {
+                                inputVideoFiles: inputVideoFilesUrls,
+                                characterOrientation:
+                                    params.klingMotionCharacterOrientation ?? 'image',
+                                videoQuality:
+                                    params.klingMotionVideoQuality === '1080p'
+                                        ? '1080p'
+                                        : '720p',
+                            }),
                     }).unwrap();
                     console.log(
                         '[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:',

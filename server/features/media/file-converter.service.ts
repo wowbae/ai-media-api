@@ -1,5 +1,12 @@
 // Сервис конвертации файлов: base64 → URL (postimages.org и др.)
 import { uploadMultipleToImgbb } from "./imgbb.service";
+import { saveBase64File } from "./file.service";
+import { getMediaPublicBaseUrl } from "./config";
+
+export interface VideoConversionResult {
+  processedVideoFiles: string[];
+  convertedCount: number;
+}
 
 export interface FileConversionResult {
   /** Обработанные файлы (URL для изображений, base64 для видео) */
@@ -81,4 +88,54 @@ export async function convertBase64FilesToUrls(
   }
 
   return { processedFiles, convertedCount };
+}
+
+/**
+ * Конвертировать base64 видео в публичные URL (сохраняем на сервер)
+ */
+export async function convertVideoFilesToUrls(
+  inputVideoFiles?: string[]
+): Promise<VideoConversionResult> {
+  if (!inputVideoFiles || inputVideoFiles.length === 0) {
+    return { processedVideoFiles: [], convertedCount: 0 };
+  }
+
+  const baseUrl = getMediaPublicBaseUrl();
+  const processed: string[] = [];
+  let convertedCount = 0;
+
+  for (const item of inputVideoFiles) {
+    if (item.startsWith("http://") || item.startsWith("https://")) {
+      processed.push(item);
+      continue;
+    }
+    // Путь (относительный) — преобразуем в полный URL
+    if (!item.startsWith("data:")) {
+      const cleanPath = item.replace(/^\/+/, "");
+      processed.push(`${baseUrl}/media-files/${cleanPath}`);
+      continue;
+    }
+    // base64 — сохраняем на сервер
+    if (item.startsWith("data:video/")) {
+      try {
+        const mimeMatch = item.match(/^data:(video\/[^;]+);base64,/);
+        const mimeType = mimeMatch ? mimeMatch[1] : "video/mp4";
+        const base64Clean = item.replace(/^data:.*?;base64,/, "");
+        const saved = await saveBase64File(base64Clean, mimeType);
+        if (saved.path) {
+          processed.push(`${baseUrl}/media-files/${saved.path}`);
+          convertedCount++;
+        } else {
+          processed.push(item);
+        }
+      } catch (err) {
+        console.error("[FileConverter] Ошибка сохранения видео:", err);
+        processed.push(item);
+      }
+    } else {
+      processed.push(item);
+    }
+  }
+
+  return { processedVideoFiles: processed, convertedCount };
 }

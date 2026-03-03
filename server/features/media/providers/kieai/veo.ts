@@ -60,10 +60,7 @@ interface Veo3ExtendRequest {
 
 // Маппинг модели из MediaModel в Veo3Model
 function mapVeo3Model(model: string): Veo3Model {
-    if (model === 'VEO_3_1_KIEAI') return 'veo3';
-    if (model === 'VEO_3_1_FAST_KIEAI') return 'veo3_fast';
-    // По умолчанию fast для совместимости
-    return 'veo3_fast';
+    return 'veo3_fast'; // VEO_3_1_FAST_KIEAI
 }
 
 // Маппинг соотношения сторон

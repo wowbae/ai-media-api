@@ -6,7 +6,6 @@ import { createLaoZhangProvider } from './laozhang';
 import {
     createKieAiMidjourneyProvider,
     createKieAiKlingProvider,
-    createKieAiKling25Provider,
     createKieAiKling3Provider,
     createKieAiNanoBananaProvider,
     createKieAiNanoBanana2Provider,
@@ -16,6 +15,7 @@ import {
     createKieAiVeo3Provider,
     createKieAiElevenLabsProvider,
     createKieAiSeedanceProvider,
+    createKieAiKlingMotionControlProvider,
 } from './kieai';
 import type { KieAiConfig } from './kieai/interfaces';
 import { createWavespeedProvider } from './wavespeed';
@@ -64,13 +64,11 @@ export function createProviderManager(): ProviderManager {
         (config: KieAiConfig) => MediaProvider
     > = {
         KLING_2_6_KIEAI: createKieAiKlingProvider,
-        KLING_2_5_TURBO_PRO_KIEAI: createKieAiKling25Provider,
         KLING_3_0_KIEAI: createKieAiKling3Provider,
         NANO_BANANA_PRO_KIEAI: createKieAiNanoBananaProvider,
         NANO_BANANA_2_KIEAI: createKieAiNanoBanana2Provider,
         IMAGEN4_KIEAI: createKieAiImagen4Provider,
         IMAGEN4_ULTRA_KIEAI: createKieAiImagen4Provider,
-        VEO_3_1_KIEAI: createKieAiVeo3Provider,
         VEO_3_1_FAST_KIEAI: createKieAiVeo3Provider,
         SEEDREAM_4_5_KIEAI: createKieAiSeedreamProvider,
         SEEDREAM_4_5_EDIT_KIEAI: createKieAiSeedreamProvider,
@@ -78,6 +76,7 @@ export function createProviderManager(): ProviderManager {
         SEEDREAM_5_0_LITE_EDIT_KIEAI: createKieAiSeedream5Provider,
         ELEVENLABS_MULTILINGUAL_V2_KIEAI: createKieAiElevenLabsProvider,
         SEEDANCE_1_5_PRO_KIEAI: createKieAiSeedanceProvider,
+        KLING_2_6_MOTION_CONTROL_KIEAI: createKieAiKlingMotionControlProvider,
     };
 
     // LaoZhang провайдер (Nano Banana Pro, Sora 2, Veo 3.1)

@@ -4,12 +4,8 @@
 export type MediaModel =
     | 'MIDJOURNEY'
     | 'VEO_3_1_FAST_KIEAI'
-    | 'SORA'
     | 'NANO_BANANA_PRO_LAOZHANG'
-    | 'SORA_2'
-    | 'VEO_3_1_KIEAI'
     | 'KLING_2_6_KIEAI'
-    | 'KLING_2_5_TURBO_PRO_KIEAI'
     | 'KLING_3_0_KIEAI'
     | 'NANO_BANANA_PRO_KIEAI'
     | 'IMAGEN4_KIEAI'
@@ -20,7 +16,8 @@ export type MediaModel =
     | 'SEEDREAM_5_0_LITE_EDIT_KIEAI'
     | 'ELEVENLABS_MULTILINGUAL_V2_KIEAI'
     | 'KLING_VIDEO_O1_WAVESPEED'
-    | 'SEEDANCE_1_5_PRO_KIEAI';
+    | 'SEEDANCE_1_5_PRO_KIEAI'
+    | 'KLING_2_6_MOTION_CONTROL_KIEAI';
 
 export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
 
@@ -54,6 +51,9 @@ export interface GenerateMediaRequest {
   // Параметры для Kling 3.0
   mode?: "std" | "pro"; // Режим генерации для Kling 3.0
   multiShots?: boolean; // Multi-shot режим для Kling 3.0
+  // Параметры для Kling 2.6 Motion Control
+  inputVideoFiles?: string[]; // URL видео для motion reference
+  characterOrientation?: "image" | "video"; // image: макс 10с, video: макс 30с
 }
 
 export interface GenerateMediaResponse {

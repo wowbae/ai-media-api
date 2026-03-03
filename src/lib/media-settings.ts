@@ -10,6 +10,8 @@ export interface MediaSettings {
   klingAspectRatio?: "16:9" | "9:16"; // Формат видео для Kling 2.6
   klingDuration?: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12; // Длительность видео (Kling, Wavespeed, Seedance)
   klingSound?: boolean; // Звук для Kling 2.6
+  klingMotionCharacterOrientation?: "image" | "video"; // Kling Motion Control
+  klingMotionVideoQuality?: "720p" | "1080p"; // Kling Motion Control
 }
 
 // Загрузить настройки из localStorage
@@ -30,6 +32,8 @@ export function loadMediaSettings(): MediaSettings {
         klingAspectRatio: parsed.klingAspectRatio,
         klingDuration: parsed.klingDuration,
         klingSound: parsed.klingSound,
+        klingMotionCharacterOrientation: parsed.klingMotionCharacterOrientation,
+        klingMotionVideoQuality: parsed.klingMotionVideoQuality,
       };
     }
   } catch (error) {

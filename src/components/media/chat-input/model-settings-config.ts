@@ -73,6 +73,16 @@ export interface MultiShotsConfig {
     defaultValue: boolean;
 }
 
+export interface CharacterOrientationOption {
+    value: 'image' | 'video';
+    label: string;
+}
+
+export interface CharacterOrientationConfig {
+    options: CharacterOrientationOption[];
+    defaultValue: 'image' | 'video';
+}
+
 export interface ModelSettingConfig {
     format?: FormatConfig;
     quality?: QualityConfig;
@@ -81,6 +91,7 @@ export interface ModelSettingConfig {
     generationType?: GenerationTypeConfig;
     mode?: ModeConfig;
     multiShots?: MultiShotsConfig;
+    characterOrientation?: CharacterOrientationConfig;
 }
 
 // Общие опции для форматов
@@ -231,16 +242,6 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: 'TEXT_2_VIDEO',
         },
     },
-    VEO_3_1_KIEAI: {
-        format: {
-            options: FORMAT_OPTIONS_16_9_9_16,
-            defaultValue: '9:16',
-        },
-        generationType: {
-            options: GENERATION_TYPE_OPTIONS,
-            defaultValue: 'TEXT_2_VIDEO',
-        },
-    },
     KLING_2_6_KIEAI: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,
@@ -253,16 +254,6 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
         sound: {
             options: SOUND_OPTIONS,
             defaultValue: false,
-        },
-    },
-    KLING_2_5_TURBO_PRO_KIEAI: {
-        format: {
-            options: FORMAT_OPTIONS_16_9_9_16,
-            defaultValue: '9:16',
-        },
-        duration: {
-            options: DURATION_OPTIONS,
-            defaultValue: 5,
         },
     },
     SEEDREAM_4_5_KIEAI: {
@@ -342,7 +333,6 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
         },
     },
     MIDJOURNEY: {},
-    SORA_2: {},
     ELEVENLABS_MULTILINGUAL_V2_KIEAI: {}, // Настройки через отдельные поля в UI
     KLING_VIDEO_O1_WAVESPEED: {
         format: {
@@ -368,6 +358,24 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             options: SOUND_OPTIONS,
             // По умолчанию без звука, как в большинстве видео-моделей
             defaultValue: false,
+        },
+    },
+    KLING_2_6_MOTION_CONTROL_KIEAI: {
+        // character_orientation: image (макс 10с) или video (макс 30с)
+        characterOrientation: {
+            options: [
+                { value: 'image', label: 'Как на изображении (макс 10с)' },
+                { value: 'video', label: 'Как на видео (макс 30с)' },
+            ],
+            defaultValue: 'image',
+        },
+        // mode: 720p (std) или 1080p (pro)
+        mode: {
+            options: [
+                { value: 'std', label: '720p' },
+                { value: 'pro', label: '1080p' },
+            ],
+            defaultValue: 'std',
         },
     },
 };

@@ -36,17 +36,6 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.1, // стоимость за видео (уточнить)
         },
     },
-    KLING_2_5_TURBO_PRO_KIEAI: {
-        id: 'kling-2-5-turbo-pro',
-        name: 'Kling 2.5 Turbo Pro',
-        types: ['VIDEO'] as const,
-        maxPromptLength: 4096,
-        supportsImageInput: true,
-        provider: 'kieai',
-        pricing: {
-            output: 0.1, // стоимость за видео (уточнить)
-        },
-    },
     MIDJOURNEY: {
         id: 'midjourney/imagine',
         name: 'Midjourney',
@@ -180,18 +169,6 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.05,
         },
     },
-    // Kie.ai провайдер - Veo 3.1 модели для генерации видео
-    VEO_3_1_KIEAI: {
-        id: 'veo3',
-        name: 'Veo 3.1 Quality',
-        types: ['VIDEO'] as const,
-        maxPromptLength: 4096,
-        supportsImageInput: true, // Поддерживает image-to-video
-        provider: 'kieai',
-        pricing: {
-            output: 0.1, // TODO: уточнить цену для Veo 3.1 Quality
-        },
-    },
     VEO_3_1_FAST_KIEAI: {
         id: 'veo3_fast',
         name: 'Veo 3.1 Fast',
@@ -201,40 +178,6 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         provider: 'kieai',
         pricing: {
             output: 0.1, // TODO: уточнить цену для Veo 3.1 Fast
-        },
-    },
-    // LaoZhang провайдер - видео модели
-    SORA: {
-        id: 'sora-2-540p-10s',
-        name: 'Sora',
-        types: ['VIDEO'] as const,
-        maxPromptLength: 4096,
-        supportsImageInput: true,
-        provider: 'laozhang',
-        pricing: {
-            output: 0.3,
-        },
-    },
-    SORA_2: {
-        id: 'sora-2-540p-10s',
-        name: 'Sora 2',
-        types: ['VIDEO'] as const,
-        maxPromptLength: 4096,
-        supportsImageInput: true,
-        provider: 'laozhang',
-        pricing: {
-            output: 0.3,
-        },
-    },
-    VEO_3_1: {
-        id: 'veo-3.1-720p-async',
-        name: 'Veo 3.1',
-        types: ['VIDEO'] as const,
-        maxPromptLength: 4096,
-        supportsImageInput: true,
-        provider: 'laozhang',
-        pricing: {
-            output: 0.5,
         },
     },
     // Kie.ai провайдер - ElevenLabs Multilingual v2 для генерации аудио
@@ -259,6 +202,19 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
         provider: 'wavespeed',
         pricing: {
             output: 0.112, // $0.112 за 1 секунду видео (цена зависит от длительности: от 3 до 10 секунд)
+        },
+    },
+    // Kie.ai провайдер - Kling 2.6 Motion Control (image + video → video)
+    KLING_2_6_MOTION_CONTROL_KIEAI: {
+        id: 'kling-2.6/motion-control',
+        name: 'Kling 2.6 Motion Control',
+        types: ['VIDEO'] as const,
+        maxPromptLength: 2500,
+        promptLimit: 2500,
+        supportsImageInput: true, // Требует 1 изображение + 1 видео
+        provider: 'kieai',
+        pricing: {
+            output: 0.15,
         },
     },
     // Kie.ai провайдер - Seedance 1.5 Pro для генерации видео
@@ -294,6 +250,15 @@ export function getModelsByProvider(
 // Получить конфиг модели по ключу
 export function getModelConfig(modelKey: string): MediaModelConfig | undefined {
   return MEDIA_MODELS[modelKey];
+}
+
+// Публичный URL сервера для доступа к медиа (Kie.ai и др. должны иметь возможность загрузить видео по URL)
+export function getMediaPublicBaseUrl(): string {
+  return (
+    process.env.MEDIA_PUBLIC_BASE_URL ||
+    process.env.APP_URL ||
+    "http://localhost:4000"
+  ).replace(/\/$/, "");
 }
 
 // Пути для сохранения файлов

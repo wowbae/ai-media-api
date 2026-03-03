@@ -37,6 +37,10 @@ export async function generateMedia(options: GenerateMediaOptions): Promise<void
     similarityBoost,
     speed,
     languageCode,
+    mode,
+    multiShots,
+    inputVideoFiles,
+    characterOrientation,
   } = options;
 
   try {
@@ -81,6 +85,10 @@ export async function generateMedia(options: GenerateMediaOptions): Promise<void
       similarityBoost,
       speed,
       languageCode,
+      mode,
+      multiShots,
+      inputVideoFiles,
+      characterOrientation,
     };
 
     // Вызываем провайдер

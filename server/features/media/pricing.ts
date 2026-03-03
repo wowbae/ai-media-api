@@ -11,14 +11,10 @@ const BASE_COSTS: Partial<Record<MediaModel, number>> = {
     IMAGEN4_ULTRA_KIEAI: 0.06,
     SEEDREAM_4_5_KIEAI: 0.0325,
     SEEDREAM_4_5_EDIT_KIEAI: 0.0325,
-    KLING_2_5_TURBO_PRO_KIEAI: 0.42,
     KLING_2_6_KIEAI: 0.55,
     VEO_3_1_FAST_KIEAI: 0.3,
-    VEO_3_1_KIEAI: 1.25,
     ELEVENLABS_MULTILINGUAL_V2_KIEAI: 0.05,
     MIDJOURNEY: 0.5,
-    SORA_2: 0.3,
-    SORA: 0.3,
 };
 
 export type PricingEntry = {

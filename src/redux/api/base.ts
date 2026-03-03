@@ -12,10 +12,7 @@ export type MediaModel =
     | 'MIDJOURNEY'
     | 'VEO_3_1_FAST_KIEAI'
     | 'NANO_BANANA_PRO_LAOZHANG'
-    | 'SORA_2'
-    | 'VEO_3_1_KIEAI'
     | 'KLING_2_6_KIEAI'
-    | 'KLING_2_5_TURBO_PRO_KIEAI'
     | 'KLING_3_0_KIEAI'
     | 'NANO_BANANA_PRO_KIEAI'
     | 'NANO_BANANA_2_KIEAI'
@@ -27,7 +24,8 @@ export type MediaModel =
     | 'SEEDREAM_5_0_LITE_EDIT_KIEAI'
     | 'ELEVENLABS_MULTILINGUAL_V2_KIEAI'
     | 'KLING_VIDEO_O1_WAVESPEED'
-    | 'SEEDANCE_1_5_PRO_KIEAI';
+    | 'SEEDANCE_1_5_PRO_KIEAI'
+    | 'KLING_2_6_MOTION_CONTROL_KIEAI';
 
 export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
 export type RequestStatus = 'PENDING' | 'PROCESSING' | 'COMPLETING' | 'COMPLETED' | 'FAILED';
@@ -144,6 +142,9 @@ export interface GenerateMediaRequest {
     similarityBoost?: number;
     speed?: number;
     languageCode?: string;
+    inputVideoFiles?: string[];
+    characterOrientation?: 'image' | 'video';
+    videoQuality?: '480p' | '720p' | '1080p';
 }
 
 export interface GenerateMediaResponse {

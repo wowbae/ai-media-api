@@ -11,7 +11,7 @@ import { invalidateChatCache } from './cache';
 import { authenticate } from '../../auth/routes';
 import { TokenService } from '../../tokens/token.service';
 import { getModelPricing } from '../pricing';
-import { convertBase64FilesToUrls } from '../file-converter.service';
+import { convertBase64FilesToUrls, convertVideoFilesToUrls } from '../file-converter.service';
 
 export function createGenerateRouter(): Router {
     const router = Router();
@@ -51,6 +51,8 @@ export function createGenerateRouter(): Router {
                 languageCode,
                 generationType,
                 originalTaskId,
+                inputVideoFiles,
+                characterOrientation,
             } = req.body as GenerateMediaRequest;
 
             // Преобразуем duration в число
@@ -109,8 +111,10 @@ export function createGenerateRouter(): Router {
                 }
             }
 
-            // Конвертируем base64 файлы в URL (изображения → imgbb, видео → base64)
+            // Конвертируем base64 файлы в URL (изображения → imgbb)
             const { processedFiles } = await convertBase64FilesToUrls(inputFiles);
+            // Конвертируем видео в публичные URL (base64 → сохраняем на сервер, путь → полный URL)
+            const { processedVideoFiles } = await convertVideoFilesToUrls(inputVideoFiles);
 
             // Проверяем дубликаты запросов
             const recentRequest = await prisma.mediaRequest.findFirst({
@@ -230,6 +234,8 @@ export function createGenerateRouter(): Router {
                 similarityBoost,
                 speed,
                 languageCode,
+                inputVideoFiles: processedVideoFiles.length > 0 ? processedVideoFiles : undefined,
+                characterOrientation,
             }).catch((error) => {
                 console.error('[API] Ошибка генерации:', error);
             });

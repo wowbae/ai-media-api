@@ -16,17 +16,18 @@ export interface ModelSettingsState {
     duration: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | undefined;
     veoGenerationType: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO' | undefined;
     sound: boolean | undefined;
-    // Специальный флаг для Seedance 1.5 Pro (fixed_lens)
     fixedLens: boolean | undefined;
     negativePrompt: string;
     seed: string | number | undefined;
     cfgScale: number | undefined;
-    // ElevenLabs параметры
     voice: string;
     stability: number;
     similarityBoost: number;
     speed: number;
     languageCode: string;
+    // Kling Motion Control
+    klingMotionCharacterOrientation?: 'image' | 'video';
+    klingMotionVideoQuality?: '720p' | '1080p';
 }
 
 const DEFAULT_SETTINGS: ModelSettingsState = {
@@ -88,6 +89,16 @@ export function useModelSettings(currentModel: MediaModel) {
             newSettings.veoGenerationType = config.generationType.defaultValue;
         }
 
+        // Загружаем Kling Motion Control настройки
+        if (modelType.isKlingMotionControl) {
+            newSettings.klingMotionCharacterOrientation =
+                storedSettings.klingMotionCharacterOrientation ??
+                config.characterOrientation?.defaultValue;
+            newSettings.klingMotionVideoQuality =
+                storedSettings.klingMotionVideoQuality ??
+                (config.mode?.defaultValue === 'pro' ? '1080p' : '720p');
+        }
+
         // Загружаем duration: используем только значение из опций селектора текущей модели
         if (config.duration) {
             const candidate =
@@ -139,6 +150,11 @@ export function useModelSettings(currentModel: MediaModel) {
                         : undefined,
                 klingDuration: settings.duration,
                 klingSound: modelType.isKling ? settings.sound : undefined,
+            });
+        } else if (modelType.isKlingMotionControl) {
+            saveMediaSettings({
+                klingMotionCharacterOrientation: settings.klingMotionCharacterOrientation,
+                klingMotionVideoQuality: settings.klingMotionVideoQuality,
             });
         } else {
             // Для остальных моделей (Seedance, Wavespeed и т.д.) — format, quality, при supportsDuration ещё klingDuration
@@ -214,6 +230,16 @@ export function useModelSettings(currentModel: MediaModel) {
         updateSettings({ languageCode });
     };
 
+    const setKlingMotionCharacterOrientation = (
+        value: 'image' | 'video'
+    ) => {
+        updateSettings({ klingMotionCharacterOrientation: value });
+    };
+
+    const setKlingMotionVideoQuality = (value: '720p' | '1080p') => {
+        updateSettings({ klingMotionVideoQuality: value });
+    };
+
     // Сброс настроек для определенных моделей
     const resetModelSpecificSettings = () => {
         const updates: Partial<ModelSettingsState> = {};
@@ -250,6 +276,8 @@ export function useModelSettings(currentModel: MediaModel) {
         setSimilarityBoost,
         setSpeed,
         setLanguageCode,
+        setKlingMotionCharacterOrientation,
+        setKlingMotionVideoQuality,
         updateSettings,
         resetModelSpecificSettings,
     };

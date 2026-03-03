@@ -7,6 +7,7 @@ export interface AttachedFile {
     file: File;
     preview: string;
     imgbbUrl?: string; // URL на imgbb для изображений (загружается при добавлении)
+    serverPath?: string; // Путь на сервере для видео (после upload-user-media)
 }
 
 // Извлечение сообщения об ошибке (RTK Query возвращает объект, а не Error)
@@ -61,10 +62,13 @@ export function useChatInputFiles(chatId?: number) {
                     continue;
                 }
 
-                // Проверяем размер (макс 10MB) - только для новых файлов, не для уже существующих в системе
-                if (!skipSizeCheck && file.size > 10 * 1024 * 1024) {
+                // Проверяем размер: изображения макс 10MB, видео макс 100MB (Kling Motion Control)
+                const maxSize = file.type.startsWith('video/')
+                    ? 100 * 1024 * 1024
+                    : 10 * 1024 * 1024;
+                if (!skipSizeCheck && file.size > maxSize) {
                     alert(
-                        `Размер файла "${file.name}" не должен превышать 10MB`
+                        `Размер файла "${file.name}" не должен превышать ${file.type.startsWith('video/') ? '100' : '10'}MB`
                     );
                     continue;
                 }
@@ -165,19 +169,25 @@ export function useChatInputFiles(chatId?: number) {
 
                     console.log('[ChatInput] ✅ Файлы успешно сохранены в БД и ai-media');
 
-                    // Обновляем attachedFiles с полученными URL (чтобы при отправке промпта не загружать заново)
+                    // Обновляем attachedFiles с полученными URL/path (чтобы при отправке промпта не загружать заново)
                     if (result && result.files) {
                         setAttachedFiles(prev => {
                             const updated = [...prev];
-                            // Сопоставляем по имени файла (лучшее что у нас есть)
                             result.files.forEach(serverFile => {
                                 const localFileIndex = updated.findIndex(
-                                    f => f.file.name === serverFile.filename && !f.imgbbUrl
+                                    f => f.file.name === serverFile.filename
                                 );
-                                if (localFileIndex !== -1 && serverFile.url) {
+                                if (localFileIndex === -1) return;
+                                const isVideo = serverFile.type === 'VIDEO';
+                                if (isVideo && serverFile.path) {
                                     updated[localFileIndex] = {
                                         ...updated[localFileIndex],
-                                        imgbbUrl: serverFile.url
+                                        serverPath: serverFile.path,
+                                    };
+                                } else if (serverFile.url) {
+                                    updated[localFileIndex] = {
+                                        ...updated[localFileIndex],
+                                        imgbbUrl: serverFile.url,
                                     };
                                 }
                             });

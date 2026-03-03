@@ -402,3 +402,25 @@ export interface KieAiSeedream5EditRequest {
     quality: KieAiSeedream5Quality;
   };
 }
+
+// Интерфейсы для Kling 2.6 Motion Control API
+// Документация: https://kie.ai/kling-2.6-motion-control
+
+// Ориентация персонажа (image: макс 10с, video: макс 30с)
+export type KieAiKlingMotionCharacterOrientation = "image" | "video";
+
+// Режим разрешения (std=720p, pro=1080p)
+export type KieAiKlingMotionMode = "std" | "pro";
+
+// Запрос на создание задачи Kling 2.6 Motion Control
+export interface KieAiKlingMotionControlRequest {
+  model: "kling-2.6/motion-control";
+  callBackUrl?: string;
+  input: {
+    prompt: string; // Макс 2500 символов
+    input_urls: string[]; // Референсное изображение персонажа (1 файл, JPG/PNG, макс 10MB)
+    video_urls: string[]; // Референсное видео с движением (1 файл, MP4/MOV, макс 100MB, 3-30 сек)
+    character_orientation: KieAiKlingMotionCharacterOrientation;
+    mode: KieAiKlingMotionMode;
+  };
+}

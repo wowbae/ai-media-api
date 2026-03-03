@@ -29,6 +29,10 @@ export interface GenerateMediaOptions {
   similarityBoost?: number;
   speed?: number;
   languageCode?: string;
+  mode?: 'std' | 'pro';
+  multiShots?: boolean;
+  inputVideoFiles?: string[];
+  characterOrientation?: 'image' | 'video';
 }
 
 // Опции для восстановления задач после перезапуска
