@@ -214,7 +214,7 @@ export function MessageItem({
                                 request.inputFiles.length === 0))) && (
                         <div className='mt-2 flex flex-wrap gap-2'>
                             {/* Сначала показываем inputFiles, если есть */}
-                            {request.inputFiles?.map((fileUrl, index) => {
+                            {request.inputFiles?.map((fileUrl, idx) => {
                                 if (!fileUrl) return null;
 
                                 const isDataUrl = fileUrl.startsWith('data:');
@@ -222,26 +222,18 @@ export function MessageItem({
                                     fileUrl.startsWith('http://') ||
                                     fileUrl.startsWith('https://');
 
-                                // Приоритет: data URL → локальный path (быстрее) → ссылки (imgbb)
-                                const fallbackFile = request.files?.[index];
-                                const localUrls: string[] = [];
-                                const externalUrls: string[] = [];
-                                if (fallbackFile) {
-                                    if (fallbackFile.path) localUrls.push(getMediaFileUrl(fallbackFile.path));
-                                    if (fallbackFile.previewPath) localUrls.push(getMediaFileUrl(fallbackFile.previewPath));
-                                    if (fallbackFile.url) externalUrls.push(toDirectImageUrl(fallbackFile.url));
-                                }
+                                // Только URL из inputFiles — НЕ используем request.files (это сгенерированные результаты)
+                                const urls: string[] = [];
                                 if (isDataUrl) {
-                                    localUrls.unshift(fileUrl);
+                                    urls.push(fileUrl);
                                 } else if (!isHttpUrl && fileUrl) {
-                                    const localUrl = getMediaFileUrl(fileUrl);
-                                    if (!localUrls.includes(localUrl)) localUrls.unshift(localUrl);
+                                    urls.push(getMediaFileUrl(fileUrl));
                                 } else if (isHttpUrl) {
-                                    externalUrls.push(toDirectImageUrl(fileUrl));
+                                    urls.push(toDirectImageUrl(fileUrl));
                                 } else {
                                     return null;
                                 }
-                                const allUrls = [...new Set([...localUrls, ...externalUrls])];
+                                const allUrls = [...new Set(urls)];
 
                                 const isVideo = isDataUrl
                                     ? isVideoDataUrl(fileUrl)
@@ -249,9 +241,9 @@ export function MessageItem({
 
                                 return (
                                     <AttachedFileThumbnail
-                                        key={index}
+                                        key={idx}
                                         urls={allUrls}
-                                        alt={`Прикрепленный файл ${index + 1}`}
+                                        alt={`Прикрепленный файл ${idx + 1}`}
                                         isVideo={isVideo}
                                     />
                                 );
