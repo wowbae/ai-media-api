@@ -1,7 +1,7 @@
 // Страница чата с медиа-генерацией
-import { createFileRoute } from '@tanstack/react-router';
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Loader2 } from 'lucide-react';
+import { createFileRoute, useParams } from "@tanstack/react-router";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Loader2 } from "lucide-react";
 import {
     ChatSidebar,
     ChatInput,
@@ -9,7 +9,7 @@ import {
     MediaGallery,
     type ChatInputRef,
     type ChatInputProps,
-} from '@/components/media';
+} from "@/components/media";
 import {
     useGetChatQuery,
     useUpdateChatMutation,
@@ -18,14 +18,18 @@ import {
     useGenerateMediaMutation,
     type MediaModel,
     type MediaRequest,
-} from '@/redux/media-api';
-import { PANEL_HEADER_CLASSES } from '@/lib/panel-styles';
-import { cn } from '@/lib/utils';
-import { getModelIcon } from '@/lib/model-utils';
-import { useTestMode } from '@/hooks/use-test-mode';
+} from "@/redux/media-api";
+import { PANEL_HEADER_CLASSES } from "@/lib/panel-styles";
+import { cn } from "@/lib/utils";
+import { getModelIcon } from "@/lib/model-utils";
+import { useTestMode } from "@/hooks/use-test-mode";
+import { APP_MODES, type AppMode } from "@/lib/app-mode";
+import { API_BASE_URL } from "@/redux/api/base";
 
-export const Route = createFileRoute('/media/$chatId')({
-    component: MediaChatPage,
+export const Route = createFileRoute("/media/$chatId")({
+    component: () => (
+        <MediaChatPage appMode={APP_MODES.DEFAULT} routeBase='/media' />
+    ),
 });
 
 // Интерфейс для pending-сообщения (оптимистичное отображение)
@@ -35,12 +39,19 @@ interface PendingMessage {
     prompt: string;
     model: MediaModel;
     createdAt: string;
-    status: 'PENDING' | 'PROCESSING' | 'FAILED';
+    status: "PENDING" | "PROCESSING" | "FAILED";
     errorMessage?: string;
 }
 
-function MediaChatPage() {
-    const { chatId } = Route.useParams();
+export function MediaChatPage({
+    appMode,
+    routeBase,
+}: {
+    appMode: AppMode;
+    routeBase: "/media" | "/ai-model";
+}) {
+    const params = useParams({ strict: false });
+    const chatId = String(params.chatId ?? "");
     const chatIdNum = parseInt(chatId);
 
     // Первоначальная загрузка только последних 10 сообщений для быстрого показа интерфейса
@@ -51,7 +62,7 @@ function MediaChatPage() {
         error: chatError,
         refetch,
     } = useGetChatQuery(
-        { id: chatIdNum, limit: 10 },
+        { id: chatIdNum, limit: 10, appMode },
         {
             // Всегда обновлять при монтировании или изменении аргументов
             refetchOnMountOrArgChange: true,
@@ -61,7 +72,7 @@ function MediaChatPage() {
 
     // Debug logging для отслеживания загрузки чата
     useEffect(() => {
-        console.log('[Chat] Состояние загрузки:', {
+        console.log("[Chat] Состояние загрузки:", {
             chatId: chatIdNum,
             isChatLoading,
             isChatFetching,
@@ -84,7 +95,7 @@ function MediaChatPage() {
     const { isTestMode } = useTestMode();
 
     const [currentModel, setCurrentModel] = useState<MediaModel>(
-        'NANO_BANANA_PRO_KIEAI',
+        "NANO_BANANA_PRO_KIEAI",
     );
     // Локальное состояние для оптимистичного отображения pending-сообщения
     const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(
@@ -96,7 +107,7 @@ function MediaChatPage() {
     const scrollToBottomRef = useRef<(() => void) | null>(null);
 
     // Получаем список моделей
-    const { data: models } = useGetModelsQuery();
+    const { data: models } = useGetModelsQuery({ appMode });
 
     // Синхронизация модели с настройками чата
     // ВАЖНО: Обновляем ТОЛЬКО при первоначальной загрузке чата
@@ -136,16 +147,16 @@ function MediaChatPage() {
                 setCurrentModel(previousModel);
                 const errorMessage =
                     error &&
-                    typeof error === 'object' &&
-                    'data' in error &&
+                    typeof error === "object" &&
+                    "data" in error &&
                     error.data &&
-                    typeof error.data === 'object' &&
-                    'error' in error.data &&
-                    typeof error.data.error === 'string'
+                    typeof error.data === "object" &&
+                    "error" in error.data &&
+                    typeof error.data.error === "string"
                         ? error.data.error
-                        : 'Не удалось обновить модель. Попробуйте еще раз.';
+                        : "Не удалось обновить модель. Попробуйте еще раз.";
                 alert(`Ошибка переключения модели: ${errorMessage}`);
-                console.error('[Chat] Ошибка обновления модели:', error);
+                console.error("[Chat] Ошибка обновления модели:", error);
             }
         }
     }
@@ -157,20 +168,20 @@ function MediaChatPage() {
             prompt,
             model: currentModel,
             createdAt: new Date().toISOString(),
-            status: 'PENDING',
+            status: "PENDING",
         };
         setPendingMessage(pending);
-        console.log('[Chat] ⏳ Добавлено pending-сообщение:', pending.id);
+        console.log("[Chat] ⏳ Добавлено pending-сообщение:", pending.id);
     }
 
     // Обработчик ошибки отправки (обновляет pending-сообщение на FAILED)
     function handleSendError(errorMessage: string) {
         setPendingMessage((prev) => {
             if (!prev) return null;
-            console.log('[Chat] ❌ Pending-сообщение помечено как FAILED');
+            console.log("[Chat] ❌ Pending-сообщение помечено как FAILED");
             return {
                 ...prev,
-                status: 'FAILED',
+                status: "FAILED",
                 errorMessage,
             };
         });
@@ -179,7 +190,7 @@ function MediaChatPage() {
     // Обработчик создания нового запроса (вызывается из ChatInput после успешной отправки)
     function handleRequestCreated(requestId: number) {
         console.log(
-            '[Chat] ✅ Новый запрос создан, SSE автоматически обновит UI:',
+            "[Chat] ✅ Новый запрос создан, SSE автоматически обновит UI:",
             { requestId },
         );
 
@@ -191,7 +202,7 @@ function MediaChatPage() {
 
         // Обновляем кеш чата
         refetch().catch((error) => {
-            console.error('[Chat] Ошибка при обновлении чата:', error);
+            console.error("[Chat] Ошибка при обновлении чата:", error);
         });
 
         // SSE автоматически отслеживает статус через подписку
@@ -201,11 +212,36 @@ function MediaChatPage() {
     // SSE автоматически обновляет кеш через invalidateTags
     // При получении события REQUEST_COMPLETED или REQUEST_FAILED
     // RTK Query автоматически обновит все подписанные компоненты
+    useEffect(() => {
+        if (appMode !== APP_MODES.AI_MODEL || !chatIdNum) return;
+        const eventSource = new EventSource(
+            `${API_BASE_URL}/sse/public?chatId=${chatIdNum}&appMode=${APP_MODES.AI_MODEL}`,
+        );
+        eventSource.onmessage = (event) => {
+            try {
+                const payload = JSON.parse(event.data) as {
+                    type?: string;
+                    requestId?: number;
+                };
+                if (
+                    payload.type === "REQUEST_COMPLETED" ||
+                    payload.type === "REQUEST_FAILED"
+                ) {
+                    refetch().catch(() => {});
+                }
+            } catch {
+                // ignore parse errors
+            }
+        };
+        eventSource.onerror = () => {
+            eventSource.close();
+        };
+        return () => eventSource.close();
+    }, [appMode, chatIdNum, refetch]);
 
     // Убираем pending-сообщение если реальный запрос появился
     const activeRequests = useMemo(
-        () =>
-            chat && chat.id === chatIdNum ? (chat.requests || []) : [],
+        () => (chat && chat.id === chatIdNum ? chat.requests || [] : []),
         [chat, chatIdNum],
     );
 
@@ -217,7 +253,7 @@ function MediaChatPage() {
         );
 
         if (requestAppeared) {
-            console.log('[Chat] 🔄 Запрос найден, убираем pending-сообщение');
+            console.log("[Chat] 🔄 Запрос найден, убираем pending-сообщение");
             setPendingMessage(null);
         }
     }, [activeRequests, pendingMessage]);
@@ -226,7 +262,7 @@ function MediaChatPage() {
     if (isChatLoading && !chat) {
         return (
             <div className='flex h-screen bg-background'>
-                <ChatSidebar />
+                <ChatSidebar appMode={appMode} routeBase={routeBase} />
                 <div className='flex flex-1 items-center justify-center'>
                     <Loader2 className='h-8 w-8 animate-spin text-primary' />
                 </div>
@@ -238,7 +274,7 @@ function MediaChatPage() {
     if (chatError && !chat) {
         return (
             <div className='flex h-screen bg-background'>
-                <ChatSidebar />
+                <ChatSidebar appMode={appMode} routeBase={routeBase} />
                 <div className='flex flex-1 flex-col items-center justify-center text-center'>
                     <p className='text-xl text-destructive'>
                         Ошибка загрузки чата
@@ -256,7 +292,7 @@ function MediaChatPage() {
     if (!chat && !isChatLoading && !chatError) {
         return (
             <div className='flex h-screen bg-background'>
-                <ChatSidebar />
+                <ChatSidebar appMode={appMode} routeBase={routeBase} />
                 <div className='flex flex-1 flex-col items-center justify-center text-center'>
                     <p className='text-xl text-muted-foreground'>
                         Чат не найден
@@ -274,13 +310,12 @@ function MediaChatPage() {
 
     // ВАЖНО: Используем данные чата только если они соответствуют текущему chatId.
     // При смене чата RTK Query может кратковременно вернуть данные предыдущего чата.
-    const activeChat =
-        chat && chat.id === chatIdNum ? chat : null;
+    const activeChat = chat && chat.id === chatIdNum ? chat : null;
 
     if (!activeChat) {
         return (
             <div className='flex h-screen bg-background'>
-                <ChatSidebar />
+                <ChatSidebar appMode={appMode} routeBase={routeBase} />
                 <div className='flex flex-1 items-center justify-center'>
                     <Loader2 className='h-8 w-8 animate-spin text-primary' />
                 </div>
@@ -347,11 +382,11 @@ function MediaChatPage() {
                 imgbbUrl,
             );
         } catch (error) {
-            console.error('[Chat] Ошибка при прикреплении файла:', error);
+            console.error("[Chat] Ошибка при прикреплении файла:", error);
             const errorMessage =
                 error instanceof Error
                     ? error.message
-                    : 'Неизвестная ошибка при прикреплении файла';
+                    : "Неизвестная ошибка при прикреплении файла";
             alert(`Ошибка при прикреплении файла: ${errorMessage}`);
         }
     }
@@ -372,9 +407,9 @@ function MediaChatPage() {
             await chatInputRef.current.setRequestData(request);
 
             // Прокручиваем к полю ввода
-            const inputElement = document.getElementById('chat-input');
+            const inputElement = document.getElementById("chat-input");
             if (inputElement) {
-                inputElement.scrollIntoView({ behavior: 'smooth' });
+                inputElement.scrollIntoView({ behavior: "smooth" });
             }
         }
     }
@@ -383,13 +418,16 @@ function MediaChatPage() {
     async function handleRepeatRequestById(requestId: number) {
         try {
             // Получаем полные данные запроса
-            const request = await getRequestTrigger(requestId).unwrap();
+            const request = await getRequestTrigger({
+                id: requestId,
+                appMode,
+            }).unwrap();
             if (request) {
                 await handleRepeatRequest(request);
             }
         } catch (error) {
-            console.error('[Chat] Ошибка при получении данных запроса:', error);
-            alert('Не удалось получить данные запроса для повторения');
+            console.error("[Chat] Ошибка при получении данных запроса:", error);
+            alert("Не удалось получить данные запроса для повторения");
         }
     }
 
@@ -399,7 +437,7 @@ function MediaChatPage() {
     return (
         <div className='flex h-[calc(100vh-3.5rem)] bg-background'>
             {/* Сайдбар */}
-            <ChatSidebar />
+            <ChatSidebar appMode={appMode} routeBase={routeBase} />
 
             {/* Основной чат — key для сброса состояния при смене чата */}
             <div key={chatIdNum} className='relative flex flex-1 flex-col'>
@@ -408,6 +446,7 @@ function MediaChatPage() {
                     name={activeChat.name}
                     model={currentModel}
                     showUpdating={showUpdatingIndicator}
+                    appMode={appMode}
                 />
 
                 {/* Список сообщений */}
@@ -421,6 +460,7 @@ function MediaChatPage() {
                     onScrollToBottomRef={(scrollFn) => {
                         scrollToBottomRef.current = scrollFn;
                     }}
+                    appMode={appMode}
                 />
 
                 {/* Ввод */}
@@ -434,6 +474,7 @@ function MediaChatPage() {
                     onSendError={handleSendError}
                     scrollToBottom={() => scrollToBottomRef.current?.()}
                     showScrollButton={showScrollButton}
+                    appMode={appMode}
                 />
             </div>
 
@@ -442,6 +483,7 @@ function MediaChatPage() {
                 chatId={chatIdNum}
                 onAttachFile={handleAttachFile}
                 onRepeatRequest={handleRepeatRequestById}
+                appMode={appMode}
             />
         </div>
     );
@@ -451,14 +493,15 @@ interface ChatHeaderProps {
     name: string;
     model: MediaModel;
     showUpdating?: boolean;
+    appMode: AppMode;
 }
 
-function ChatHeader({ name, model, showUpdating }: ChatHeaderProps) {
-    const { data: models } = useGetModelsQuery();
+function ChatHeader({ name, model, showUpdating, appMode }: ChatHeaderProps) {
+    const { data: models } = useGetModelsQuery({ appMode });
     const modelInfo = models?.find((m) => m.key === model);
 
     return (
-        <div className={cn(PANEL_HEADER_CLASSES, 'bg-background')}>
+        <div className={cn(PANEL_HEADER_CLASSES, "bg-background")}>
             <div className='flex items-center gap-3'>
                 <span className='text-2xl'>{getModelIcon(model)}</span>
                 <div className='flex-1'>

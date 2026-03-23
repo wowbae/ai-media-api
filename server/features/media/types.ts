@@ -2,12 +2,15 @@
 // Используется для передачи параметров в generateMedia() вместо множества отдельных аргументов
 import type { MediaModel } from "./interfaces";
 import type { GenerationLoraInput } from "./interfaces";
+import type { AppMode } from "./app-mode";
 
 export interface GenerateMediaOptions {
     // Обязательные параметры
     requestId: number;
     prompt: string;
+    enhancedPrompt?: string;
     model: MediaModel;
+    appMode?: AppMode;
 
     // Опциональные параметры генерации
     inputFiles?: string[];

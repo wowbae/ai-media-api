@@ -1,7 +1,7 @@
 // Реэкспорт всего API и хуков
 
 // Базовый API
-export { baseApi } from './base';
+export { baseApi } from "./base";
 
 // Типы
 export type {
@@ -18,10 +18,13 @@ export type {
     UpdateChatRequest,
     GenerateMediaRequest,
     GenerateMediaResponse,
+    PromptEnhanceRequest,
+    PromptEnhanceResponse,
     PaginatedResponse,
     ApiResponse,
     PricingMap,
-} from './base';
+    LoraFileInfo,
+} from "./base";
 
 // Хуки для медиа (чаты, файлы, запросы)
 export {
@@ -41,7 +44,11 @@ export {
     useDeleteFileMutation,
     useUploadToImgbbMutation,
     useUploadUserMediaMutation,
-} from './media.endpoints';
+    useGetLoraFilesQuery,
+    useUploadLoraFileMutation,
+    useDeleteLoraFileMutation,
+    usePromptEnhanceMutation,
+} from "./media.endpoints";
 
 // Хуки для моделей
-export { useGetModelsQuery } from './models.endpoints';
+export { useGetModelsQuery } from "./models.endpoints";

@@ -1,5 +1,5 @@
 // Централизованная конфигурация моделей медиа-генерации
-import type { MediaModel } from '@/redux/api/base';
+import type { MediaModel } from "@/redux/api/base";
 
 export interface ModelConfig {
     // Флаги для проверок типа модели
@@ -476,6 +476,35 @@ const MODEL_CONFIGS: Record<MediaModel, ModelConfig> = {
         supportsMode: false,
         supportsMultiShots: false,
         maxInputFiles: 10, // до 10 reference images
+    },
+    Z_IMAGE_TURBO_LORA_WAVESPEED: {
+        isNanoBanana: false,
+        isNanoBananaPro: false,
+        isNanoBananaProKieai: false,
+        isVeo: false,
+        isKling: false,
+        isKling25: false,
+        isKling3: false,
+        isKlingMotionControl: false,
+        isImagen4: false,
+        isImagen4Ultra: false,
+        isSeedream4_5: false,
+        isSeedream4_5_Edit: false,
+        isElevenLabs: false,
+        isSeedream5: false,
+        isSeedream5_Edit: false,
+        supportsFormat: true,
+        supportsQuality: false,
+        supportsDuration: false,
+        supportsSound: false,
+        supportsVeoGenerationType: false,
+        supportsNegativePrompt: false,
+        supportsSeed: true,
+        supportsCfgScale: false,
+        supportsTailImageUrl: false,
+        supportsElevenLabsParams: false,
+        supportsMode: false,
+        supportsMultiShots: false,
     },
     SEEDANCE_1_5_PRO_KIEAI: {
         isNanoBanana: false,

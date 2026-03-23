@@ -1,27 +1,66 @@
 // Роуты для работы с чатами
-import { Router, Request, Response } from 'express';
-import path from 'path';
-import { prisma } from 'prisma/client';
-import { Prisma } from '@prisma/client';
-import { deleteFile } from '../file.service';
-import { mediaStorageConfig } from '../config';
-import type { CreateChatRequest, UpdateChatRequest } from '../interfaces';
-import {
-    getCachedChat,
-    setCachedChat,
-    invalidateChatCache,
-} from './cache';
-import { authenticate } from '../../auth/routes';
+import { Router, Request, Response } from "express";
+import path from "path";
+import { prisma } from "prisma/client";
+import { Prisma } from "@prisma/client";
+import { deleteFile } from "../file.service";
+import { mediaStorageConfig } from "../config";
+import type { CreateChatRequest, UpdateChatRequest } from "../interfaces";
+import { APP_MODES, parseAppMode } from "../app-mode";
+
+function buildChatModeWhere(appMode: "default" | "ai-model") {
+    if (appMode === APP_MODES.AI_MODEL) {
+        return {
+            settings: {
+                path: ["appMode"],
+                equals: APP_MODES.AI_MODEL,
+            },
+        };
+    }
+    return {
+        OR: [
+            {
+                settings: {
+                    path: ["appMode"],
+                    equals: APP_MODES.DEFAULT,
+                },
+            },
+            {
+                settings: {
+                    path: ["appMode"],
+                    equals: null,
+                },
+            },
+        ],
+    };
+}
+import { getCachedChat, setCachedChat, invalidateChatCache } from "./cache";
+import { AuthService } from "../../auth/auth.service";
+
+function resolveUserFromAuthHeader(req: Request): { userId: number } | null {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return null;
+    const token = authHeader.split(" ")[1];
+    if (!token) return null;
+    try {
+        const payload = AuthService.verifyToken(token);
+        return { userId: payload.userId };
+    } catch {
+        return null;
+    }
+}
 
 export function createChatsRouter(): Router {
     const router = Router();
 
     // Получить все чаты
-    router.get('/chats', async (_req: Request, res: Response) => {
+    router.get("/chats", async (req: Request, res: Response) => {
         try {
+            const appMode = parseAppMode(req.query.appMode);
             // Загружаем чаты только с подсчетом запросов (без загрузки самих requests)
             const chats = await prisma.mediaChat.findMany({
-                orderBy: { updatedAt: 'desc' },
+                where: buildChatModeWhere(appMode),
+                orderBy: { updatedAt: "desc" },
                 include: {
                     _count: {
                         select: {
@@ -72,22 +111,23 @@ export function createChatsRouter(): Router {
 
             res.json({ success: true, data: chatsWithFileCount });
         } catch (error) {
-            console.error('Ошибка получения чатов:', error);
+            console.error("Ошибка получения чатов:", error);
             res.status(500).json({
                 success: false,
-                error: 'Ошибка получения чатов',
+                error: "Ошибка получения чатов",
             });
         }
     });
 
     // Получить чат по ID с запросами
-    router.get('/chats/:id', async (req: Request, res: Response) => {
+    router.get("/chats/:id", async (req: Request, res: Response) => {
         try {
             const chatId = parseInt(req.params.id);
+            const appMode = parseAppMode(req.query.appMode);
             if (isNaN(chatId)) {
                 return res
                     .status(400)
-                    .json({ success: false, error: 'Некорректный ID чата' });
+                    .json({ success: false, error: "Некорректный ID чата" });
             }
 
             // Параметр limit для ограничения количества загружаемых запросов (по умолчанию 3 для быстрой загрузки)
@@ -95,17 +135,18 @@ export function createChatsRouter(): Router {
                 ? parseInt(req.query.limit as string)
                 : undefined;
             if (limit !== undefined && (isNaN(limit) || limit < 1)) {
-                return res
-                    .status(400)
-                    .json({ success: false, error: 'Некорректный параметр limit' });
+                return res.status(400).json({
+                    success: false,
+                    error: "Некорректный параметр limit",
+                });
             }
 
             // ВАЖНО: includeInputFiles теперь всегда включены (для превью прикрепленных файлов)
             // Параметр оставлен для обратной совместимости, но игнорируется
-            const includeInputFiles = req.query.includeInputFiles === 'true';
+            const includeInputFiles = req.query.includeInputFiles === "true";
 
             console.log(
-                `[API] 🔍 Начало запроса /chats/${chatId} (limit=${limit || 'none'}, inputFiles всегда включены)`
+                `[API] 🔍 Начало запроса /chats/${chatId} (limit=${limit || "none"}, inputFiles всегда включены)`,
             );
             const startTime = Date.now();
 
@@ -114,7 +155,7 @@ export function createChatsRouter(): Router {
             if (cachedChat) {
                 const totalTime = Date.now() - startTime;
                 console.log(
-                    `[API] ✅ /chats/${chatId}: из КЕША, время=${totalTime}ms`
+                    `[API] ✅ /chats/${chatId}: из КЕША, время=${totalTime}ms`,
                 );
                 return res.json({ success: true, data: cachedChat });
             }
@@ -127,7 +168,7 @@ export function createChatsRouter(): Router {
                 where: { id: chatId },
                 include: {
                     requests: {
-                        orderBy: { createdAt: 'desc' },
+                        orderBy: { createdAt: "desc" },
                         ...(limit ? { take: limit } : {}), // Применяем limit только если указан
                         select: {
                             id: true,
@@ -178,13 +219,25 @@ export function createChatsRouter(): Router {
             if (!chat) {
                 return res
                     .status(404)
-                    .json({ success: false, error: 'Чат не найден' });
+                    .json({ success: false, error: "Чат не найден" });
+            }
+
+            const chatMode =
+                (chat.settings as { appMode?: string })?.appMode ===
+                APP_MODES.AI_MODEL
+                    ? APP_MODES.AI_MODEL
+                    : APP_MODES.DEFAULT;
+
+            if (chatMode !== appMode) {
+                return res
+                    .status(404)
+                    .json({ success: false, error: "Чат не найден" });
             }
 
             // Логируем информацию о файлах для отладки
             const totalFiles = chat.requests.reduce(
                 (sum, req) => sum + req.files.length,
-                0
+                0,
             );
             const loadedRequests = chat.requests.length;
             const totalRequests = chat._count.requests;
@@ -193,16 +246,16 @@ export function createChatsRouter(): Router {
             const totalTime = Date.now() - startTime;
 
             console.log(
-                `[API] ✅ /chats/${chatId}: загружено запросов=${loadedRequests}${limit ? ` (limit=${limit})` : ''}, всего=${totalRequests}, файлов=${totalFiles}`
+                `[API] ✅ /chats/${chatId}: загружено запросов=${loadedRequests}${limit ? ` (limit=${limit})` : ""}, всего=${totalRequests}, файлов=${totalFiles}`,
             );
             console.log(
-                `[API] ⏱️  Breakdown: DB=${prismaTime}ms, Processing=${processingTime}ms, Total=${totalTime}ms`
+                `[API] ⏱️  Breakdown: DB=${prismaTime}ms, Processing=${processingTime}ms, Total=${totalTime}ms`,
             );
 
             // Предупреждение если запрос очень медленный
             if (totalTime > 5000) {
                 console.warn(
-                    `[API] ⚠️  SLOW QUERY DETECTED: ${totalTime}ms for chat ${chatId} with ${loadedRequests} requests and ${totalFiles} files`
+                    `[API] ⚠️  SLOW QUERY DETECTED: ${totalTime}ms for chat ${chatId} with ${loadedRequests} requests and ${totalFiles} files`,
                 );
             }
 
@@ -211,50 +264,67 @@ export function createChatsRouter(): Router {
 
             res.json({ success: true, data: chat });
         } catch (error) {
-            console.error('Ошибка получения чата:', error);
+            console.error("Ошибка получения чата:", error);
             res.status(500).json({
                 success: false,
-                error: 'Ошибка получения чата',
+                error: "Ошибка получения чата",
             });
         }
     });
 
     // Создать новый чат
-    router.post('/chats', authenticate, async (req: Request, res: Response) => {
+    router.post("/chats", async (req: Request, res: Response) => {
         try {
-            const user = (req as any).user;
-            const { name, model, settings } = req.body as CreateChatRequest;
+            const {
+                name,
+                model,
+                settings,
+                appMode: appModeRaw,
+            } = req.body as CreateChatRequest & { appMode?: string };
+            const appMode = parseAppMode(appModeRaw);
+            const user = resolveUserFromAuthHeader(req);
+
+            if (appMode !== APP_MODES.AI_MODEL && !user) {
+                return res
+                    .status(401)
+                    .json({ success: false, error: "Unauthorized" });
+            }
 
             if (!name || name.trim().length === 0) {
-                return res
-                    .status(400)
-                    .json({ success: false, error: 'Название чата обязательно' });
+                return res.status(400).json({
+                    success: false,
+                    error: "Название чата обязательно",
+                });
             }
 
             const chat = await prisma.mediaChat.create({
                 data: {
                     userId: user?.userId, // ← Сохраняем userId
                     name: name.trim(),
-                    model: model || 'NANO_BANANA_PRO_KIEAI',
-                    settings: (settings || {}) as Prisma.InputJsonValue,
+                    model: model || "NANO_BANANA_PRO_KIEAI",
+                    settings: ({ ...(settings || {}), appMode } ||
+                        {}) as Prisma.InputJsonValue,
                 },
             });
 
             res.status(201).json({ success: true, data: chat });
         } catch (error) {
-            console.error('Ошибка создания чата:', error);
-            res.status(500).json({ success: false, error: 'Ошибка создания чата' });
+            console.error("Ошибка создания чата:", error);
+            res.status(500).json({
+                success: false,
+                error: "Ошибка создания чата",
+            });
         }
     });
 
     // Обновить чат
-    router.patch('/chats/:id', async (req: Request, res: Response) => {
+    router.patch("/chats/:id", async (req: Request, res: Response) => {
         try {
             const chatId = parseInt(req.params.id);
             if (isNaN(chatId)) {
                 return res
                     .status(400)
-                    .json({ success: false, error: 'Некорректный ID чата' });
+                    .json({ success: false, error: "Некорректный ID чата" });
             }
 
             const { name, model, settings } = req.body as UpdateChatRequest;
@@ -267,7 +337,7 @@ export function createChatsRouter(): Router {
             if (!existingChat) {
                 return res
                     .status(404)
-                    .json({ success: false, error: 'Чат не найден' });
+                    .json({ success: false, error: "Чат не найден" });
             }
 
             const chat = await prisma.mediaChat.update({
@@ -286,17 +356,17 @@ export function createChatsRouter(): Router {
 
             res.json({ success: true, data: chat });
         } catch (error) {
-            console.error('Ошибка обновления чата:', error);
+            console.error("Ошибка обновления чата:", error);
 
             // Обработка ошибок Prisma
-            if (error && typeof error === 'object' && 'code' in error) {
+            if (error && typeof error === "object" && "code" in error) {
                 const prismaError = error as {
                     code: string;
                     meta?: { target?: string[] };
                 };
 
                 // Ошибка невалидного значения enum
-                if (prismaError.code === 'P2007') {
+                if (prismaError.code === "P2007") {
                     return res.status(400).json({
                         success: false,
                         error: `Недопустимая модель. Проверьте, что база данных синхронизирована со схемой Prisma. Выполните: bunx prisma db push`,
@@ -304,22 +374,24 @@ export function createChatsRouter(): Router {
                 }
 
                 // Ошибка записи не найдена
-                if (prismaError.code === 'P2025') {
+                if (prismaError.code === "P2025") {
                     return res.status(404).json({
                         success: false,
-                        error: 'Чат не найден',
+                        error: "Чат не найден",
                     });
                 }
             }
 
             const errorMessage =
-                error instanceof Error ? error.message : 'Ошибка обновления чата';
+                error instanceof Error
+                    ? error.message
+                    : "Ошибка обновления чата";
             res.status(500).json({ success: false, error: errorMessage });
         }
     });
 
     // Удалить чат
-    router.delete('/chats/:id', async (req: Request, res: Response) => {
+    router.delete("/chats/:id", async (req: Request, res: Response) => {
         const idParam = req.params.id;
         const chatId = parseInt(idParam);
 
@@ -327,7 +399,7 @@ export function createChatsRouter(): Router {
             if (isNaN(chatId)) {
                 return res
                     .status(400)
-                    .json({ success: false, error: 'Некорректный ID чата' });
+                    .json({ success: false, error: "Некорректный ID чата" });
             }
 
             console.log(`[API] 🗑️ Запрос на удаление чата: ${chatId}`);
@@ -345,14 +417,14 @@ export function createChatsRouter(): Router {
                 await tx.mediaFile.deleteMany({
                     where: {
                         request: {
-                            chatId: chatId
-                        }
-                    }
+                            chatId: chatId,
+                        },
+                    },
                 });
 
                 // Удаляем все запросы чата
                 await tx.mediaRequest.deleteMany({
-                    where: { chatId: chatId }
+                    where: { chatId: chatId },
                 });
 
                 // В конце удаляем сам чат
@@ -361,7 +433,9 @@ export function createChatsRouter(): Router {
                 });
             });
 
-            console.log(`[API] ✅ Чат ${chatId} и все связанные данные удалены из БД`);
+            console.log(
+                `[API] ✅ Чат ${chatId} и все связанные данные удалены из БД`,
+            );
 
             // 3. Удаляем физические файлы асинхронно
             // (Не блокируем ответ пользователю, так как в БД всё уже удалено)
@@ -381,7 +455,7 @@ export function createChatsRouter(): Router {
                                 ? file.previewPath
                                 : path.join(
                                       mediaStorageConfig.basePath,
-                                      file.previewPath
+                                      file.previewPath,
                                   )
                             : null;
 
@@ -393,27 +467,44 @@ export function createChatsRouter(): Router {
                     }
                 }
                 if (filesCount > 0) {
-                    console.log(`[API] 🗑️ Удалено физических файлов: ${filesCount} для чата ${chatId}`);
+                    console.log(
+                        `[API] 🗑️ Удалено физических файлов: ${filesCount} для чата ${chatId}`,
+                    );
                 }
-            })().catch(err => console.error('[API] Ошибка при удалении файлов с диска:', err));
+            })().catch((err) =>
+                console.error("[API] Ошибка при удалении файлов с диска:", err),
+            );
 
             // Инвалидируем кеш
             invalidateChatCache(chatId);
 
             res.json({
                 success: true,
-                message: 'Чат успешно удален',
-                data: { id: chatId }
+                message: "Чат успешно удален",
+                data: { id: chatId },
             });
         } catch (error) {
-            console.error(`[API] ❌ Ошибка при удалении чата ${chatId}:`, error);
+            console.error(
+                `[API] ❌ Ошибка при удалении чата ${chatId}:`,
+                error,
+            );
 
             // Если чат уже удален (P2025), возвращаем успех для идемпотентности
-            if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
-                 return res.json({ success: true, message: 'Чат уже был удален', data: { id: chatId } });
+            if (
+                error &&
+                typeof error === "object" &&
+                "code" in error &&
+                error.code === "P2025"
+            ) {
+                return res.json({
+                    success: true,
+                    message: "Чат уже был удален",
+                    data: { id: chatId },
+                });
             }
 
-            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
             res.status(500).json({
                 success: false,
                 error: `Ошибка на сервере: ${errorMessage}`,

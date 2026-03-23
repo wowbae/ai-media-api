@@ -7,7 +7,7 @@ import {
     useImperativeHandle,
     forwardRef,
     useMemo,
-} from 'react';
+} from "react";
 import {
     Send,
     Paperclip,
@@ -16,57 +16,72 @@ import {
     Lock,
     Unlock,
     ChevronDown,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { NumberInput } from '@/components/ui/number-input';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@/components/ui/select';
-import { cn } from '@/lib/utils';
-import { loadLockButtonState, saveLockButtonState } from '@/lib/saved-prompts';
-import { createLoadingEffectForAttachFile } from '@/lib/media-utils';
-import { ModelSelector } from './model-selector';
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { loadLockButtonState, saveLockButtonState } from "@/lib/saved-prompts";
+import { createLoadingEffectForAttachFile } from "@/lib/media-utils";
+import { ModelSelector } from "./model-selector";
 import {
     useGenerateMediaMutation,
     useGenerateMediaTestMutation,
+    useGetLoraFilesQuery,
+    usePromptEnhanceMutation,
+    useUploadLoraFileMutation,
     type MediaModel,
-} from '@/redux/media-api';
-import { useGetModelsQuery } from '@/redux/api/models.endpoints';
-import { useTestMode } from '@/hooks/use-test-mode';
-import { useModelType } from '@/hooks/use-model-type';
-import { useChatInputFiles } from './chat-input/use-chat-input-files';
+} from "@/redux/media-api";
+import { useGetModelsQuery } from "@/redux/api/models.endpoints";
+import { useTestMode } from "@/hooks/use-test-mode";
+import { useModelType } from "@/hooks/use-model-type";
+import { useChatInputFiles } from "./chat-input/use-chat-input-files";
 import {
     useChatInputSubmit,
     type SubmitParams,
-} from './chat-input/use-chat-input-submit';
-import { ModelSettingsPanel } from './chat-input/model-settings';
-import { useModelSettings, type FormatValue, type QualityValue, type DurationValue } from './chat-input/use-model-settings';
+} from "./chat-input/use-chat-input-submit";
+import { ModelSettingsPanel } from "./chat-input/model-settings";
+import {
+    useModelSettings,
+    type FormatValue,
+    type QualityValue,
+    type DurationValue,
+} from "./chat-input/use-model-settings";
+import type { AppMode } from "@/lib/app-mode";
+import { APP_MODES } from "@/lib/app-mode";
+
+interface LoraSettingInput {
+    path: string;
+    scale?: number;
+}
 
 // Список доступных голосов для ElevenLabs (вне компонента — не пересоздаётся при рендере)
 const ELEVENLABS_VOICES = [
-    'Roger',
-    'Sarah',
-    'Charlie',
-    'George',
-    'Callum',
-    'River',
-    'Liam',
-    'Alice',
-    'Matilda',
-    'Will',
-    'Jessica',
-    'Eric',
-    'Chris',
-    'Brian',
-    'Daniel',
-    'Lily',
-    'Bill',
+    "Roger",
+    "Sarah",
+    "Charlie",
+    "George",
+    "Callum",
+    "River",
+    "Liam",
+    "Alice",
+    "Matilda",
+    "Will",
+    "Jessica",
+    "Eric",
+    "Chris",
+    "Brian",
+    "Daniel",
+    "Lily",
+    "Bill",
 ] as const;
 
 // Props для компонента ввода чата
@@ -83,6 +98,7 @@ export interface ChatInputProps {
     scrollToBottom?: () => void;
     /** Показывать ли кнопку прокрутки вниз */
     showScrollButton?: boolean;
+    appMode?: AppMode;
 }
 
 export interface ChatInputRef {
@@ -90,10 +106,10 @@ export interface ChatInputRef {
     addFileFromUrl: (
         url: string,
         filename: string,
-        imgbbUrl?: string
+        imgbbUrl?: string,
     ) => Promise<void>;
     setRequestData: (
-        request: import('@/redux/media-api').MediaRequest
+        request: import("@/redux/media-api").MediaRequest,
     ) => Promise<void>;
 }
 
@@ -109,10 +125,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             disabled,
             scrollToBottom,
             showScrollButton,
+            appMode = APP_MODES.DEFAULT,
         },
-        ref
+        ref,
     ) {
-        const [prompt, setPrompt] = useState('');
+        const [prompt, setPrompt] = useState("");
+        const [enhancedPrompt, setEnhancedPrompt] = useState("");
+        const [loras, setLoras] = useState<LoraSettingInput[]>([]);
+        const [selectedServerLoraUrl, setSelectedServerLoraUrl] = useState("");
         const [isLockEnabled, setIsLockEnabled] = useState(false);
 
         // Используем хук для управления настройками модели
@@ -142,16 +162,22 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
         const { isTestMode } = useTestMode();
         const fileInputRef = useRef<HTMLInputElement>(null);
+        const loraFileInputRef = useRef<HTMLInputElement>(null);
         const textareaRef = useRef<HTMLTextAreaElement>(null);
 
         const [generateMedia] = useGenerateMediaMutation();
         const [generateMediaTest] = useGenerateMediaTestMutation();
+        const [promptEnhance, { isLoading: isEnhancingPrompt }] =
+            usePromptEnhanceMutation();
+        const [uploadLoraFile] = useUploadLoraFileMutation();
+        const { data: serverLoraFiles = [] } = useGetLoraFilesQuery();
 
         // Поле не блокируется на время выполнения запроса для поддержки параллельных запросов
         const isDisabled = disabled ?? false;
 
         // Используем хук для получения всех флагов модели
         const modelType = useModelType(currentModel);
+        const isAiModelMode = appMode === APP_MODES.AI_MODEL;
 
         // Деструктурируем настройки для удобства
         const {
@@ -186,12 +212,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             cleanup,
             clearFiles,
             getFileAsBase64,
-        } = useChatInputFiles(chatId);
+        } = useChatInputFiles(chatId, appMode);
 
         // Создаем функцию для эффекта загрузки
         const loadingEffectForAttachFile = useMemo(
             () => createLoadingEffectForAttachFile(setAttachingFile),
-            []
+            [],
         );
 
         const { handleSubmit, isSubmitting, submitInProgressRef } =
@@ -205,13 +231,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 onPendingMessage,
                 onSendError,
                 getFileAsBase64,
+                appMode,
             });
 
         // Получаем модели для определения promptLimit
-        const { data: models } = useGetModelsQuery();
+        const { data: models } = useGetModelsQuery({ appMode });
         const currentModelConfig = useMemo(
             () => models?.find((m) => m.key === currentModel),
-            [models, currentModel]
+            [models, currentModel],
         );
         const MAX_PROMPT_LENGTH = currentModelConfig?.promptLimit ?? 5000;
 
@@ -221,7 +248,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             if (!textarea) return;
 
             // Сбрасываем высоту для корректного расчета scrollHeight
-            textarea.style.height = 'auto';
+            textarea.style.height = "auto";
 
             // Получаем реальную высоту контента
             const scrollHeight = textarea.scrollHeight;
@@ -249,7 +276,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     adjustTextareaHeight();
                 });
             },
-            [adjustTextareaHeight]
+            [adjustTextareaHeight],
         );
 
         // Обновление высоты при изменении prompt извне
@@ -265,9 +292,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 adjustTextareaHeight();
             };
 
-            window.addEventListener('resize', handleResize);
+            window.addEventListener("resize", handleResize);
             return () => {
-                window.removeEventListener('resize', handleResize);
+                window.removeEventListener("resize", handleResize);
             };
         }, [adjustTextareaHeight]);
 
@@ -282,14 +309,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         textarea.focus();
                         textarea.setSelectionRange(
                             newPrompt.length,
-                            newPrompt.length
+                            newPrompt.length,
                         );
                     }
                 }, 0);
             },
             addFileFromUrl,
             setRequestData: async (
-                request: import('@/redux/media-api').MediaRequest
+                request: import("@/redux/media-api").MediaRequest,
             ) => {
                 setPrompt(request.prompt);
 
@@ -297,21 +324,55 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
                 // Универсальные параметры
                 if (settings.format) setFormat(settings.format as FormatValue);
-                if (settings.quality) setQuality(settings.quality as QualityValue);
+                if (settings.quality)
+                    setQuality(settings.quality as QualityValue);
 
                 // Видео параметры (Veo, Kling)
-                if (settings.duration) setDuration(settings.duration as DurationValue);
+                if (settings.duration)
+                    setDuration(settings.duration as DurationValue);
                 if (settings.veoGenerationType)
-                    setVeoGenerationType(settings.veoGenerationType as 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO');
+                    setVeoGenerationType(
+                        settings.veoGenerationType as
+                            | "TEXT_2_VIDEO"
+                            | "FIRST_AND_LAST_FRAMES_2_VIDEO"
+                            | "REFERENCE_2_VIDEO"
+                            | "EXTEND_VIDEO",
+                    );
                 if (settings.sound !== undefined)
                     setSound(settings.sound as boolean);
 
                 // Imagen4 / Kling 2.5 параметры
                 if (settings.negativePrompt)
                     setNegativePrompt(settings.negativePrompt as string);
+                if (settings.enhancedPrompt)
+                    setEnhancedPrompt(settings.enhancedPrompt as string);
                 if (settings.seed || request.seed)
                     setSeed((settings.seed || request.seed) as string | number);
                 if (settings.cfgScale) setCfgScale(settings.cfgScale as number);
+                if (Array.isArray(settings.loras)) {
+                    const nextLoras = (
+                        settings.loras as Array<{
+                            path?: unknown;
+                            scale?: unknown;
+                        }>
+                    )
+                        .filter(
+                            (lora) =>
+                                typeof lora.path === "string" &&
+                                lora.path.trim().length > 0,
+                        )
+                        .slice(0, 3)
+                        .map((lora) => ({
+                            path: String(lora.path).trim(),
+                            scale:
+                                typeof lora.scale === "number"
+                                    ? lora.scale
+                                    : undefined,
+                        }));
+                    setLoras(nextLoras);
+                } else {
+                    setLoras([]);
+                }
 
                 // ElevenLabs параметры
                 if (settings.voice) setVoice(settings.voice as string);
@@ -328,23 +389,32 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 clearFiles();
 
                 if (request.inputFiles && request.inputFiles.length > 0) {
-                    const { getMediaFileUrl } = await import('@/lib/constants');
+                    const { getMediaFileUrl } = await import("@/lib/constants");
                     for (const filePath of request.inputFiles) {
                         try {
                             // Если это URL (начинается с http), используем как есть, иначе через getMediaFileUrl
-                            const url = filePath.startsWith('http')
+                            const url = filePath.startsWith("http")
                                 ? filePath
                                 : getMediaFileUrl(filePath);
-                            const filename = filePath.split('/').pop() || 'file';
+                            const filename =
+                                filePath.split("/").pop() || "file";
                             // Для imgbb URL передаём как imgbbUrl — не загружаем повторно
-                            const imgbbUrl = filePath.startsWith('http') ? filePath : undefined;
+                            const imgbbUrl = filePath.startsWith("http")
+                                ? filePath
+                                : undefined;
                             await addFileFromUrl(url, filename, imgbbUrl);
                         } catch (error) {
-                            console.error('[ChatInput] Ошибка при прикреплении файла из запроса:', error);
-                            const errorMessage = error instanceof Error
-                                ? error.message
-                                : 'Неизвестная ошибка при прикреплении файла';
-                            alert(`Ошибка при прикреплении файла "${filePath}": ${errorMessage}`);
+                            console.error(
+                                "[ChatInput] Ошибка при прикреплении файла из запроса:",
+                                error,
+                            );
+                            const errorMessage =
+                                error instanceof Error
+                                    ? error.message
+                                    : "Неизвестная ошибка при прикреплении файла";
+                            alert(
+                                `Ошибка при прикреплении файла "${filePath}": ${errorMessage}`,
+                            );
                         }
                     }
                 }
@@ -356,7 +426,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         textarea.focus();
                         textarea.setSelectionRange(
                             request.prompt.length,
-                            request.prompt.length
+                            request.prompt.length,
                         );
                     }
                 }, 100);
@@ -382,10 +452,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 handleFileSelectHook(event);
                 // Сбрасываем input
                 if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
+                    fileInputRef.current.value = "";
                 }
             },
-            [handleFileSelectHook]
+            [handleFileSelectHook],
         );
 
         // Обработчик отправки запроса
@@ -394,7 +464,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 // Проверяем только внешнюю блокировку
                 if (isDisabled) {
                     console.warn(
-                        '[ChatInput] ⚠️ Попытка повторной отправки (компонент заблокирован), игнорируем'
+                        "[ChatInput] ⚠️ Попытка повторной отправки (компонент заблокирован), игнорируем",
                     );
                     return;
                 }
@@ -402,28 +472,32 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 // Определяем videoFormat и klingAspectRatio для отправки (нужны разные параметры API)
                 // Для Veo и Kling формат '1:1' не поддерживается, поэтому фильтруем его
                 const videoFormat =
-                    modelType.isVeo && format && format !== '1:1'
-                        ? (format as '16:9' | '9:16')
+                    modelType.isVeo && format && format !== "1:1"
+                        ? (format as "16:9" | "9:16")
                         : undefined;
                 const klingAspectRatio =
                     (modelType.isKling || modelType.isKling25) &&
                     format &&
-                    format !== '1:1'
-                        ? (format as '16:9' | '9:16')
+                    format !== "1:1"
+                        ? (format as "16:9" | "9:16")
                         : undefined;
 
                 const params: SubmitParams = {
                     prompt,
+                    enhancedPrompt:
+                        isAiModelMode && enhancedPrompt.trim()
+                            ? enhancedPrompt.trim()
+                            : undefined,
                     attachedFiles,
                     format: format as
-                        | '1:1'
-                        | '4:3'
-                        | '3:4'
-                        | '9:16'
-                        | '16:9'
-                        | '2:3'
-                        | '3:2'
-                        | '21:9'
+                        | "1:1"
+                        | "4:3"
+                        | "3:4"
+                        | "9:16"
+                        | "16:9"
+                        | "2:3"
+                        | "3:2"
+                        | "21:9"
                         | undefined,
                     quality,
                     videoFormat,
@@ -445,19 +519,32 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     languageCode,
                     isLockEnabled,
                     onClearForm: () => {
-                        setPrompt('');
+                        setPrompt("");
+                        setEnhancedPrompt("");
                         resetModelSpecificSettings();
+                        setLoras([]);
                         clearFiles();
                     },
                     fixedLens: undefined,
-                    klingMotionCharacterOrientation: settings.klingMotionCharacterOrientation,
+                    klingMotionCharacterOrientation:
+                        settings.klingMotionCharacterOrientation,
                     klingMotionVideoQuality: settings.klingMotionVideoQuality,
+                    loras: loras
+                        .filter((lora) => lora.path.trim().length > 0)
+                        .slice(0, 3)
+                        .map((lora) => ({
+                            path: lora.path.trim(),
+                            ...(lora.scale !== undefined
+                                ? { scale: lora.scale }
+                                : {}),
+                        })),
+                    appMode,
                 };
                 handleSubmit(event, {
                     ...params,
                     // fixedLens используется только для Seedance 1.5 Pro
                     fixedLens:
-                        currentModel === 'SEEDANCE_1_5_PRO_KIEAI'
+                        currentModel === "SEEDANCE_1_5_PRO_KIEAI"
                             ? fixedLens
                             : undefined,
                 });
@@ -466,6 +553,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 isDisabled,
                 handleSubmit,
                 prompt,
+                enhancedPrompt,
+                appMode,
+                isAiModelMode,
                 attachedFiles,
                 format,
                 quality,
@@ -482,14 +572,131 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 languageCode,
                 isLockEnabled,
                 veoGenerationType,
+                loras,
                 clearFiles,
-            ]
+            ],
+        );
+
+        const isZImageTurboLoraModel =
+            currentModel === "Z_IMAGE_TURBO_LORA_WAVESPEED";
+
+        const handleEnhancePrompt = useCallback(async () => {
+            if (!isAiModelMode || !prompt.trim()) return;
+            try {
+                const attachments = attachedFiles
+                    .map((file) => file.imgbbUrl || file.preview)
+                    .filter((value): value is string => Boolean(value));
+                const result = await promptEnhance({
+                    appMode: APP_MODES.AI_MODEL,
+                    prompt: prompt.trim(),
+                    attachments,
+                }).unwrap();
+                setEnhancedPrompt(result.enhancedPrompt);
+                setNegativePrompt(result.negativePrompt);
+            } catch (error) {
+                const errorMessage =
+                    error &&
+                    typeof error === "object" &&
+                    "data" in error &&
+                    error.data &&
+                    typeof error.data === "object" &&
+                    "error" in error.data &&
+                    typeof error.data.error === "string"
+                        ? error.data.error
+                        : "Не удалось улучшить промпт";
+                alert(errorMessage);
+            }
+        }, [
+            isAiModelMode,
+            prompt,
+            attachedFiles,
+            promptEnhance,
+            setNegativePrompt,
+        ]);
+
+        const updateLoraField = useCallback(
+            (index: number, updates: Partial<LoraSettingInput>) => {
+                setLoras((prev) =>
+                    prev.map((item, idx) =>
+                        idx === index ? { ...item, ...updates } : item,
+                    ),
+                );
+            },
+            [],
+        );
+
+        const removeLoraField = useCallback((index: number) => {
+            setLoras((prev) => prev.filter((_, idx) => idx !== index));
+        }, []);
+
+        const addSelectedServerLora = useCallback(() => {
+            if (!selectedServerLoraUrl) return;
+            setLoras((prev) => {
+                if (prev.length >= 3) return prev;
+                if (prev.some((item) => item.path === selectedServerLoraUrl)) {
+                    return prev;
+                }
+                return [...prev, { path: selectedServerLoraUrl, scale: 1 }];
+            });
+        }, [selectedServerLoraUrl]);
+
+        const handleLoraFileSelect = useCallback(
+            async (event: React.ChangeEvent<HTMLInputElement>) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+
+                try {
+                    if (!file.name.toLowerCase().endsWith(".safetensors")) {
+                        alert("Поддерживаются только файлы .safetensors");
+                        return;
+                    }
+
+                    const fileBase64 = await new Promise<string>(
+                        (resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () =>
+                                resolve(String(reader.result || ""));
+                            reader.onerror = reject;
+                            reader.readAsDataURL(file);
+                        },
+                    );
+
+                    const uploaded = await uploadLoraFile({
+                        fileBase64,
+                        filename: file.name,
+                    }).unwrap();
+
+                    setLoras((prev) => {
+                        if (prev.length >= 3) return prev;
+                        return [...prev, { path: uploaded.url, scale: 1 }];
+                    });
+                } catch (error) {
+                    console.error(
+                        "[ChatInput] Ошибка загрузки LoRA файла:",
+                        error,
+                    );
+                    const errorMessage =
+                        error &&
+                        typeof error === "object" &&
+                        "data" in error &&
+                        error.data &&
+                        typeof error.data === "object" &&
+                        "error" in error.data &&
+                        typeof error.data.error === "string"
+                            ? error.data.error
+                            : "Не удалось загрузить LoRA файл";
+                    alert(errorMessage);
+                } finally {
+                    if (event.target) event.target.value = "";
+                }
+            },
+            [uploadLoraFile],
         );
 
         // Обработка Enter для отправки
         const handleKeyDown = useCallback(
             (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
+                if (event.key === "Enter" && !event.shiftKey) {
                     // Предотвращаем отправку только если идет подготовка запроса или компонент заблокирован
                     if (submitInProgressRef.current || isDisabled) {
                         event.preventDefault();
@@ -499,7 +706,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     onSubmit(event);
                 }
             },
-            [submitInProgressRef, isDisabled, onSubmit]
+            [submitInProgressRef, isDisabled, onSubmit],
         );
 
         // Переключение состояния кнопки замочка
@@ -512,13 +719,18 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         return (
             <div
                 id='chat-input'
-                className='absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-slate-950/60 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl shadow-cyan-900/20 p-4 z-20'
+                className={cn(
+                    "absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-slate-950/60 backdrop-blur-xl rounded-3xl border border-white/10 p-4 z-20",
+                    isAiModelMode
+                        ? "shadow-2xl shadow-emerald-900/30"
+                        : "shadow-2xl shadow-cyan-900/20",
+                )}
             >
                 {/* Прикрепленные файлы */}
                 {attachedFiles.length > 0 ? (
                     <div className='mb-3 flex flex-wrap gap-2 items-center'>
                         {attachedFiles.map((file) => {
-                            const isVideo = file.file.type.startsWith('video/');
+                            const isVideo = file.file.type.startsWith("video/");
                             return (
                                 <div
                                     key={file.id}
@@ -564,6 +776,138 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     </p>
                 )}
 
+                {/* Поля для Wavespeed Z-Image Turbo LoRA */}
+                {isZImageTurboLoraModel && (
+                    <div className='mb-2 space-y-2'>
+                        <input
+                            ref={loraFileInputRef}
+                            type='file'
+                            accept='.safetensors'
+                            className='hidden'
+                            onChange={handleLoraFileSelect}
+                        />
+                        <p className='text-xs text-muted-foreground'>
+                            LoRA (до 3): выберите файл с сервера или загрузите
+                            новый
+                        </p>
+
+                        <div className='grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]'>
+                            <Select
+                                value={selectedServerLoraUrl}
+                                onValueChange={setSelectedServerLoraUrl}
+                                disabled={
+                                    isDisabled || serverLoraFiles.length === 0
+                                }
+                            >
+                                <SelectTrigger className='w-full border-border bg-secondary text-foreground rounded-xl h-9 text-xs'>
+                                    <SelectValue placeholder='Выбрать LoRA с сервера' />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {serverLoraFiles.map((item) => (
+                                        <SelectItem
+                                            key={item.filename}
+                                            value={item.url}
+                                            className='text-xs'
+                                        >
+                                            {item.filename}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                type='button'
+                                size='sm'
+                                variant='outline'
+                                onClick={addSelectedServerLora}
+                                disabled={
+                                    isDisabled ||
+                                    loras.length >= 3 ||
+                                    !selectedServerLoraUrl
+                                }
+                                className='h-9 text-xs'
+                            >
+                                Добавить выбранную
+                            </Button>
+                        </div>
+
+                        <div className='flex items-center gap-2'>
+                            <Button
+                                type='button'
+                                size='sm'
+                                variant='outline'
+                                onClick={() =>
+                                    loraFileInputRef.current?.click()
+                                }
+                                disabled={isDisabled || loras.length >= 3}
+                                className='h-8 text-xs'
+                            >
+                                <Paperclip className='h-3 w-3 mr-1' />
+                                Загрузить .safetensors с компьютера
+                            </Button>
+                        </div>
+
+                        {loras.map((lora, index) => (
+                            <div key={`lora-${index}`} className='flex gap-2'>
+                                <Input
+                                    type='text'
+                                    placeholder='path (например owner/model или URL .safetensors)'
+                                    value={lora.path}
+                                    onChange={(e) =>
+                                        updateLoraField(index, {
+                                            path: e.target.value,
+                                        })
+                                    }
+                                    disabled={isDisabled}
+                                    className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl'
+                                />
+                                <NumberInput
+                                    placeholder='scale'
+                                    value={lora.scale}
+                                    onValueChange={(value) =>
+                                        updateLoraField(index, { scale: value })
+                                    }
+                                    disabled={isDisabled}
+                                    className='w-28 border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl'
+                                    min={0}
+                                    max={2}
+                                    step={0.1}
+                                />
+                                <Button
+                                    type='button'
+                                    size='icon-sm'
+                                    variant='ghost'
+                                    onClick={() => removeLoraField(index)}
+                                    disabled={isDisabled}
+                                    className='h-9 w-9 text-muted-foreground hover:text-destructive'
+                                >
+                                    <X className='h-4 w-4' />
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {isAiModelMode && (
+                    <div className='flex gap-2 mb-2'>
+                        <Input
+                            type='text'
+                            placeholder='Улучшенный промпт'
+                            value={enhancedPrompt}
+                            onChange={(e) => setEnhancedPrompt(e.target.value)}
+                            disabled={isDisabled}
+                            className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 rounded-xl'
+                        />
+                        <Input
+                            type='text'
+                            placeholder='Негативный промпт'
+                            value={negativePrompt}
+                            onChange={(e) => setNegativePrompt(e.target.value)}
+                            disabled={isDisabled}
+                            className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 rounded-xl'
+                        />
+                    </div>
+                )}
+
                 {/* Подсказка для Seedream 4.5 Edit */}
                 {modelType.isSeedream4_5_Edit && (
                     <p className='mb-2 text-xs text-muted-foreground'>
@@ -594,11 +938,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         <Select
                             value={
                                 settings.klingMotionCharacterOrientation ??
-                                'image'
+                                "image"
                             }
                             onValueChange={(v) =>
                                 setKlingMotionCharacterOrientation(
-                                    v as 'image' | 'video'
+                                    v as "image" | "video",
                                 )
                             }
                             disabled={isDisabled}
@@ -616,12 +960,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             </SelectContent>
                         </Select>
                         <Select
-                            value={
-                                settings.klingMotionVideoQuality ?? '720p'
-                            }
+                            value={settings.klingMotionVideoQuality ?? "720p"}
                             onValueChange={(v) =>
                                 setKlingMotionVideoQuality(
-                                    v as '720p' | '1080p'
+                                    v as "720p" | "1080p",
                                 )
                             }
                             disabled={isDisabled}
@@ -638,26 +980,24 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 )}
 
                 {/* Дополнительные параметры Seedance 1.5 Pro */}
-                {currentModel === 'SEEDANCE_1_5_PRO_KIEAI' && (
+                {currentModel === "SEEDANCE_1_5_PRO_KIEAI" && (
                     <div className='mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground'>
                         <span>Камера:</span>
                         <Select
                             value={
                                 fixedLens === undefined
-                                    ? 'false'
+                                    ? "false"
                                     : fixedLens
-                                      ? 'true'
-                                      : 'false'
+                                      ? "true"
+                                      : "false"
                             }
                             onValueChange={(value) =>
-                                setFixedLens(value === 'true')
+                                setFixedLens(value === "true")
                             }
                             disabled={isDisabled}
                         >
                             <SelectTrigger className='w-[150px] border-border bg-secondary text-foreground rounded-xl'>
-                                <SelectValue
-                                    placeholder='Режим камеры'
-                                />
+                                <SelectValue placeholder='Режим камеры' />
                             </SelectTrigger>
                             <SelectContent
                                 side='top'
@@ -667,10 +1007,16 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 avoidCollisions={true}
                                 className='border-border bg-card data-[side=top]:animate-none!'
                             >
-                                <SelectItem value='true' className='text-muted-foreground focus:bg-accent focus:text-accent-foreground'>
+                                <SelectItem
+                                    value='true'
+                                    className='text-muted-foreground focus:bg-accent focus:text-accent-foreground'
+                                >
                                     Фиксированный ракурс (fixed_lens)
                                 </SelectItem>
-                                <SelectItem value='false' className='text-muted-foreground focus:bg-accent focus:text-accent-foreground'>
+                                <SelectItem
+                                    value='false'
+                                    className='text-muted-foreground focus:bg-accent focus:text-accent-foreground'
+                                >
                                     Свободная камера
                                 </SelectItem>
                             </SelectContent>
@@ -688,20 +1034,21 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             onModelChange(model);
                         }}
                         disabled={isDisabled}
+                        appMode={appMode}
                     />
 
                     <ModelSettingsPanel
                         model={currentModel}
                         format={
                             format as
-                                | '1:1'
-                                | '4:3'
-                                | '3:4'
-                                | '9:16'
-                                | '16:9'
-                                | '2:3'
-                                | '3:2'
-                                | '21:9'
+                                | "1:1"
+                                | "4:3"
+                                | "3:4"
+                                | "9:16"
+                                | "16:9"
+                                | "2:3"
+                                | "3:2"
+                                | "21:9"
                                 | undefined
                         }
                         quality={quality}
@@ -804,15 +1151,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                         avoidCollisions={true}
                                         className='border-border bg-card data-[side=top]:animate-none!'
                                     >
-                                        {ELEVENLABS_VOICES.map((voiceOption) => (
-                                            <SelectItem
-                                                key={voiceOption}
-                                                value={voiceOption}
-                                                className='text-foreground focus:bg-secondary focus:text-foreground'
-                                            >
-                                                {voiceOption}
-                                            </SelectItem>
-                                        ))}
+                                        {ELEVENLABS_VOICES.map(
+                                            (voiceOption) => (
+                                                <SelectItem
+                                                    key={voiceOption}
+                                                    value={voiceOption}
+                                                    className='text-foreground focus:bg-secondary focus:text-foreground'
+                                                >
+                                                    {voiceOption}
+                                                </SelectItem>
+                                            ),
+                                        )}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -889,9 +1238,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 {/* Поле ввода с кнопками внутри */}
                 <div
                     className={cn(
-                        'relative rounded-xl transition-all',
+                        "relative rounded-xl transition-all",
                         isDragging &&
-                            'border-2 border-primary bg-secondary/80 p-1'
+                            "border-2 border-primary bg-secondary/80 p-1",
                     )}
                     onDragOver={(e) => handleDragOver(e, isDisabled)}
                     onDragLeave={handleDragLeave}
@@ -917,26 +1266,26 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         placeholder='Опишите, что хотите сгенерировать...'
                         maxLength={MAX_PROMPT_LENGTH}
                         className={cn(
-                            'min-h-[76px] max-h-[20vh] resize-none border-border bg-secondary pb-10 pl-4 pr-12 text-foreground placeholder:text-muted-foreground rounded-xl transition-all',
-                            'focus-visible:ring-primary focus-visible:border-primary',
+                            "min-h-[76px] max-h-[20vh] resize-none border-border bg-secondary pb-10 pl-4 pr-12 text-foreground placeholder:text-muted-foreground rounded-xl transition-all",
+                            "focus-visible:ring-primary focus-visible:border-primary",
                             needsScrollbar &&
-                                'overflow-y-auto custom-scrollbar',
-                            !needsScrollbar && 'overflow-y-hidden',
-                            isDragging && 'border-primary'
+                                "overflow-y-auto custom-scrollbar",
+                            !needsScrollbar && "overflow-y-hidden",
+                            isDragging && "border-primary",
                         )}
-                        style={{ height: 'auto' }}
+                        style={{ height: "auto" }}
                         disabled={isDisabled}
                     />
 
                     {/* Счетчик символов */}
                     <div
                         className={cn(
-                            'absolute bottom-2.5 right-12 text-[10px] select-none pointer-events-none transition-colors px-1 rounded bg-background/50',
+                            "absolute bottom-2.5 right-12 text-[10px] select-none pointer-events-none transition-colors px-1 rounded bg-background/50",
                             prompt.length >= MAX_PROMPT_LENGTH
-                                ? 'text-destructive'
+                                ? "text-destructive"
                                 : prompt.length >= MAX_PROMPT_LENGTH * 0.9
-                                  ? 'text-primary'
-                                  : 'text-muted-foreground'
+                                  ? "text-primary"
+                                  : "text-muted-foreground",
                         )}
                     >
                         {prompt.length}/{MAX_PROMPT_LENGTH}
@@ -949,10 +1298,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             size='icon-sm'
                             variant='ghost'
                             className={cn(
-                                'h-8 w-8 hover:bg-secondary',
+                                "h-8 w-8 hover:bg-secondary",
                                 attachedFiles.length > 0
-                                    ? 'text-primary'
-                                    : 'text-muted-foreground hover:text-primary'
+                                    ? "text-primary"
+                                    : "text-muted-foreground hover:text-primary",
                             )}
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isDisabled}
@@ -966,17 +1315,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             size='icon-sm'
                             variant='ghost'
                             className={cn(
-                                'h-8 w-8 hover:bg-secondary',
+                                "h-8 w-8 hover:bg-secondary",
                                 isLockEnabled
-                                    ? 'text-primary'
-                                    : 'text-muted-foreground hover:text-foreground'
+                                    ? "text-primary"
+                                    : "text-muted-foreground hover:text-foreground",
                             )}
                             onClick={toggleLock}
                             disabled={isDisabled}
                             title={
                                 isLockEnabled
-                                    ? 'Сохранение промптов включено'
-                                    : 'Сохранение промптов выключено'
+                                    ? "Сохранение промптов включено"
+                                    : "Сохранение промптов выключено"
                             }
                         >
                             {isLockEnabled ? (
@@ -988,6 +1337,27 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     </div>
 
                     {/* Кнопка отправки справа внутри поля ввода */}
+                    {isAiModelMode && (
+                        <Button
+                            type='button'
+                            size='icon-sm'
+                            variant='secondary'
+                            className='absolute bottom-1.5 right-11 h-8 w-8 text-emerald-300 hover:text-emerald-200'
+                            onClick={handleEnhancePrompt}
+                            disabled={
+                                isDisabled ||
+                                !prompt.trim() ||
+                                isEnhancingPrompt
+                            }
+                            title='Улучшить промпт через Grok'
+                        >
+                            {isEnhancingPrompt ? (
+                                <Loader2 className='h-4 w-4 animate-spin' />
+                            ) : (
+                                <span>✨</span>
+                            )}
+                        </Button>
+                    )}
                     <Button
                         type='button'
                         size='icon-sm'
@@ -1034,5 +1404,5 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 )}
             </div>
         );
-    }
+    },
 );

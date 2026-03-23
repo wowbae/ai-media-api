@@ -1,16 +1,48 @@
 // Роуты для работы с файлами
-import { Router, Request, Response } from 'express';
-import path from 'path';
-import { prisma } from 'prisma/client';
-import { deleteFile } from '../file.service';
-import { mediaStorageConfig } from '../config';
-import { invalidateChatCache } from './cache';
+import { Router, Request, Response } from "express";
+import path from "path";
+import { prisma } from "prisma/client";
+import { deleteFile } from "../file.service";
+import { mediaStorageConfig } from "../config";
+import { invalidateChatCache } from "./cache";
+import { APP_MODES, parseAppMode } from "../app-mode";
+
+function buildRequestModeWhere(appMode: "default" | "ai-model") {
+    if (appMode === APP_MODES.AI_MODEL) {
+        return {
+            settings: {
+                path: ["appMode"],
+                equals: APP_MODES.AI_MODEL,
+            },
+        };
+    }
+    return {
+        OR: [
+            {
+                settings: {
+                    path: ["appMode"],
+                    equals: APP_MODES.DEFAULT,
+                },
+            },
+            {
+                settings: {
+                    path: ["appMode"],
+                    equals: null,
+                },
+            },
+        ],
+    };
+}
+import { writeFile, unlink, mkdtemp } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
+import { Client } from "wavespeed";
 
 export function createFilesRouter(): Router {
     const router = Router();
 
     // Получить все файлы с пагинацией
-    router.get('/files', async (req: Request, res: Response) => {
+    router.get("/files", async (req: Request, res: Response) => {
         try {
             const pageParam = req.query.page
                 ? parseInt(req.query.page as string)
@@ -21,25 +53,26 @@ export function createFilesRouter(): Router {
             const chatIdParam = req.query.chatId
                 ? parseInt(req.query.chatId as string)
                 : undefined;
+            const appMode = parseAppMode(req.query.appMode);
 
             if (isNaN(pageParam) || pageParam < 1) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Некорректный параметр page',
+                    error: "Некорректный параметр page",
                 });
             }
 
             if (isNaN(limitParam) || limitParam < 1 || limitParam > 100) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Некорректный параметр limit (должен быть от 1 до 100)',
+                    error: "Некорректный параметр limit (должен быть от 1 до 100)",
                 });
             }
 
             if (chatIdParam !== undefined && isNaN(chatIdParam)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Некорректный параметр chatId',
+                    error: "Некорректный параметр chatId",
                 });
             }
 
@@ -52,14 +85,19 @@ export function createFilesRouter(): Router {
                 ? {
                       request: {
                           chatId: chatIdParam,
+                          ...buildRequestModeWhere(appMode),
                       },
                   }
-                : {};
+                : {
+                      request: {
+                          ...buildRequestModeWhere(appMode),
+                      },
+                  };
 
             const [files, total] = await Promise.all([
                 prisma.mediaFile.findMany({
                     where: whereCondition,
-                    orderBy: { createdAt: 'desc' },
+                    orderBy: { createdAt: "desc" },
                     skip,
                     take: limit,
                     select: {
@@ -103,22 +141,22 @@ export function createFilesRouter(): Router {
                 },
             });
         } catch (error) {
-            console.error('Ошибка получения файлов:', error);
+            console.error("Ошибка получения файлов:", error);
             res.status(500).json({
                 success: false,
-                error: 'Ошибка получения файлов',
+                error: "Ошибка получения файлов",
             });
         }
     });
 
     // Удалить файл
-    router.delete('/files/:id', async (req: Request, res: Response) => {
+    router.delete("/files/:id", async (req: Request, res: Response) => {
         try {
             const fileId = parseInt(req.params.id);
             if (isNaN(fileId)) {
                 return res
                     .status(400)
-                    .json({ success: false, error: 'Некорректный ID файла' });
+                    .json({ success: false, error: "Некорректный ID файла" });
             }
 
             const file = await prisma.mediaFile.findUnique({
@@ -128,7 +166,7 @@ export function createFilesRouter(): Router {
             if (!file) {
                 return res
                     .status(404)
-                    .json({ success: false, error: 'Файл не найден' });
+                    .json({ success: false, error: "Файл не найден" });
             }
 
             // Преобразуем относительные пути в абсолютные для удаления
@@ -149,7 +187,7 @@ export function createFilesRouter(): Router {
                 : null;
 
             // Проверяем существование физического файла перед удалением
-            const { existsSync } = await import('fs');
+            const { existsSync } = await import("fs");
             const fileExists = absolutePath ? existsSync(absolutePath) : false;
 
             if (fileExists) {
@@ -183,26 +221,26 @@ export function createFilesRouter(): Router {
             res.json({
                 success: true,
                 message: fileExists
-                    ? 'Файл удален'
-                    : 'Запись удалена (физический файл отсутствовал)',
+                    ? "Файл удален"
+                    : "Запись удалена (физический файл отсутствовал)",
             });
         } catch (error) {
-            console.error('Ошибка удаления файла:', error);
+            console.error("Ошибка удаления файла:", error);
             res.status(500).json({
                 success: false,
-                error: 'Ошибка удаления файла',
+                error: "Ошибка удаления файла",
             });
         }
     });
 
     // Сохранить thumbnail для видео (генерируется на клиенте через canvas)
-    router.post('/files/:id/thumbnail', async (req: Request, res: Response) => {
+    router.post("/files/:id/thumbnail", async (req: Request, res: Response) => {
         try {
             const fileId = parseInt(req.params.id);
             if (isNaN(fileId)) {
                 return res
                     .status(400)
-                    .json({ success: false, error: 'Некорректный ID файла' });
+                    .json({ success: false, error: "Некорректный ID файла" });
             }
 
             const { thumbnail } = req.body as { thumbnail: string }; // base64 image
@@ -210,7 +248,7 @@ export function createFilesRouter(): Router {
             if (!thumbnail) {
                 return res
                     .status(400)
-                    .json({ success: false, error: 'thumbnail обязателен' });
+                    .json({ success: false, error: "thumbnail обязателен" });
             }
 
             // Проверяем существование файла
@@ -221,14 +259,14 @@ export function createFilesRouter(): Router {
             if (!file) {
                 return res
                     .status(404)
-                    .json({ success: false, error: 'Файл не найден' });
+                    .json({ success: false, error: "Файл не найден" });
             }
 
             // Проверяем, что это видео
-            if (file.type !== 'VIDEO') {
+            if (file.type !== "VIDEO") {
                 return res.status(400).json({
                     success: false,
-                    error: 'Thumbnail можно создать только для видео',
+                    error: "Thumbnail можно создать только для видео",
                 });
             }
 
@@ -237,29 +275,29 @@ export function createFilesRouter(): Router {
                 return res.json({
                     success: true,
                     data: { previewPath: file.previewPath },
-                    message: 'Превью уже существует',
+                    message: "Превью уже существует",
                 });
             }
 
             // Извлекаем base64 данные (убираем data:image/jpeg;base64, prefix)
             const base64Data = thumbnail.replace(
                 /^data:image\/\w+;base64,/,
-                '',
+                "",
             );
-            const buffer = Buffer.from(base64Data, 'base64');
+            const buffer = Buffer.from(base64Data, "base64");
 
             // Импортируем sharp для обработки изображения
-            let sharp: typeof import('sharp') | null = null;
+            let sharp: typeof import("sharp") | null = null;
             try {
-                sharp = (await import('sharp')).default;
+                sharp = (await import("sharp")).default;
             } catch {
                 console.warn(
-                    'Sharp не установлен - превью будет сохранено без обработки',
+                    "Sharp не установлен - превью будет сохранено без обработки",
                 );
             }
 
             // Генерируем имя файла для превью
-            const previewFilename = `preview-${file.filename.replace(/\.[^.]+$/, '.jpg')}`;
+            const previewFilename = `preview-${file.filename.replace(/\.[^.]+$/, ".jpg")}`;
             const fullPreviewPath = path.join(
                 mediaStorageConfig.previewsPath,
                 previewFilename,
@@ -270,14 +308,14 @@ export function createFilesRouter(): Router {
                 const { width, height } = mediaStorageConfig.previewSize;
                 await sharp(buffer)
                     .resize(width, height, {
-                        fit: 'cover',
-                        position: 'center',
+                        fit: "cover",
+                        position: "center",
                     })
                     .jpeg({ quality: 80 })
                     .toFile(fullPreviewPath);
             } else {
                 // Fallback: сохраняем как есть
-                const { writeFile } = await import('fs/promises');
+                const { writeFile } = await import("fs/promises");
                 await writeFile(fullPreviewPath, buffer);
             }
 
@@ -311,41 +349,41 @@ export function createFilesRouter(): Router {
             res.json({
                 success: true,
                 data: { previewPath: relativePreviewPath },
-                message: 'Превью успешно создано',
+                message: "Превью успешно создано",
             });
         } catch (error) {
-            console.error('Ошибка создания превью:', error);
+            console.error("Ошибка создания превью:", error);
             res.status(500).json({
                 success: false,
-                error: 'Ошибка создания превью',
+                error: "Ошибка создания превью",
             });
         }
     });
 
     // Загрузить файлы на imgbb (для inputFiles)
     // Принимает массив base64 строк в JSON body
-    router.post('/upload-to-imgbb', async (req: Request, res: Response) => {
+    router.post("/upload-to-imgbb", async (req: Request, res: Response) => {
         try {
             const { files } = req.body as { files: string[] }; // массив base64 строк
 
             if (!files || !Array.isArray(files) || files.length === 0) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Массив файлов (base64) обязателен',
+                    error: "Массив файлов (base64) обязателен",
                 });
             }
 
             console.log(
-                '[API] POST /upload-to-imgbb - получено файлов:',
+                "[API] POST /upload-to-imgbb - получено файлов:",
                 files.length,
             );
 
-            const { uploadMultipleToImgbb } = await import('../imgbb.service');
+            const { uploadMultipleToImgbb } = await import("../imgbb.service");
 
             // Загружаем файлы на хостинг изображений (postimages.org и др.)
             const urls = await uploadMultipleToImgbb(files);
 
-            console.log('[API] ✅ POST /upload-to-imgbb - загружено:', {
+            console.log("[API] ✅ POST /upload-to-imgbb - загружено:", {
                 uploaded: urls.length,
                 total: files.length,
             });
@@ -359,11 +397,11 @@ export function createFilesRouter(): Router {
                 },
             });
         } catch (error) {
-            console.error('[API] ❌ Ошибка загрузки изображений:', error);
+            console.error("[API] ❌ Ошибка загрузки изображений:", error);
             const errorMessage =
                 error instanceof Error
                     ? error.message
-                    : 'Ошибка загрузки изображений';
+                    : "Ошибка загрузки изображений";
             res.status(500).json({
                 success: false,
                 error: errorMessage,
@@ -372,10 +410,11 @@ export function createFilesRouter(): Router {
     });
 
     // Загрузить пользовательские медиа (сохранение в ai-media и БД)
-    router.post('/upload-user-media', async (req: Request, res: Response) => {
+    router.post("/upload-user-media", async (req: Request, res: Response) => {
         try {
             const { chatId, files } = req.body as {
                 chatId: number;
+                appMode?: string;
                 files: {
                     base64: string;
                     mimeType: string;
@@ -392,13 +431,14 @@ export function createFilesRouter(): Router {
             ) {
                 return res.status(400).json({
                     success: false,
-                    error: 'chatId и массив файлов обязательны',
+                    error: "chatId и массив файлов обязательны",
                 });
             }
 
             console.log(
                 `[API] POST /upload-user-media - chatId: ${chatId}, файлов: ${files.length}`,
             );
+            const appMode = parseAppMode(req.body.appMode);
 
             // Проверяем существование чата
             const chat = await prisma.mediaChat.findUnique({
@@ -408,23 +448,33 @@ export function createFilesRouter(): Router {
             if (!chat) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Чат не найден',
+                    error: "Чат не найден",
+                });
+            }
+            const chatMode = parseAppMode(
+                (chat.settings as { appMode?: string } | null)?.appMode,
+            );
+            if (chatMode !== appMode) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Режим чата не совпадает с режимом запроса",
                 });
             }
 
             // Импортируем сервисы
-            const { saveBase64File } = await import('../file.service');
+            const { saveBase64File } = await import("../file.service");
             const { notifyTelegramGroup } =
-                await import('../telegram.notifier');
+                await import("../telegram.notifier");
 
             // Создаем MediaRequest для этой загрузки
-            const filenames = files.map((f) => f.filename).join(', ');
+            const filenames = files.map((f) => f.filename).join(", ");
             const mediaRequest = await prisma.mediaRequest.create({
                 data: {
                     chatId,
                     prompt: `User Upload: ${filenames}`,
-                    status: 'COMPLETED',
+                    status: "COMPLETED",
                     completedAt: new Date(),
+                    settings: { appMode },
                 },
             });
 
@@ -444,7 +494,7 @@ export function createFilesRouter(): Router {
                     // Извлекаем чистый base64 если есть префикс data:...;base64,
                     const base64Clean = fileData.base64.replace(
                         /^data:.*?;base64,/,
-                        '',
+                        "",
                     );
 
                     // imgbbUrl: клиент уже загрузил на imgbb при прикреплении — не дублируем
@@ -463,9 +513,9 @@ export function createFilesRouter(): Router {
                             path: savedFileInfo.path,
                             url:
                                 savedFileInfo.url ||
-                                'null (не загружен на imgbb)',
-                            previewPath: savedFileInfo.previewPath || 'null',
-                            previewUrl: savedFileInfo.previewUrl || 'null',
+                                "null (не загружен на imgbb)",
+                            previewPath: savedFileInfo.previewPath || "null",
+                            previewUrl: savedFileInfo.previewUrl || "null",
                         },
                     );
 
@@ -495,7 +545,7 @@ export function createFilesRouter(): Router {
                         `User Upload: ${fileData.filename}`,
                     ).catch((err) => {
                         console.error(
-                            '[API] Ошибка уведомления в Telegram (upload):',
+                            "[API] Ошибка уведомления в Telegram (upload):",
                             err,
                         );
                     });
@@ -521,7 +571,7 @@ export function createFilesRouter(): Router {
             const inputFilesUrls: string[] = [];
             for (const savedFile of savedFiles) {
                 // Для изображений: imgbb URL приоритетнее, иначе локальный путь (для превью)
-                if (savedFile.type === 'IMAGE') {
+                if (savedFile.type === "IMAGE") {
                     if (savedFile.url) {
                         inputFilesUrls.push(savedFile.url);
                         console.log(
@@ -533,7 +583,7 @@ export function createFilesRouter(): Router {
                             `[API] 📎 Добавлен путь в inputFiles для изображения (без imgbb): ${savedFile.filename}`,
                         );
                     }
-                } else if (savedFile.type === 'VIDEO' && savedFile.path) {
+                } else if (savedFile.type === "VIDEO" && savedFile.path) {
                     // Для видео используем относительный путь (клиент преобразует его в полный URL через getMediaFileUrl)
                     inputFilesUrls.push(savedFile.path);
                     console.log(
@@ -583,12 +633,86 @@ export function createFilesRouter(): Router {
             const message =
                 error instanceof Error ? error.message : String(error);
             console.error(
-                '[API] ❌ Ошибка загрузки пользовательских медиа:',
+                "[API] ❌ Ошибка загрузки пользовательских медиа:",
                 error,
             );
             res.status(500).json({
                 success: false,
-                error: message || 'Ошибка при загрузке файлов',
+                error: message || "Ошибка при загрузке файлов",
+            });
+        }
+    });
+
+    // Загрузить LoRA файл (.safetensors) в Wavespeed storage и вернуть URL
+    router.post("/upload-lora", async (req: Request, res: Response) => {
+        try {
+            const { fileBase64, filename } = req.body as {
+                fileBase64?: string;
+                filename?: string;
+            };
+
+            if (!fileBase64 || !filename) {
+                return res.status(400).json({
+                    success: false,
+                    error: "fileBase64 и filename обязательны",
+                });
+            }
+
+            if (!filename.toLowerCase().endsWith(".safetensors")) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Поддерживаются только файлы .safetensors",
+                });
+            }
+
+            const apiKey =
+                process.env.WAVESPEED_API_KEY ||
+                process.env.WAVESPEED_AI_API_KEY;
+
+            if (!apiKey) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Wavespeed API ключ не настроен",
+                });
+            }
+
+            const cleanBase64 = fileBase64.replace(/^data:.*?;base64,/, "");
+            const buffer = Buffer.from(cleanBase64, "base64");
+
+            // Ограничиваем размер LoRA файла (макс 500MB)
+            const maxBytes = 500 * 1024 * 1024;
+            if (buffer.length > maxBytes) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Файл слишком большой. Максимум 500MB",
+                });
+            }
+
+            const tmpDir = await mkdtemp(join(tmpdir(), "lora-upload-"));
+            const tempFilePath = join(tmpDir, filename);
+
+            try {
+                await writeFile(tempFilePath, buffer);
+                const client = new Client(apiKey);
+                const uploadedUrl = await client.upload(tempFilePath);
+
+                return res.json({
+                    success: true,
+                    data: {
+                        path: uploadedUrl,
+                        filename,
+                    },
+                });
+            } finally {
+                await unlink(tempFilePath).catch(() => {});
+            }
+        } catch (error) {
+            console.error("[API] Ошибка загрузки LoRA файла:", error);
+            const message =
+                error instanceof Error ? error.message : "Ошибка загрузки LoRA";
+            return res.status(500).json({
+                success: false,
+                error: message,
             });
         }
     });

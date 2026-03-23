@@ -4,11 +4,14 @@ import { prisma } from "prisma/client";
 import { getProviderManager } from "./providers";
 import { getSSEService } from "./sse.service";
 import type { MediaModel } from "./interfaces";
+import type { AppMode } from "./app-mode";
+import { APP_MODES } from "./app-mode";
 import {
     handleTaskCompleted,
     handleTaskFailed,
 } from "./completion-handler.service";
 import type { SSEEvent } from "./sse.service";
+import { parseAppMode } from "./app-mode";
 
 interface TrackedTask {
     requestId: number;
@@ -17,6 +20,7 @@ interface TrackedTask {
     prompt: string;
     chatId: number;
     userId?: number; // Опционально - только для SSE уведомлений
+    appMode?: AppMode;
     createdAt: number;
     lastCheckedAt?: number;
     checkCount: number;
@@ -85,6 +89,7 @@ class TaskTrackingService {
                     chatId: true,
                     userId: true,
                     createdAt: true,
+                    settings: true,
                 },
             });
 
@@ -134,6 +139,10 @@ class TaskTrackingService {
                     prompt: request.prompt,
                     chatId: request.chatId,
                     userId: request.userId || undefined,
+                    appMode: parseAppMode(
+                        (request.settings as { appMode?: string } | null)
+                            ?.appMode,
+                    ),
                 });
 
                 recovered++;
@@ -157,6 +166,7 @@ class TaskTrackingService {
         prompt: string;
         chatId: number;
         userId?: number; // Опционально - только для SSE уведомлений
+        appMode?: AppMode;
     }): Promise<void> {
         const key = this.getTaskKey(params.requestId);
 
@@ -372,6 +382,7 @@ class TaskTrackingService {
             data: {
                 // Можно добавить прогресс если провайдер поддерживает
             },
+            appMode: task.appMode ?? APP_MODES.DEFAULT,
         };
 
         sseService.sendToUser(task.userId, event);
@@ -388,6 +399,7 @@ class TaskTrackingService {
             type: "REQUEST_COMPLETED",
             requestId: task.requestId,
             chatId: task.chatId,
+            appMode: task.appMode ?? APP_MODES.DEFAULT,
             status: "COMPLETED",
             timestamp: new Date().toISOString(),
         };
@@ -406,6 +418,7 @@ class TaskTrackingService {
             type: "REQUEST_FAILED",
             requestId: task.requestId,
             chatId: task.chatId,
+            appMode: task.appMode ?? APP_MODES.DEFAULT,
             status: "FAILED",
             timestamp: new Date().toISOString(),
             data: {

@@ -1,6 +1,11 @@
 // Хук для работы с файлами в chat-input
-import { useState, useRef, useCallback } from 'react';
-import { useUploadToImgbbMutation, useUploadUserMediaMutation } from '@/redux/media-api';
+import { useState, useRef, useCallback } from "react";
+import {
+    useUploadToImgbbMutation,
+    useUploadUserMediaMutation,
+} from "@/redux/media-api";
+import type { AppMode } from "@/lib/app-mode";
+import { APP_MODES } from "@/lib/app-mode";
 
 export interface AttachedFile {
     id: string;
@@ -13,7 +18,7 @@ export interface AttachedFile {
 // Извлечение сообщения об ошибке (RTK Query возвращает объект, а не Error)
 function getErrorMessage(error: unknown, fallback: string): string {
     if (error instanceof Error) return error.message;
-    if (typeof error === 'object' && error !== null) {
+    if (typeof error === "object" && error !== null) {
         const err = error as {
             status?: number;
             data?: { error?: string } | string;
@@ -21,12 +26,12 @@ function getErrorMessage(error: unknown, fallback: string): string {
             error?: string;
         };
         if (err.status === 413)
-            return 'Файл слишком большой. Видео — макс 100MB, изображения — 10MB.';
-        if (typeof err.data === 'object' && typeof err.data?.error === 'string')
+            return "Файл слишком большой. Видео — макс 100MB, изображения — 10MB.";
+        if (typeof err.data === "object" && typeof err.data?.error === "string")
             return err.data.error;
-        if (typeof err.data === 'string') return err.data;
-        if (typeof err.error === 'string') return err.error;
-        if (typeof err.message === 'string') return err.message;
+        if (typeof err.data === "string") return err.data;
+        if (typeof err.error === "string") return err.error;
+        if (typeof err.message === "string") return err.message;
     }
     return fallback;
 }
@@ -41,7 +46,10 @@ function fileToBase64(file: File): Promise<string> {
     });
 }
 
-export function useChatInputFiles(chatId?: number) {
+export function useChatInputFiles(
+    chatId?: number,
+    appMode: AppMode = APP_MODES.DEFAULT,
+) {
     const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
     const [isDragging, setIsDragging] = useState(false);
     const [uploadToImgbb] = useUploadToImgbbMutation();
@@ -51,7 +59,11 @@ export function useChatInputFiles(chatId?: number) {
 
     // Обработка файлов (общая функция для переиспользования)
     const processFiles = useCallback(
-        async (files: File[], shouldUpload: boolean = false, skipSizeCheck: boolean = false): Promise<AttachedFile[]> => {
+        async (
+            files: File[],
+            shouldUpload: boolean = false,
+            skipSizeCheck: boolean = false,
+        ): Promise<AttachedFile[]> => {
             const newFiles: AttachedFile[] = [];
             const imageFiles: File[] = [];
             const videoFiles: File[] = [];
@@ -60,28 +72,28 @@ export function useChatInputFiles(chatId?: number) {
             for (const file of files) {
                 // Проверяем тип файла (только изображения и видео)
                 if (
-                    !file.type.startsWith('image/') &&
-                    !file.type.startsWith('video/')
+                    !file.type.startsWith("image/") &&
+                    !file.type.startsWith("video/")
                 ) {
                     console.warn(
-                        '[ChatInput] Пропущен файл недопустимого типа:',
-                        file.type
+                        "[ChatInput] Пропущен файл недопустимого типа:",
+                        file.type,
                     );
                     continue;
                 }
 
                 // Проверяем размер: изображения макс 10MB, видео макс 100MB (Kling Motion Control)
-                const maxSize = file.type.startsWith('video/')
+                const maxSize = file.type.startsWith("video/")
                     ? 100 * 1024 * 1024
                     : 10 * 1024 * 1024;
                 if (!skipSizeCheck && file.size > maxSize) {
                     alert(
-                        `Размер файла "${file.name}" не должен превышать ${file.type.startsWith('video/') ? '100' : '10'}MB`
+                        `Размер файла "${file.name}" не должен превышать ${file.type.startsWith("video/") ? "100" : "10"}MB`,
                     );
                     continue;
                 }
 
-                if (file.type.startsWith('image/')) {
+                if (file.type.startsWith("image/")) {
                     imageFiles.push(file);
                 } else {
                     videoFiles.push(file);
@@ -101,9 +113,9 @@ export function useChatInputFiles(chatId?: number) {
                     });
                 } catch (error) {
                     console.error(
-                        '[ChatInput] Ошибка обработки файла:',
+                        "[ChatInput] Ошибка обработки файла:",
                         file.name,
-                        error
+                        error,
                     );
                     alert(`Не удалось обработать файл "${file.name}"`);
                 }
@@ -114,12 +126,12 @@ export function useChatInputFiles(chatId?: number) {
                 try {
                     // Конвертируем изображения в base64 для загрузки на imgbb
                     const base64Images = await Promise.all(
-                        imageFiles.map((file) => fileToBase64(file))
+                        imageFiles.map((file) => fileToBase64(file)),
                     );
 
                     console.log(
-                        '[ChatInput] Загрузка изображений на imgbb...',
-                        { count: imageFiles.length }
+                        "[ChatInput] Загрузка изображений на imgbb...",
+                        { count: imageFiles.length },
                     );
 
                     const result = await uploadToImgbb({
@@ -129,7 +141,7 @@ export function useChatInputFiles(chatId?: number) {
                     // Связываем загруженные URL с файлами
                     let imageIndex = 0;
                     for (let i = 0; i < newFiles.length; i++) {
-                        if (newFiles[i].file.type.startsWith('image/')) {
+                        if (newFiles[i].file.type.startsWith("image/")) {
                             if (result.urls[imageIndex]) {
                                 newFiles[i].imgbbUrl = result.urls[imageIndex];
                                 imageIndex++;
@@ -138,18 +150,18 @@ export function useChatInputFiles(chatId?: number) {
                     }
 
                     console.log(
-                        '[ChatInput] ✅ Изображения загружены на imgbb:',
-                        { uploaded: result.uploaded, total: result.total }
+                        "[ChatInput] ✅ Изображения загружены на imgbb:",
+                        { uploaded: result.uploaded, total: result.total },
                     );
                 } catch (error) {
                     const errorMessage = getErrorMessage(
                         error,
-                        'Неизвестная ошибка при загрузке изображений'
+                        "Неизвестная ошибка при загрузке изображений",
                     );
                     console.error(
-                        '[ChatInput] ❌ Ошибка загрузки изображений на imgbb:',
+                        "[ChatInput] ❌ Ошибка загрузки изображений на imgbb:",
                         errorMessage,
-                        error
+                        error,
                     );
                     alert(`Ошибка при загрузке изображений: ${errorMessage}`);
                     // Не прерываем процесс, просто не будет imgbbUrl
@@ -166,25 +178,30 @@ export function useChatInputFiles(chatId?: number) {
                             mimeType: f.file.type,
                             filename: f.file.name,
                             imgbbUrl: f.imgbbUrl,
-                        }))
+                        })),
                     );
 
-                    console.log(`[ChatInput] Загрузка ${uploadFiles.length} файлов в БД (ai-media)...`);
+                    console.log(
+                        `[ChatInput] Загрузка ${uploadFiles.length} файлов в БД (ai-media)...`,
+                    );
                     const result = await uploadUserMedia({
                         chatId,
+                        appMode,
                         files: uploadFiles,
                     }).unwrap();
 
-                    console.log('[ChatInput] ✅ Файлы успешно сохранены в БД и ai-media');
+                    console.log(
+                        "[ChatInput] ✅ Файлы успешно сохранены в БД и ai-media",
+                    );
 
                     // Мержим serverPath/imgbbUrl в newFiles (setState не успевает — файлы ещё не в state)
                     if (result && result.files) {
                         result.files.forEach((serverFile) => {
                             const localFile = newFiles.find(
-                                (f) => f.file.name === serverFile.filename
+                                (f) => f.file.name === serverFile.filename,
                             );
                             if (!localFile) return;
-                            const isVideo = serverFile.type === 'VIDEO';
+                            const isVideo = serverFile.type === "VIDEO";
                             if (isVideo && serverFile.path) {
                                 localFile.serverPath = serverFile.path;
                             } else if (serverFile.url) {
@@ -195,16 +212,20 @@ export function useChatInputFiles(chatId?: number) {
                 } catch (error) {
                     const errorMessage = getErrorMessage(
                         error,
-                        'Неизвестная ошибка при сохранении файлов'
+                        "Неизвестная ошибка при сохранении файлов",
                     );
-                    console.error('[ChatInput] ❌ Ошибка сохранения файлов в БД:', errorMessage, error);
+                    console.error(
+                        "[ChatInput] ❌ Ошибка сохранения файлов в БД:",
+                        errorMessage,
+                        error,
+                    );
                     alert(`Ошибка при сохранении файлов: ${errorMessage}`);
                 }
             }
 
             return newFiles;
         },
-        [uploadToImgbb, uploadUserMedia, chatId]
+        [uploadToImgbb, uploadUserMedia, chatId, appMode],
     );
 
     // Загрузка файла по URL и конвертация в File объект
@@ -212,12 +233,12 @@ export function useChatInputFiles(chatId?: number) {
         async (url: string, filename: string): Promise<File> => {
             const response = await fetch(url);
             if (!response.ok) {
-                throw new Error('Ошибка загрузки файла');
+                throw new Error("Ошибка загрузки файла");
             }
             const blob = await response.blob();
             return new File([blob], filename, { type: blob.type });
         },
-        []
+        [],
     );
 
     // Обработка выбора файлов из input (РУЧНОЙ ВЫБОР)
@@ -232,18 +253,22 @@ export function useChatInputFiles(chatId?: number) {
             } catch (error) {
                 const errorMessage = getErrorMessage(
                     error,
-                    'Неизвестная ошибка при прикреплении файлов'
+                    "Неизвестная ошибка при прикреплении файлов",
                 );
-                console.error('[ChatInput] Ошибка при обработке файлов:', errorMessage, error);
+                console.error(
+                    "[ChatInput] Ошибка при обработке файлов:",
+                    errorMessage,
+                    error,
+                );
                 alert(`Ошибка при прикреплении файлов: ${errorMessage}`);
             }
 
             // Сбрасываем input
             if (event.target) {
-                event.target.value = '';
+                event.target.value = "";
             }
         },
-        [processFiles]
+        [processFiles],
     );
 
     // Добавление файла из URL (ПРОГРАММНОЕ - НЕ СОХРАНЯЕМ В БД ТАК КАК ЭТО УЖЕ ЕСТЬ В СИСТЕМЕ)
@@ -252,13 +277,17 @@ export function useChatInputFiles(chatId?: number) {
             try {
                 // Если передан imgbbUrl для изображения, используем его напрямую без загрузки на imgbb
                 // Проверяем, что это изображение (imgbb не поддерживает видео)
-                const isImage = filename.match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
-                               url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
-                               url.includes('i.ibb.co') || // imgbb URL
-                               url.includes('i.imgbb.com'); // imgbb URL
+                const isImage =
+                    filename.match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
+                    url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
+                    url.includes("i.ibb.co") || // imgbb URL
+                    url.includes("i.imgbb.com"); // imgbb URL
 
                 if (imgbbUrl && isImage) {
-                    console.log('[ChatInput] ✅ Используем imgbbUrl из БД, пропускаем повторную загрузку на imgbb:', imgbbUrl);
+                    console.log(
+                        "[ChatInput] ✅ Используем imgbbUrl из БД, пропускаем повторную загрузку на imgbb:",
+                        imgbbUrl,
+                    );
 
                     // Для превью используем оригинальный URL (локальный путь или imgbb URL)
                     // Не создаем blob URL, чтобы не загружать файл
@@ -266,12 +295,19 @@ export function useChatInputFiles(chatId?: number) {
 
                     // Создаем минимальный File объект для совместимости (не загружаем файл)
                     // Используем пустой blob с правильным MIME типом
-                    const mimeType = filename.match(/\.png$/i) ? 'image/png' :
-                                   filename.match(/\.(jpg|jpeg)$/i) ? 'image/jpeg' :
-                                   filename.match(/\.gif$/i) ? 'image/gif' :
-                                   filename.match(/\.webp$/i) ? 'image/webp' : 'image/jpeg';
+                    const mimeType = filename.match(/\.png$/i)
+                        ? "image/png"
+                        : filename.match(/\.(jpg|jpeg)$/i)
+                          ? "image/jpeg"
+                          : filename.match(/\.gif$/i)
+                            ? "image/gif"
+                            : filename.match(/\.webp$/i)
+                              ? "image/webp"
+                              : "image/jpeg";
                     const emptyBlob = new Blob([], { type: mimeType });
-                    const file = new File([emptyBlob], filename, { type: mimeType });
+                    const file = new File([emptyBlob], filename, {
+                        type: mimeType,
+                    });
 
                     const attachedFile: AttachedFile = {
                         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -293,13 +329,17 @@ export function useChatInputFiles(chatId?: number) {
             } catch (error) {
                 const errorMessage = getErrorMessage(
                     error,
-                    'Неизвестная ошибка при прикреплении файла'
+                    "Неизвестная ошибка при прикреплении файла",
                 );
-                console.error('[ChatInput] Ошибка прикрепления файла:', errorMessage, error);
+                console.error(
+                    "[ChatInput] Ошибка прикрепления файла:",
+                    errorMessage,
+                    error,
+                );
                 alert(`Ошибка при прикреплении файла: ${errorMessage}`);
             }
         },
-        [urlToFile, processFiles]
+        [urlToFile, processFiles],
     );
 
     // Удаление прикрепленного файла
@@ -324,7 +364,7 @@ export function useChatInputFiles(chatId?: number) {
                 setIsDragging(true);
             }
         },
-        []
+        [],
     );
 
     const handleDragLeave = useCallback(
@@ -338,14 +378,11 @@ export function useChatInputFiles(chatId?: number) {
                 setIsDragging(false);
             }
         },
-        []
+        [],
     );
 
     const handleDrop = useCallback(
-        async (
-            event: React.DragEvent<HTMLDivElement>,
-            isDisabled: boolean
-        ) => {
+        async (event: React.DragEvent<HTMLDivElement>, isDisabled: boolean) => {
             event.preventDefault();
             event.stopPropagation();
             setIsDragging(false);
@@ -363,18 +400,25 @@ export function useChatInputFiles(chatId?: number) {
             } catch (error) {
                 const errorMessage = getErrorMessage(
                     error,
-                    'Неизвестная ошибка при прикреплении файлов'
+                    "Неизвестная ошибка при прикреплении файлов",
                 );
-                console.error('[ChatInput] Ошибка при обработке файлов (drag-and-drop):', errorMessage, error);
+                console.error(
+                    "[ChatInput] Ошибка при обработке файлов (drag-and-drop):",
+                    errorMessage,
+                    error,
+                );
                 alert(`Ошибка при прикреплении файлов: ${errorMessage}`);
             }
         },
-        [processFiles]
+        [processFiles],
     );
 
     // Обработчик paste из буфера обмена (РУЧНОЙ ВЫБОР)
     const handlePaste = useCallback(
-        async (event: React.ClipboardEvent<HTMLTextAreaElement>, isDisabled: boolean) => {
+        async (
+            event: React.ClipboardEvent<HTMLTextAreaElement>,
+            isDisabled: boolean,
+        ) => {
             if (isDisabled) return;
 
             const items = event.clipboardData.items;
@@ -385,7 +429,7 @@ export function useChatInputFiles(chatId?: number) {
             for (let i = 0; i < items.length; i++) {
                 const item = items[i];
                 // Проверяем только файлы (не текст)
-                if (item.kind === 'file') {
+                if (item.kind === "file") {
                     const file = item.getAsFile();
                     if (file) {
                         files.push(file);
@@ -406,13 +450,17 @@ export function useChatInputFiles(chatId?: number) {
             } catch (error) {
                 const errorMessage = getErrorMessage(
                     error,
-                    'Неизвестная ошибка при прикреплении файлов'
+                    "Неизвестная ошибка при прикреплении файлов",
                 );
-                console.error('[ChatInput] Ошибка при обработке файлов (paste):', errorMessage, error);
+                console.error(
+                    "[ChatInput] Ошибка при обработке файлов (paste):",
+                    errorMessage,
+                    error,
+                );
                 alert(`Ошибка при прикреплении файлов: ${errorMessage}`);
             }
         },
-        [processFiles]
+        [processFiles],
     );
 
     // Очистка всех preview URLs
@@ -435,12 +483,9 @@ export function useChatInputFiles(chatId?: number) {
     }, []);
 
     // Конвертация файла в base64 (для отправки)
-    const getFileAsBase64 = useCallback(
-        async (file: File): Promise<string> => {
-            return fileToBase64(file);
-        },
-        []
-    );
+    const getFileAsBase64 = useCallback(async (file: File): Promise<string> => {
+        return fileToBase64(file);
+    }, []);
 
     return {
         attachedFiles,

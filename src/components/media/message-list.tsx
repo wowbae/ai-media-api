@@ -1,10 +1,12 @@
 // Список сообщений (запросов и результатов)
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { ModelBadge } from './model-selector';
-import { type MediaRequest, type MediaModel } from '@/redux/media-api';
-import { MessageItem } from './message-item';
-import { MessageSkeleton } from './message-skeleton';
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ModelBadge } from "./model-selector";
+import { type MediaRequest, type MediaModel } from "@/redux/media-api";
+import { MessageItem } from "./message-item";
+import { MessageSkeleton } from "./message-skeleton";
+import type { AppMode } from "@/lib/app-mode";
+import { APP_MODES } from "@/lib/app-mode";
 
 interface MessageListProps {
     requests: MediaRequest[];
@@ -14,11 +16,12 @@ interface MessageListProps {
     onAttachFile?: (
         fileUrl: string,
         filename: string,
-        imgbbUrl?: string
+        imgbbUrl?: string,
     ) => void;
     onRepeatRequest?: (request: MediaRequest, model?: MediaModel) => void;
     onScrollStateChange?: (showButton: boolean) => void;
     onScrollToBottomRef?: (scrollFn: () => void) => void;
+    appMode?: AppMode;
 }
 
 export function MessageList({
@@ -30,6 +33,7 @@ export function MessageList({
     onRepeatRequest,
     onScrollStateChange,
     onScrollToBottomRef,
+    appMode = APP_MODES.DEFAULT,
 }: MessageListProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -38,8 +42,8 @@ export function MessageList({
     // Мемоизируем строку статусов для предотвращения бесконечных ре-рендеров
     // Используем стабильную строку на основе ID и статуса (без errorMessage для уменьшения частоты обновлений)
     const requestsStatusKey = useMemo(
-        () => requests.map((r) => `${r.id}-${r.status}`).join('|'),
-        [requests]
+        () => requests.map((r) => `${r.id}-${r.status}`).join("|"),
+        [requests],
     );
 
     const [showScrollButton, setShowScrollButton] = useState(false);
@@ -52,7 +56,7 @@ export function MessageList({
     // Экспортируем функцию прокрутки через callback ref
     const scrollToBottom = useCallback(() => {
         if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+            messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
     }, []);
 
@@ -62,7 +66,7 @@ export function MessageList({
 
     // Отслеживание высоты панели ввода для динамического позиционирования кнопки
     useEffect(() => {
-        const inputPanel = document.getElementById('chat-input');
+        const inputPanel = document.getElementById("chat-input");
         if (!inputPanel) return;
 
         const updateInputPanelHeight = () => {
@@ -99,8 +103,8 @@ export function MessageList({
     useEffect(() => {
         const viewport = scrollRef.current;
         if (viewport) {
-            viewport.addEventListener('scroll', handleScroll);
-            return () => viewport.removeEventListener('scroll', handleScroll);
+            viewport.addEventListener("scroll", handleScroll);
+            return () => viewport.removeEventListener("scroll", handleScroll);
         }
     }, [handleScroll]);
 
@@ -108,7 +112,7 @@ export function MessageList({
     // Используем scrollIntoView на элементе-маркере в конце списка
     useEffect(() => {
         const timeoutId = setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         }, 0);
         return () => clearTimeout(timeoutId);
     }, [requests.length, requestsStatusKey]);
@@ -137,7 +141,7 @@ export function MessageList({
                     изображение, видео или аудио с помощью AI
                 </p>
                 <div className='mt-4'>
-                    <ModelBadge model={chatModel} />
+                    <ModelBadge model={chatModel} appMode={appMode} />
                 </div>
             </div>
         );

@@ -46,6 +46,7 @@ export async function processGeneration(
         multiShots,
         inputVideoFiles,
         characterOrientation,
+        appMode,
     } = options;
 
     try {
@@ -122,6 +123,7 @@ export async function processGeneration(
                 prompt,
                 chatId: request.chatId,
                 userId: request.userId || undefined,
+                appMode,
             });
 
             return;

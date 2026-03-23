@@ -1,6 +1,6 @@
 // Боковая панель со списком чатов
-import { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from '@tanstack/react-router';
+import { useState, useEffect } from "react";
+import { Link, useParams, useNavigate } from "@tanstack/react-router";
 import {
     Plus,
     MessageSquare,
@@ -8,46 +8,58 @@ import {
     MoreVertical,
     Pencil,
     FlaskConical,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
     PANEL_HEADER_CLASSES,
     PANEL_HEADER_TITLE_CLASSES,
-} from '@/lib/panel-styles';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
+} from "@/lib/panel-styles";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
     DialogFooter,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
     useGetChatsQuery,
     useCreateChatMutation,
     useDeleteChatMutation,
     useUpdateChatMutation,
     type MediaChat,
-} from '@/redux/media-api';
-import { loadTestMode, saveTestMode } from '@/lib/test-mode';
+} from "@/redux/media-api";
+import { loadTestMode, saveTestMode } from "@/lib/test-mode";
+import type { AppMode } from "@/lib/app-mode";
+import { APP_MODES } from "@/lib/app-mode";
 
-export function ChatSidebar() {
+interface ChatSidebarProps {
+    appMode?: AppMode;
+    routeBase?: "/media" | "/ai-model";
+}
+
+export function ChatSidebar({
+    appMode = APP_MODES.DEFAULT,
+    routeBase = "/media",
+}: ChatSidebarProps) {
     const params = useParams({ strict: false });
     const navigate = useNavigate();
     const currentChatId = params.chatId
         ? parseInt(params.chatId as string)
         : null;
 
-    const { data: chats, isLoading: isChatsLoading } = useGetChatsQuery();
+    const { data: chats, isLoading: isChatsLoading } = useGetChatsQuery({
+        appMode,
+    });
     const [createChat, { isLoading: isCreating }] = useCreateChatMutation();
     const [deleteChat] = useDeleteChatMutation();
     const [updateChat] = useUpdateChatMutation();
@@ -55,7 +67,7 @@ export function ChatSidebar() {
     const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editingChat, setEditingChat] = useState<MediaChat | null>(null);
-    const [newChatName, setNewChatName] = useState('');
+    const [newChatName, setNewChatName] = useState("");
     const [isTestMode, setIsTestMode] = useState(false);
 
     // Загружаем состояние тестового режима при монтировании
@@ -75,44 +87,54 @@ export function ChatSidebar() {
         try {
             const newChat = await createChat({
                 name: newChatName.trim(),
+                appMode,
             }).unwrap();
-            setNewChatName('');
+            setNewChatName("");
             setIsNewChatDialogOpen(false);
 
             // Перенаправляем на страницу нового чата
-            navigate({
-                to: '/media/$chatId',
-                params: { chatId: newChat.id.toString() },
-            });
+            if (routeBase === "/ai-model") {
+                navigate({
+                    to: "/ai-model/$chatId",
+                    params: { chatId: newChat.id.toString() },
+                });
+            } else {
+                navigate({
+                    to: "/media/$chatId",
+                    params: { chatId: newChat.id.toString() },
+                });
+            }
         } catch (error) {
-            console.error('Ошибка создания чата:', error);
-            alert('Ошибка создания чата. Проверьте консоль для деталей.');
+            console.error("Ошибка создания чата:", error);
+            alert("Ошибка создания чата. Проверьте консоль для деталей.");
         }
     }
 
     async function handleDeleteChat(chatId: number) {
-        if (!confirm('Удалить чат и все его содержимое?')) return;
+        if (!confirm("Удалить чат и все его содержимое?")) return;
 
         try {
             await deleteChat(chatId).unwrap();
 
             // Если удалили текущий чат, переходим на главную страницу медиа
             if (chatId === currentChatId) {
-                navigate({ to: '/media' });
+                navigate({
+                    to: routeBase === "/ai-model" ? "/ai-model" : "/media",
+                });
             }
         } catch (error) {
-            console.error('Ошибка удаления чата:', error);
+            console.error("Ошибка удаления чата:", error);
 
             // Пытаемся извлечь детальную ошибку из ответа сервера
             const serverError =
                 error &&
-                typeof error === 'object' &&
-                'data' in error &&
+                typeof error === "object" &&
+                "data" in error &&
                 error.data &&
-                typeof error.data === 'object' &&
-                'error' in error.data
+                typeof error.data === "object" &&
+                "error" in error.data
                     ? String(error.data.error)
-                    : 'Не удалось удалить чат. Попробуйте обновить страницу.';
+                    : "Не удалось удалить чат. Попробуйте обновить страницу.";
 
             alert(serverError);
         }
@@ -127,10 +149,10 @@ export function ChatSidebar() {
                 name: newChatName.trim(),
             }).unwrap();
             setEditingChat(null);
-            setNewChatName('');
+            setNewChatName("");
             setIsEditDialogOpen(false);
         } catch (error) {
-            console.error('Ошибка обновления чата:', error);
+            console.error("Ошибка обновления чата:", error);
         }
     }
 
@@ -144,22 +166,24 @@ export function ChatSidebar() {
         <div className='flex h-full w-64 flex-col border-r border-border bg-background'>
             {/* Header */}
             <div className={PANEL_HEADER_CLASSES}>
-                <h2 className={PANEL_HEADER_TITLE_CLASSES}>AI Media</h2>
+                <h2 className={PANEL_HEADER_TITLE_CLASSES}>
+                    {appMode === APP_MODES.AI_MODEL ? "AI Model" : "AI Media"}
+                </h2>
                 <div className='flex gap-1'>
                     <Button
                         size='icon'
                         variant='ghost'
                         className={cn(
-                            'h-8 w-8',
+                            "h-8 w-8",
                             isTestMode
-                                ? 'text-primary hover:text-primary/80'
-                                : 'text-muted-foreground hover:text-foreground'
+                                ? "text-primary hover:text-primary/80"
+                                : "text-muted-foreground hover:text-foreground",
                         )}
                         onClick={toggleTestMode}
                         title={
                             isTestMode
-                                ? 'Тестовый режим включен (выключить)'
-                                : 'Тестовый режим выключен (включить)'
+                                ? "Тестовый режим включен (выключить)"
+                                : "Тестовый режим выключен (включить)"
                         }
                     >
                         <FlaskConical className='h-5 w-5' />
@@ -197,6 +221,7 @@ export function ChatSidebar() {
                                 isActive={chat.id === currentChatId}
                                 onDelete={() => handleDeleteChat(chat.id)}
                                 onEdit={() => openEditDialog(chat)}
+                                routeBase={routeBase}
                             />
                         ))
                     ) : (
@@ -225,7 +250,7 @@ export function ChatSidebar() {
                         value={newChatName}
                         onChange={(e) => setNewChatName(e.target.value)}
                         onKeyDown={(e) =>
-                            e.key === 'Enter' && handleCreateChat()
+                            e.key === "Enter" && handleCreateChat()
                         }
                         className='border-border bg-secondary text-foreground'
                     />
@@ -260,7 +285,7 @@ export function ChatSidebar() {
                         placeholder='Название чата'
                         value={newChatName}
                         onChange={(e) => setNewChatName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleEditChat()}
+                        onKeyDown={(e) => e.key === "Enter" && handleEditChat()}
                         className='border-border bg-secondary text-foreground'
                     />
                     <DialogFooter>
@@ -290,32 +315,54 @@ interface ChatItemProps {
     isActive: boolean;
     onDelete: () => void;
     onEdit: () => void;
+    routeBase: "/media" | "/ai-model";
 }
 
-function ChatItem({ chat, isActive, onDelete, onEdit }: ChatItemProps) {
+function ChatItem({
+    chat,
+    isActive,
+    onDelete,
+    onEdit,
+    routeBase,
+}: ChatItemProps) {
     return (
         <div
             className={cn(
-                'group flex items-center gap-2 rounded-xl py-2 px-3 transition-colors',
+                "group flex items-center gap-2 rounded-xl py-2 px-3 transition-colors",
                 isActive
-                    ? 'bg-primary/20 text-primary'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    ? "bg-primary/20 text-primary"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
             )}
         >
-            <Link
-                to='/media/$chatId'
-                params={{ chatId: chat.id.toString() }}
-                className='flex min-w-0 flex-1 items-center gap-2'
-            >
-                <MessageSquare className='h-4 w-4 shrink-0' />
-                <span className='min-w-0 truncate text-sm'>{chat.name}</span>
-            </Link>
+            {routeBase === "/ai-model" ? (
+                <Link
+                    to='/ai-model/$chatId'
+                    params={{ chatId: chat.id.toString() }}
+                    className='flex min-w-0 flex-1 items-center gap-2'
+                >
+                    <MessageSquare className='h-4 w-4 shrink-0' />
+                    <span className='min-w-0 truncate text-sm'>
+                        {chat.name}
+                    </span>
+                </Link>
+            ) : (
+                <Link
+                    to='/media/$chatId'
+                    params={{ chatId: chat.id.toString() }}
+                    className='flex min-w-0 flex-1 items-center gap-2'
+                >
+                    <MessageSquare className='h-4 w-4 shrink-0' />
+                    <span className='min-w-0 truncate text-sm'>
+                        {chat.name}
+                    </span>
+                </Link>
+            )}
 
             {chat._count && chat._count.files > 0 && (
                 <span
                     className={cn(
-                        'shrink-0 text-xs transition-transform duration-200 translate-x-6 group-hover:translate-x-0',
-                        isActive ? 'text-primary' : 'text-muted-foreground'
+                        "shrink-0 text-xs transition-transform duration-200 translate-x-6 group-hover:translate-x-0",
+                        isActive ? "text-primary" : "text-muted-foreground",
                     )}
                 >
                     {chat._count.files}
@@ -328,9 +375,9 @@ function ChatItem({ chat, isActive, onDelete, onEdit }: ChatItemProps) {
                         size='icon'
                         variant='ghost'
                         className={cn(
-                            'h-6 w-6 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100',
+                            "h-6 w-6 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
                             isActive &&
-                                'group-hover:bg-orange-100 dark:group-hover:bg-orange-900/20 hover:bg-orange-200 dark:hover:bg-orange-900/30'
+                                "group-hover:bg-orange-100 dark:group-hover:bg-orange-900/20 hover:bg-orange-200 dark:hover:bg-orange-900/30",
                         )}
                     >
                         <MoreVertical className='h-4 w-4' />

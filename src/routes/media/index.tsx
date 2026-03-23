@@ -1,24 +1,27 @@
 // Главная страница медиа-генератора
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useEffect } from 'react';
-import { ChatSidebar } from '@/components/media';
-import { useGetChatsQuery, useCreateChatMutation } from '@/redux/media-api';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { ChatSidebar } from "@/components/media";
+import { useGetChatsQuery, useCreateChatMutation } from "@/redux/media-api";
+import { Sparkles, Loader2 } from "lucide-react";
+import { APP_MODES } from "@/lib/app-mode";
 
-export const Route = createFileRoute('/media/')({
+export const Route = createFileRoute("/media/")({
     component: MediaIndexPage,
 });
 
 function MediaIndexPage() {
     const navigate = useNavigate();
-    const { data: chats, isLoading: isChatsLoading } = useGetChatsQuery();
+    const { data: chats, isLoading: isChatsLoading } = useGetChatsQuery({
+        appMode: APP_MODES.DEFAULT,
+    });
     const [createChat, { isLoading: isCreating }] = useCreateChatMutation();
 
     // Если есть чаты, перенаправляем на последний
     useEffect(() => {
         if (chats && chats.length > 0) {
             navigate({
-                to: '/media/$chatId',
+                to: "/media/$chatId",
                 params: { chatId: chats[0].id.toString() },
             });
         }
@@ -26,20 +29,23 @@ function MediaIndexPage() {
 
     async function handleCreateFirstChat() {
         try {
-            const newChat = await createChat({ name: 'Новый чат' }).unwrap();
+            const newChat = await createChat({
+                name: "Новый чат",
+                appMode: APP_MODES.DEFAULT,
+            }).unwrap();
             navigate({
-                to: '/media/$chatId',
+                to: "/media/$chatId",
                 params: { chatId: newChat.id.toString() },
             });
         } catch (error) {
-            console.error('Ошибка создания чата:', error);
+            console.error("Ошибка создания чата:", error);
         }
     }
 
     return (
         <div className='flex h-screen bg-background'>
             {/* Сайдбар */}
-            <ChatSidebar />
+            <ChatSidebar appMode={APP_MODES.DEFAULT} routeBase='/media' />
 
             {/* Основной контент */}
             <div className='flex flex-1 flex-col items-center justify-center'>
@@ -115,7 +121,7 @@ function ModelCard({ emoji, name, description, disabled }: ModelCardProps) {
     return (
         <div
             className={`rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3 text-left ${
-                disabled ? 'opacity-50' : ''
+                disabled ? "opacity-50" : ""
             }`}
         >
             <div className='flex items-center gap-2'>

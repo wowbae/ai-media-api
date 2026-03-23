@@ -12,7 +12,10 @@ import {
     type GenerateMediaResponse,
     type PaginatedResponse,
     type PricingMap,
-} from './base';
+    type PromptEnhanceRequest,
+    type PromptEnhanceResponse,
+    type LoraFileInfo,
+} from "./base";
 import {
     getApiState,
     findChatsWithFile,
@@ -21,69 +24,82 @@ import {
     removeFileFromChat,
     updateFileInRequest,
     removeFileFromRequest,
-} from './cache-utils';
+} from "./cache-utils";
 
 export const mediaEndpoints = baseApi.injectEndpoints({
     endpoints: (build) => ({
         // ==================== Чаты ====================
         // Цены моделей
         getPricing: build.query<PricingMap, void>({
-            query: () => '/pricing',
+            query: () => "/pricing",
             transformResponse: (response: ApiResponse<PricingMap>) =>
                 response.data,
-            providesTags: [{ type: 'Model', id: 'PRICING' }],
+            providesTags: [{ type: "Model", id: "PRICING" }],
         }),
 
         // Остаток кредитов Kie.ai (GET api.kie.ai/api/v1/chat/credit)
         getKieCredits: build.query<number | null, void>({
-            query: () => '/kie-credits',
+            query: () => "/kie-credits",
             transformResponse: (response: {
                 success: boolean;
                 credits: number | null;
             }) => (response.success ? response.credits : null),
-            providesTags: [{ type: 'Model', id: 'KIE_CREDITS' }],
+            providesTags: [{ type: "Model", id: "KIE_CREDITS" }],
         }),
 
         // Получить все чаты
-        getChats: build.query<MediaChat[], void>({
-            query: () => '/chats',
+        getChats: build.query<
+            MediaChat[],
+            { appMode?: "default" | "ai-model" } | void
+        >({
+            query: (arg) => {
+                const appMode =
+                    arg && "appMode" in arg ? arg.appMode : undefined;
+                return appMode ? `/chats?appMode=${appMode}` : "/chats";
+            },
             transformResponse: (response: ApiResponse<MediaChat[]>) =>
                 response.data,
             providesTags: (result) =>
                 result
                     ? [
                           ...result.map(({ id }) => ({
-                              type: 'Chat' as const,
+                              type: "Chat" as const,
                               id,
                           })),
-                          { type: 'Chat', id: 'LIST' },
+                          { type: "Chat", id: "LIST" },
                       ]
-                    : [{ type: 'Chat', id: 'LIST' }],
+                    : [{ type: "Chat", id: "LIST" }],
         }),
 
         // Получить чат по ID
         getChat: build.query<
             MediaChatWithRequests,
-            { id: number; limit?: number; includeInputFiles?: boolean }
+            {
+                id: number;
+                limit?: number;
+                includeInputFiles?: boolean;
+                appMode?: "default" | "ai-model";
+            }
         >({
-            query: ({ id, limit, includeInputFiles }) => {
+            query: ({ id, limit, includeInputFiles, appMode }) => {
                 const url = `/chats/${id}`;
                 const params = new URLSearchParams();
                 if (limit !== undefined)
-                    params.append('limit', limit.toString());
+                    params.append("limit", limit.toString());
                 if (includeInputFiles)
-                    params.append('includeInputFiles', 'true');
+                    params.append("includeInputFiles", "true");
+                if (appMode) params.append("appMode", appMode);
                 const queryString = params.toString();
-                return url + (queryString ? `?${queryString}` : '');
+                return url + (queryString ? `?${queryString}` : "");
             },
             transformResponse: (response: ApiResponse<MediaChatWithRequests>) =>
                 response.data,
             providesTags: (result, _error, { id }) => [
-                { type: 'Chat', id },
+                { type: "Chat", id },
                 // Добавляем File теги, чтобы при удалении файла чат обновлялся
                 ...(result?.requests.flatMap((req) =>
                     req.files.map((file) => ({
-                        type: 'File' as const,
+                        type: "File" as const,
                         id: file.id,
                     })),
                 ) || []),
@@ -91,29 +107,32 @@ export const mediaEndpoints = baseApi.injectEndpoints({
         }),
 
         // Создать чат
-        createChat: build.mutation<MediaChat, CreateChatRequest>({
+        createChat: build.mutation<
+            MediaChat,
+            CreateChatRequest & { appMode?: "default" | "ai-model" }
+        >({
             query: (body) => ({
-                url: '/chats',
-                method: 'POST',
+                url: "/chats",
+                method: "POST",
                 body,
             }),
             transformResponse: (response: ApiResponse<MediaChat>) =>
                 response.data,
-            invalidatesTags: [{ type: 'Chat', id: 'LIST' }],
+            invalidatesTags: [{ type: "Chat", id: "LIST" }],
         }),
 
         // Обновить чат
         updateChat: build.mutation<MediaChat, UpdateChatRequest>({
             query: ({ id, ...body }) => ({
                 url: `/chats/${id}`,
-                method: 'PATCH',
+                method: "PATCH",
                 body,
             }),
             transformResponse: (response: ApiResponse<MediaChat>) =>
                 response.data,
             invalidatesTags: (_result, _error, { id }) => [
-                { type: 'Chat', id },
-                { type: 'Chat', id: 'LIST' },
+                { type: "Chat", id },
+                { type: "Chat", id: "LIST" },
             ],
         }),
 
@@ -121,11 +140,11 @@ export const mediaEndpoints = baseApi.injectEndpoints({
         deleteChat: build.mutation<void, number>({
             query: (id) => ({
                 url: `/chats/${id}`,
-                method: 'DELETE',
+                method: "DELETE",
             }),
             invalidatesTags: (_result, _error, chatId) => [
-                { type: 'Chat', id: chatId },
-                { type: 'Chat', id: 'LIST' },
+                { type: "Chat", id: chatId },
+                { type: "Chat", id: "LIST" },
             ],
         }),
 
@@ -137,7 +156,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
             GenerateMediaRequest
         >({
             query: (body) => {
-                console.log('[RTK Query] generateMedia mutation вызван:', {
+                console.log("[RTK Query] generateMedia mutation вызван:", {
                     chatId: body.chatId,
                     prompt: body.prompt?.substring(0, 50),
                     model: body.model,
@@ -146,8 +165,8 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                     timestamp: new Date().toISOString(),
                 });
                 return {
-                    url: '/generate',
-                    method: 'POST',
+                    url: "/generate",
+                    method: "POST",
                     body,
                 };
             },
@@ -155,17 +174,17 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 response: ApiResponse<GenerateMediaResponse>,
             ) => {
                 console.log(
-                    '[RTK Query] generateMedia response получен:',
+                    "[RTK Query] generateMedia response получен:",
                     response.data,
                 );
                 return response.data;
             },
             // Инвалидируем кеш чата при успехе, чтобы немедленно обновить UI
             invalidatesTags: (result, _error, { chatId }) => [
-                { type: 'Chat', id: chatId }, // Обновляем конкретный чат
-                { type: 'Chat', id: 'LIST' }, // Обновляем список всех чатов (счетчики)
-                { type: 'Request', id: result?.requestId || 'LIST' }, // Обновляем конкретный запрос
-                { type: 'Request', id: 'LIST' }, // Обновляем список всех запросов
+                { type: "Chat", id: chatId }, // Обновляем конкретный чат
+                { type: "Chat", id: "LIST" }, // Обновляем список всех чатов (счетчики)
+                { type: "Request", id: result?.requestId || "LIST" }, // Обновляем конкретный запрос
+                { type: "Request", id: "LIST" }, // Обновляем список всех запросов
             ],
         }),
 
@@ -176,7 +195,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
         >({
             query: (body) => {
                 console.log(
-                    '[RTK Query] 🧪 generateMediaTest mutation вызван (тестовый режим):',
+                    "[RTK Query] 🧪 generateMediaTest mutation вызван (тестовый режим):",
                     {
                         chatId: body.chatId,
                         prompt: body.prompt?.substring(0, 50),
@@ -185,14 +204,14 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                     },
                 );
                 return {
-                    url: '/generate-test',
-                    method: 'POST',
+                    url: "/generate-test",
+                    method: "POST",
                     body: {
                         chatId: body.chatId,
                         prompt: body.prompt,
                         ...(body.seed !== undefined &&
                             body.seed !== null &&
-                            body.seed !== '' && { seed: body.seed }),
+                            body.seed !== "" && { seed: body.seed }),
                     },
                 };
             },
@@ -200,25 +219,31 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 response: ApiResponse<GenerateMediaResponse>,
             ) => {
                 console.log(
-                    '[RTK Query] 🧪 generateMediaTest response получен (тестовый режим):',
+                    "[RTK Query] 🧪 generateMediaTest response получен (тестовый режим):",
                     response.data,
                 );
                 return response.data;
             },
             // Инвалидируем кеш чата при успехе, чтобы обновить список запросов
             invalidatesTags: (result, _error, { chatId }) => [
-                { type: 'Chat', id: chatId },
-                { type: 'Request', id: result?.requestId || 'LIST' },
+                { type: "Chat", id: chatId },
+                { type: "Request", id: result?.requestId || "LIST" },
             ],
         }),
 
         // ==================== Запросы ====================
 
         // Получить статус запроса
-        getRequest: build.query<MediaRequest, number>({
-            query: (id) => `/requests/${id}`,
+        getRequest: build.query<
+            MediaRequest,
+            { id: number; appMode?: "default" | "ai-model" }
+        >({
+            query: ({ id, appMode }) =>
+                appMode
+                    ? `/requests/${id}?appMode=${appMode}`
+                    : `/requests/${id}`,
             transformResponse: (response: ApiResponse<MediaRequest>) => {
-                console.log('[RTK Query] getRequest response:', {
+                console.log("[RTK Query] getRequest response:", {
                     id: response.data.id,
                     status: response.data.status,
                     filesCount: response.data.files.length,
@@ -226,10 +251,10 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 });
                 return response.data;
             },
-            providesTags: (result, _error, id) => [
-                { type: 'Request', id },
+            providesTags: (result, _error, args) => [
+                { type: "Request", id: args.id },
                 ...(result?.files.map((f) => ({
-                    type: 'File' as const,
+                    type: "File" as const,
                     id: f.id,
                 })) || []),
             ],
@@ -244,20 +269,26 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                     request: { prompt: string; chat: { name: string } };
                 }
             >,
-            { page?: number; limit?: number; chatId?: number }
+            {
+                page?: number;
+                limit?: number;
+                chatId?: number;
+                appMode?: "default" | "ai-model";
+            }
         >({
-            query: ({ page = 1, limit = 20, chatId }) => {
+            query: ({ page = 1, limit = 20, chatId, appMode }) => {
                 const params = new URLSearchParams();
-                params.append('page', page.toString());
-                params.append('limit', limit.toString());
+                params.append("page", page.toString());
+                params.append("limit", limit.toString());
                 if (chatId !== undefined) {
-                    params.append('chatId', chatId.toString());
+                    params.append("chatId", chatId.toString());
                 }
+                if (appMode) params.append("appMode", appMode);
                 return `/files?${params.toString()}`;
             },
             transformResponse: (
                 response: ApiResponse<MediaFile[]> & {
-                    pagination: PaginatedResponse<unknown>['pagination'];
+                    pagination: PaginatedResponse<unknown>["pagination"];
                 },
             ) => ({
                 data: response.data as (MediaFile & {
@@ -269,19 +300,19 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 result
                     ? [
                           ...result.data.map(({ id }) => ({
-                              type: 'File' as const,
+                              type: "File" as const,
                               id,
                           })),
-                          { type: 'File', id: 'LIST' },
+                          { type: "File", id: "LIST" },
                           // Добавляем тег чата для инвалидации при изменении чата
                           ...(chatId !== undefined
-                              ? [{ type: 'Chat' as const, id: chatId }]
+                              ? [{ type: "Chat" as const, id: chatId }]
                               : []),
                       ]
                     : [
-                          { type: 'File', id: 'LIST' },
+                          { type: "File", id: "LIST" },
                           ...(chatId !== undefined
-                              ? [{ type: 'Chat' as const, id: chatId }]
+                              ? [{ type: "Chat" as const, id: chatId }]
                               : []),
                       ],
         }),
@@ -293,7 +324,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
         >({
             query: ({ fileId, thumbnail }) => ({
                 url: `/files/${fileId}/thumbnail`,
-                method: 'POST',
+                method: "POST",
                 body: { thumbnail },
             }),
             transformResponse: (
@@ -317,7 +348,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 for (const { args } of chatsWithFile) {
                     const patchResult = dispatch(
                         mediaEndpoints.util.updateQueryData(
-                            'getChat',
+                            "getChat",
                             args,
                             (draft) => {
                                 updateFileInChat(draft, fileId, (file) => ({
@@ -336,7 +367,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                     for (const { args } of chatsWithFile) {
                         dispatch(
                             mediaEndpoints.util.updateQueryData(
-                                'getChat',
+                                "getChat",
                                 args,
                                 (draft) => {
                                     updateFileInChat(draft, fileId, (file) => ({
@@ -360,8 +391,8 @@ export const mediaEndpoints = baseApi.injectEndpoints({
             { files: string[] }
         >({
             query: (body) => ({
-                url: '/upload-to-imgbb',
-                method: 'POST',
+                url: "/upload-to-imgbb",
+                method: "POST",
                 body,
             }),
             transformResponse: (
@@ -372,7 +403,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 }>,
             ) => {
                 console.log(
-                    '[RTK Query] uploadToImgbb response получен:',
+                    "[RTK Query] uploadToImgbb response получен:",
                     response.data,
                 );
                 return response.data;
@@ -384,12 +415,18 @@ export const mediaEndpoints = baseApi.injectEndpoints({
             { requestId: number; files: MediaFile[] },
             {
                 chatId: number;
-                files: { base64: string; mimeType: string; filename: string; imgbbUrl?: string }[];
+                appMode?: "default" | "ai-model";
+                files: {
+                    base64: string;
+                    mimeType: string;
+                    filename: string;
+                    imgbbUrl?: string;
+                }[];
             }
         >({
             query: (body) => ({
-                url: '/upload-user-media',
-                method: 'POST',
+                url: "/upload-user-media",
+                method: "POST",
                 body,
             }),
             transformResponse: (
@@ -399,19 +436,64 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 }>,
             ) => response.data,
             invalidatesTags: (result, _error, { chatId }) => [
-                { type: 'Chat', id: chatId },
-                { type: 'Chat', id: 'LIST' },
-                { type: 'Request', id: result?.requestId || 'LIST' },
-                { type: 'Request', id: 'LIST' },
-                { type: 'File', id: 'LIST' },
+                { type: "Chat", id: chatId },
+                { type: "Chat", id: "LIST" },
+                { type: "Request", id: result?.requestId || "LIST" },
+                { type: "Request", id: "LIST" },
+                { type: "File", id: "LIST" },
             ],
+        }),
+        promptEnhance: build.mutation<
+            PromptEnhanceResponse,
+            PromptEnhanceRequest
+        >({
+            query: (body) => ({
+                url: "/prompt-enhance",
+                method: "POST",
+                body,
+            }),
+            transformResponse: (response: ApiResponse<PromptEnhanceResponse>) =>
+                response.data,
+        }),
+
+        // Библиотека LoRA файлов на сервере
+        getLoraFiles: build.query<LoraFileInfo[], void>({
+            query: () => "/loras",
+            transformResponse: (response: ApiResponse<LoraFileInfo[]>) =>
+                response.data,
+            providesTags: [{ type: "File", id: "LORA_LIBRARY" }],
+        }),
+
+        // Загрузить LoRA файл (.safetensors) в библиотеку сервера
+        uploadLoraFile: build.mutation<
+            LoraFileInfo,
+            { fileBase64: string; filename: string }
+        >({
+            query: (body) => ({
+                url: "/loras/upload",
+                method: "POST",
+                body,
+            }),
+            transformResponse: (response: ApiResponse<LoraFileInfo>) =>
+                response.data,
+            invalidatesTags: [{ type: "File", id: "LORA_LIBRARY" }],
+        }),
+
+        deleteLoraFile: build.mutation<{ filename: string }, string>({
+            query: (filename) => ({
+                url: `/loras/${encodeURIComponent(filename)}`,
+                method: "DELETE",
+            }),
+            transformResponse: (response: ApiResponse<{ filename: string }>) =>
+                response.data,
+            invalidatesTags: [{ type: "File", id: "LORA_LIBRARY" }],
         }),
 
         // Удалить файл
         deleteFile: build.mutation<void, number>({
             query: (id) => ({
                 url: `/files/${id}`,
-                method: 'DELETE',
+                method: "DELETE",
             }),
             async onQueryStarted(
                 fileId,
@@ -434,7 +516,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 for (const { args, chat } of chatsWithFile) {
                     const patchResult = dispatch(
                         mediaEndpoints.util.updateQueryData(
-                            'getChat',
+                            "getChat",
                             args,
                             (draft) => {
                                 removeFileFromChat(draft, fileId);
@@ -452,8 +534,8 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 for (const { requestId } of requestsWithFile) {
                     dispatch(
                         mediaEndpoints.util.updateQueryData(
-                            'getRequest',
-                            requestId,
+                            "getRequest",
+                            { id: requestId },
                             (draft) => {
                                 removeFileFromRequest(draft, fileId);
                             },
@@ -466,7 +548,7 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 if (chatId) {
                     chatsPatch = dispatch(
                         mediaEndpoints.util.updateQueryData(
-                            'getChats',
+                            "getChats",
                             undefined,
                             (draft) => {
                                 if (draft) {
@@ -496,9 +578,9 @@ export const mediaEndpoints = baseApi.injectEndpoints({
                 }
             },
             invalidatesTags: (_result, _error, fileId) => [
-                { type: 'File', id: fileId },
-                { type: 'File', id: 'LIST' },
-                { type: 'Request', id: 'LIST' },
+                { type: "File", id: fileId },
+                { type: "File", id: "LIST" },
+                { type: "Request", id: "LIST" },
             ],
         }),
     }),
@@ -523,4 +605,8 @@ export const {
     useDeleteFileMutation,
     useUploadToImgbbMutation,
     useUploadUserMediaMutation,
+    useGetLoraFilesQuery,
+    useUploadLoraFileMutation,
+    useDeleteLoraFileMutation,
+    usePromptEnhanceMutation,
 } = mediaEndpoints;

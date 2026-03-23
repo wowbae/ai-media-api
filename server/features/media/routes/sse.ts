@@ -1,9 +1,10 @@
 /**
  * SSE (Server-Sent Events) routes для real-time уведомлений
  */
-import { Router } from 'express';
-import { getSSEService } from '../sse.service';
-import { authenticate, authenticateSSE } from '../../auth/routes';
+import { Router } from "express";
+import { getSSEService } from "../sse.service";
+import { authenticate, authenticateSSE } from "../../auth/routes";
+import { APP_MODES } from "../app-mode";
 
 /**
  * Создать SSE роуты
@@ -22,12 +23,12 @@ export function createSSERouter(): Router {
      * - REQUEST_FAILED: задача завершилась с ошибкой
      * - REQUEST_PROCESSING: задача в процессе выполнения (опционально)
      */
-    router.get('/sse', authenticateSSE, (req, res) => {
+    router.get("/sse", authenticateSSE, (req, res) => {
         const userId = (req as any).user?.userId || (req as any).user?.id;
 
         if (!userId) {
-            console.warn('[SSE] ⚠️ Пользователь не авторизован');
-            return res.status(401).json({ error: 'Unauthorized' });
+            console.warn("[SSE] ⚠️ Пользователь не авторизован");
+            return res.status(401).json({ error: "Unauthorized" });
         }
 
         // Отключаем таймаут сокета — SSE должен жить бесконечно
@@ -35,10 +36,10 @@ export function createSSERouter(): Router {
         req.socket?.setKeepAlive(true, 10000);
 
         // Настраиваем заголовки для SSE
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.setHeader('X-Accel-Buffering', 'no'); // Отключаем буферизацию nginx
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.setHeader("X-Accel-Buffering", "no"); // Отключаем буферизацию nginx
 
         // Генерируем уникальный ID клиента
         const clientId = `sse-${userId}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -49,7 +50,7 @@ export function createSSERouter(): Router {
         // Отправляем приветственное событие
         res.write(
             `data: ${JSON.stringify({
-                type: 'CONNECTED',
+                type: "CONNECTED",
                 clientId,
                 timestamp: new Date().toISOString(),
             })}\n\n`,
@@ -66,19 +67,19 @@ export function createSSERouter(): Router {
                 clearInterval(heartbeatInterval);
                 return;
             }
-            res.write(': heartbeat\n\n');
+            res.write(": heartbeat\n\n");
         }, 15000);
 
-        req.on('close', () => {
+        req.on("close", () => {
             clearInterval(heartbeatInterval);
             handleDisconnect();
         });
 
         // ECONNRESET/aborted — ожидаемо при закрытии клиентом (навигация, HMR, Strict Mode)
-        req.on('error', (error: NodeJS.ErrnoException) => {
+        req.on("error", (error: NodeJS.ErrnoException) => {
             const isClientDisconnect =
-                error?.code === 'ECONNRESET' ||
-                error?.message?.includes('aborted');
+                error?.code === "ECONNRESET" ||
+                error?.message?.includes("aborted");
             if (!isClientDisconnect) {
                 console.error(`[SSE] ❌ Ошибка: ${clientId}`, error);
             }
@@ -90,39 +91,87 @@ export function createSSERouter(): Router {
      * Эндпоинт для проверки статуса SSE подключения
      * GET /sse/status
      */
-    router.get('/sse/status', (req, res) => {
+    router.get("/sse/status", (req, res) => {
         const stats = sseService.getStats();
         res.json({
             success: true,
             data: {
                 connectedClients: stats.totalClients,
                 uniqueUsers: stats.uniqueUsers,
+                publicChats: stats.publicChats,
                 timestamp: new Date().toISOString(),
             },
         });
+    });
+
+    router.get("/sse/public", (req, res) => {
+        const chatId = Number(req.query.chatId);
+        const appMode = req.query.appMode;
+
+        if (!chatId || Number.isNaN(chatId)) {
+            return res.status(400).json({ error: "chatId обязателен" });
+        }
+        if (appMode !== APP_MODES.AI_MODEL) {
+            return res.status(400).json({ error: "Неверный appMode" });
+        }
+        req.socket?.setTimeout(0);
+        req.socket?.setKeepAlive(true, 10000);
+
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.setHeader("X-Accel-Buffering", "no");
+
+        const clientId = `public-sse-${chatId}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        sseService.addPublicClient(clientId, res, chatId);
+
+        res.write(
+            `data: ${JSON.stringify({
+                type: "CONNECTED",
+                clientId,
+                chatId,
+                timestamp: new Date().toISOString(),
+            })}\n\n`,
+        );
+
+        const heartbeatInterval = setInterval(() => {
+            if (res.writableEnded) {
+                clearInterval(heartbeatInterval);
+                return;
+            }
+            res.write(": heartbeat\n\n");
+        }, 15000);
+
+        const handleDisconnect = () => {
+            clearInterval(heartbeatInterval);
+            sseService.removeClient(clientId);
+        };
+
+        req.on("close", handleDisconnect);
+        req.on("error", handleDisconnect);
     });
 
     /**
      * Тестовый эндпоинт для отправки события (только для разработки)
      * POST /sse/test
      */
-    router.post('/sse/test', authenticate, (req, res) => {
+    router.post("/sse/test", authenticate, (req, res) => {
         const userId = (req as any).user?.userId || (req as any).user?.id;
-        const { requestId, type = 'REQUEST_COMPLETED' } = req.body;
+        const { requestId, type = "REQUEST_COMPLETED" } = req.body;
 
         if (!requestId) {
             return res.status(400).json({
                 success: false,
-                error: 'requestId обязателен',
+                error: "requestId обязателен",
             });
         }
 
-        const status: 'COMPLETED' | 'FAILED' | 'PROCESSING' =
-            type === 'REQUEST_COMPLETED'
-                ? 'COMPLETED'
-                : type === 'REQUEST_FAILED'
-                  ? 'FAILED'
-                  : 'PROCESSING';
+        const status: "COMPLETED" | "FAILED" | "PROCESSING" =
+            type === "REQUEST_COMPLETED"
+                ? "COMPLETED"
+                : type === "REQUEST_FAILED"
+                  ? "FAILED"
+                  : "PROCESSING";
 
         const event = {
             type,

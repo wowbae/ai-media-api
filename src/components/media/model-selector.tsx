@@ -1,6 +1,6 @@
 // Компонент выбора модели для генерации
-import React from 'react';
-import { Sparkles, Video, ImageIcon, Music } from 'lucide-react';
+import React from "react";
+import { Sparkles, Video, ImageIcon, Music } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -9,19 +9,22 @@ import {
     SelectLabel,
     SelectTrigger,
     SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import {
     useGetModelsQuery,
     type MediaModel,
     type MediaProviderType,
-} from '@/redux/media-api';
-import { getModelIcon } from '@/lib/model-utils';
+} from "@/redux/media-api";
+import { getModelIcon } from "@/lib/model-utils";
+import type { AppMode } from "@/lib/app-mode";
+import { APP_MODES } from "@/lib/app-mode";
 
 interface ModelSelectorProps {
     value: MediaModel;
     onChange: (value: MediaModel) => void;
     disabled?: boolean;
+    appMode?: AppMode;
 }
 
 // Конфиг для бейджей провайдеров
@@ -30,20 +33,20 @@ const PROVIDER_BADGE_CONFIG: Record<
     { label: string; className: string }
 > = {
     gptunnel: {
-        label: 'GPTunnel',
-        className: 'bg-emerald-900/50 text-emerald-400 border-emerald-700/50',
+        label: "GPTunnel",
+        className: "bg-emerald-900/50 text-emerald-400 border-emerald-700/50",
     },
     laozhang: {
-        label: 'LaoZhang',
-        className: 'bg-orange-900/50 text-orange-400 border-orange-700/50',
+        label: "LaoZhang",
+        className: "bg-orange-900/50 text-orange-400 border-orange-700/50",
     },
     kieai: {
-        label: 'Kie.ai',
-        className: 'bg-blue-900/50 text-blue-400 border-blue-700/50',
+        label: "Kie.ai",
+        className: "bg-blue-900/50 text-blue-400 border-blue-700/50",
     },
     wavespeed: {
-        label: 'Wavespeed',
-        className: 'bg-cyan-900/50 text-cyan-400 border-cyan-700/50',
+        label: "Wavespeed",
+        className: "bg-cyan-900/50 text-cyan-400 border-cyan-700/50",
     },
 };
 
@@ -64,7 +67,7 @@ export function ProviderBadge({ provider, className }: ProviderBadgeProps) {
     return (
         <Badge
             variant='outline'
-            className={`ml-auto text-[10px] px-1.5 py-0 h-4 font-normal ${config.className} ${className || ''}`}
+            className={`ml-auto text-[10px] px-1.5 py-0 h-4 font-normal ${config.className} ${className || ""}`}
         >
             {config.label}
         </Badge>
@@ -75,19 +78,20 @@ export function ModelSelector({
     value,
     onChange,
     disabled,
+    appMode = APP_MODES.DEFAULT,
 }: ModelSelectorProps) {
-    const { data: models, isLoading } = useGetModelsQuery();
+    const { data: models, isLoading } = useGetModelsQuery({ appMode });
 
     // Мемоизируем разделение моделей по типам, чтобы не пересчитывать при каждом рендере
     // Сортируем модели: kieai наверх, затем остальные по имени
     const imageModels = React.useMemo(() => {
         let filtered =
-            models?.filter((model) => model.types.includes('IMAGE')) || [];
+            models?.filter((model) => model.types.includes("IMAGE")) || [];
 
         return filtered.sort((a, b) => {
             // Сначала модели от kieai
-            if (a.provider === 'kieai' && b.provider !== 'kieai') return -1;
-            if (a.provider !== 'kieai' && b.provider === 'kieai') return 1;
+            if (a.provider === "kieai" && b.provider !== "kieai") return -1;
+            if (a.provider !== "kieai" && b.provider === "kieai") return 1;
             // Затем сортируем по имени
             return a.name.localeCompare(b.name);
         });
@@ -95,12 +99,12 @@ export function ModelSelector({
 
     const videoModels = React.useMemo(() => {
         let filtered =
-            models?.filter((model) => model.types.includes('VIDEO')) || [];
+            models?.filter((model) => model.types.includes("VIDEO")) || [];
 
         return filtered.sort((a, b) => {
             // Сначала модели от kieai
-            if (a.provider === 'kieai' && b.provider !== 'kieai') return -1;
-            if (a.provider !== 'kieai' && b.provider === 'kieai') return 1;
+            if (a.provider === "kieai" && b.provider !== "kieai") return -1;
+            if (a.provider !== "kieai" && b.provider === "kieai") return 1;
             // Затем сортируем по имени
             return a.name.localeCompare(b.name);
         });
@@ -108,12 +112,12 @@ export function ModelSelector({
 
     const audioModels = React.useMemo(() => {
         let filtered =
-            models?.filter((model) => model.types.includes('AUDIO')) || [];
+            models?.filter((model) => model.types.includes("AUDIO")) || [];
 
         return filtered.sort((a, b) => {
             // Сначала модели от kieai
-            if (a.provider === 'kieai' && b.provider !== 'kieai') return -1;
-            if (a.provider !== 'kieai' && b.provider === 'kieai') return 1;
+            if (a.provider === "kieai" && b.provider !== "kieai") return -1;
+            if (a.provider !== "kieai" && b.provider === "kieai") return 1;
             // Затем сортируем по имени
             return a.name.localeCompare(b.name);
         });
@@ -122,7 +126,7 @@ export function ModelSelector({
     // Получаем текущую модель для отображения провайдера в триггере
     const currentModel = React.useMemo(
         () => models?.find((m) => m.key === value),
-        [models, value]
+        [models, value],
     );
 
     // Мемоизируем обработчик изменения, чтобы предотвратить лишние перерендеры
@@ -133,7 +137,7 @@ export function ModelSelector({
                 onChange(v as MediaModel);
             }
         },
-        [value, onChange]
+        [value, onChange],
     );
 
     return (
@@ -285,15 +289,23 @@ export function ModelSelector({
 interface ModelBadgeProps {
     model: MediaModel;
     showProvider?: boolean;
+    appMode?: AppMode;
 }
 
-export function ModelBadge({ model, showProvider = false }: ModelBadgeProps) {
-    const { data: models } = useGetModelsQuery();
+export function ModelBadge({
+    model,
+    showProvider = false,
+    appMode = APP_MODES.DEFAULT,
+}: ModelBadgeProps) {
+    const { data: models } = useGetModelsQuery({ appMode });
     const modelInfo = models?.find((m) => m.key === model);
 
     return (
         <div className='flex items-center gap-1.5'>
-            <Badge variant='secondary' className='bg-secondary text-muted-foreground'>
+            <Badge
+                variant='secondary'
+                className='bg-secondary text-muted-foreground'
+            >
                 <span className='mr-1'>{getModelIcon(model)}</span>
                 {modelInfo?.name || model}
             </Badge>

@@ -24,6 +24,7 @@ export type MediaModel =
     | "SEEDREAM_5_0_LITE_EDIT_KIEAI"
     | "ELEVENLABS_MULTILINGUAL_V2_KIEAI"
     | "KLING_VIDEO_O1_WAVESPEED"
+    | "Z_IMAGE_TURBO_LORA_WAVESPEED"
     | "SEEDANCE_1_5_PRO_KIEAI"
     | "KLING_2_6_MOTION_CONTROL_KIEAI";
 
@@ -43,6 +44,7 @@ export interface MediaChat {
     name: string;
     model: MediaModel;
     settings: Record<string, unknown>;
+    appMode?: "default" | "ai-model";
     createdAt: string;
     updatedAt: string;
     _count?: {
@@ -65,6 +67,7 @@ export interface MediaRequest {
     completedAt: string | null;
     seed: string | null;
     settings?: Record<string, unknown>;
+    appMode?: "default" | "ai-model";
     files: MediaFile[];
 }
 
@@ -110,6 +113,7 @@ export interface CreateChatRequest {
     name: string;
     model?: MediaModel;
     settings?: Record<string, unknown>;
+    appMode?: "default" | "ai-model";
 }
 
 export interface UpdateChatRequest {
@@ -122,6 +126,8 @@ export interface UpdateChatRequest {
 export interface GenerateMediaRequest {
     chatId: number;
     prompt: string;
+    enhancedPrompt?: string;
+    appMode?: "default" | "ai-model";
     model?: MediaModel;
     inputFiles?: string[];
     format?: "1:1" | "4:3" | "3:4" | "9:16" | "16:9" | "2:3" | "3:2" | "21:9";
@@ -149,6 +155,21 @@ export interface GenerateMediaRequest {
     languageCode?: string;
     inputVideoFiles?: string[];
     characterOrientation?: "image" | "video";
+    loras?: Array<{
+        path: string;
+        scale?: number;
+    }>;
+}
+
+export interface PromptEnhanceRequest {
+    prompt: string;
+    attachments?: string[];
+    appMode: "ai-model";
+}
+
+export interface PromptEnhanceResponse {
+    enhancedPrompt: string;
+    negativePrompt: string;
 }
 
 export interface GenerateMediaResponse {
@@ -171,6 +192,13 @@ export interface ApiResponse<T> {
     success: boolean;
     data: T;
     error?: string;
+}
+
+export interface LoraFileInfo {
+    filename: string;
+    size: number;
+    createdAt: string;
+    url: string;
 }
 
 // ==================== Базовый query ====================

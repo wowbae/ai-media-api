@@ -32,7 +32,9 @@ export type RequestStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 export interface GenerateMediaRequest {
     chatId: number;
     prompt: string;
+    enhancedPrompt?: string;
     model?: MediaModel;
+    appMode?: "default" | "ai-model";
     inputFiles?: string[]; // base64 или URL файлов для image-to-image
     format?: "1:1" | "9:16" | "16:9"; // Формат изображения для NANO_BANANA
     quality?: "1k" | "2k" | "4k"; // Качество изображения для NANO_BANANA
@@ -82,6 +84,7 @@ export interface MediaRequestWithFiles {
     errorMessage: string | null;
     createdAt: Date;
     completedAt: Date | null;
+    appMode?: "default" | "ai-model";
     files: MediaFileInfo[];
 }
 
@@ -103,6 +106,7 @@ export interface CreateChatRequest {
     name: string;
     model?: MediaModel;
     settings?: Record<string, unknown>;
+    appMode?: "default" | "ai-model";
 }
 
 export interface UpdateChatRequest {

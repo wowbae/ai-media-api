@@ -17,6 +17,7 @@ import {
     mapWavespeedStatus,
     parseWavespeedError,
 } from "./shared";
+import { getMediaPublicBaseUrl } from "../../config";
 
 const Z_IMAGE_TURBO_LORA_MODEL_ID = "wavespeed-ai/z-image/turbo-lora";
 
@@ -42,6 +43,7 @@ function parseSeed(seed?: string | number): number | undefined {
 }
 
 function buildImageRequest(params: GenerateParams): WavespeedImageTaskRequest {
+    const publicBaseUrl = getMediaPublicBaseUrl();
     return {
         prompt: params.prompt,
         size: params.aspectRatio
@@ -49,7 +51,9 @@ function buildImageRequest(params: GenerateParams): WavespeedImageTaskRequest {
             : undefined,
         seed: parseSeed(params.seed),
         loras: params.loras?.slice(0, 3).map((lora) => ({
-            path: lora.path,
+            path: lora.path.startsWith("/media-files/")
+                ? `${publicBaseUrl}${lora.path}`
+                : lora.path,
             scale: lora.scale,
         })),
     };

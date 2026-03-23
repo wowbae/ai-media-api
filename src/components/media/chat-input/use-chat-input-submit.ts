@@ -1,16 +1,18 @@
 // Хук для логики отправки запроса в chat-input
-import { useState, useRef, useCallback } from 'react';
-import type { MediaModel } from '@/redux/api/base';
+import { useState, useRef, useCallback } from "react";
+import type { MediaModel } from "@/redux/api/base";
 import type {
     useGenerateMediaMutation,
     useGenerateMediaTestMutation,
-} from '@/redux/media-api';
-import { useUploadToImgbbMutation } from '@/redux/media-api';
-import type { AttachedFile } from './use-chat-input-files';
-import { savePrompt } from '@/lib/saved-prompts';
-import type { ModelConfig } from '@/lib/model-config';
-import { handleSessionTimeout } from '@/redux/api/utils';
-import { getMediaFileUrl } from '@/lib/constants';
+} from "@/redux/media-api";
+import { useUploadToImgbbMutation } from "@/redux/media-api";
+import type { AttachedFile } from "./use-chat-input-files";
+import { savePrompt } from "@/lib/saved-prompts";
+import type { ModelConfig } from "@/lib/model-config";
+import { handleSessionTimeout } from "@/redux/api/utils";
+import { getMediaFileUrl } from "@/lib/constants";
+import type { AppMode } from "@/lib/app-mode";
+import { APP_MODES } from "@/lib/app-mode";
 
 interface UseChatInputSubmitParams {
     chatId: number;
@@ -22,6 +24,7 @@ interface UseChatInputSubmitParams {
     onPendingMessage?: (prompt: string) => void;
     onSendError?: (errorMessage: string) => void;
     getFileAsBase64: (file: File) => Promise<string>;
+    appMode?: AppMode;
 }
 
 /** Длительность видео в секундах для моделей с supportsDuration (Kling, Wavespeed, Seedance и т.д.) */
@@ -30,11 +33,25 @@ export type DurationSeconds = 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12;
 export interface SubmitParams {
     prompt: string;
     attachedFiles: AttachedFile[];
-    format: '1:1' | '4:3' | '3:4' | '9:16' | '16:9' | '2:3' | '3:2' | '21:9' | undefined;
-    quality: '1k' | '2k' | '4k' | undefined;
-    videoFormat: '16:9' | '9:16' | undefined;
-    veoGenerationType: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO' | undefined;
-    klingAspectRatio: '16:9' | '9:16' | undefined;
+    format:
+        | "1:1"
+        | "4:3"
+        | "3:4"
+        | "9:16"
+        | "16:9"
+        | "2:3"
+        | "3:2"
+        | "21:9"
+        | undefined;
+    quality: "1k" | "2k" | "4k" | undefined;
+    videoFormat: "16:9" | "9:16" | undefined;
+    veoGenerationType:
+        | "TEXT_2_VIDEO"
+        | "FIRST_AND_LAST_FRAMES_2_VIDEO"
+        | "REFERENCE_2_VIDEO"
+        | "EXTEND_VIDEO"
+        | undefined;
+    klingAspectRatio: "16:9" | "9:16" | undefined;
     klingDuration: DurationSeconds | undefined;
     klingSound: boolean | undefined;
     fixedLens?: boolean;
@@ -49,8 +66,14 @@ export interface SubmitParams {
     languageCode: string;
     isLockEnabled: boolean;
     onClearForm: () => void;
-    klingMotionCharacterOrientation?: 'image' | 'video';
-    klingMotionVideoQuality?: '720p' | '1080p';
+    klingMotionCharacterOrientation?: "image" | "video";
+    klingMotionVideoQuality?: "720p" | "1080p";
+    loras?: Array<{
+        path: string;
+        scale?: number;
+    }>;
+    enhancedPrompt?: string;
+    appMode?: AppMode;
 }
 
 export function useChatInputSubmit({
@@ -63,6 +86,7 @@ export function useChatInputSubmit({
     onPendingMessage,
     onSendError,
     getFileAsBase64,
+    appMode = APP_MODES.DEFAULT,
 }: UseChatInputSubmitParams) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const submitInProgressRef = useRef(false);
@@ -71,7 +95,7 @@ export function useChatInputSubmit({
     const handleSubmit = useCallback(
         async (
             event: React.MouseEvent | React.KeyboardEvent | undefined,
-            params: SubmitParams
+            params: SubmitParams,
         ) => {
             // Предотвращаем дефолтное поведение если это событие
             if (event) {
@@ -82,7 +106,7 @@ export function useChatInputSubmit({
             // Атомарная проверка и установка флага для защиты от race condition
             if (submitInProgressRef.current) {
                 console.warn(
-                    '[ChatInput] ⚠️ Попытка повторной отправки (флаг установлен), игнорируем'
+                    "[ChatInput] ⚠️ Попытка повторной отправки (флаг установлен), игнорируем",
                 );
                 return;
             }
@@ -93,24 +117,32 @@ export function useChatInputSubmit({
             }
 
             // Валидация для Seedream 4.5 Edit: максимум 14 файлов
-            if (params.modelType.isSeedream4_5_Edit && params.attachedFiles.length > (params.modelType.maxInputFiles || 0)) {
+            if (
+                params.modelType.isSeedream4_5_Edit &&
+                params.attachedFiles.length >
+                    (params.modelType.maxInputFiles || 0)
+            ) {
                 submitInProgressRef.current = false;
                 setIsSubmitting(false);
                 if (onSendError) {
                     onSendError(
-                        `Seedream 4.5 Edit поддерживает максимум 14 файлов. Выбрано: ${params.attachedFiles.length}`
+                        `Seedream 4.5 Edit поддерживает максимум 14 файлов. Выбрано: ${params.attachedFiles.length}`,
                     );
                 }
                 return;
             }
 
             // Валидация для Seedream 5.0 Edit: максимум 14 файлов
-            if (params.modelType.isSeedream5_Edit && params.attachedFiles.length > (params.modelType.maxInputFiles || 0)) {
+            if (
+                params.modelType.isSeedream5_Edit &&
+                params.attachedFiles.length >
+                    (params.modelType.maxInputFiles || 0)
+            ) {
                 submitInProgressRef.current = false;
                 setIsSubmitting(false);
                 if (onSendError) {
                     onSendError(
-                        `Seedream 5.0 Edit поддерживает максимум 14 файлов. Выбрано: ${params.attachedFiles.length}`
+                        `Seedream 5.0 Edit поддерживает максимум 14 файлов. Выбрано: ${params.attachedFiles.length}`,
                     );
                 }
                 return;
@@ -119,17 +151,17 @@ export function useChatInputSubmit({
             // Валидация для Kling Motion Control: требуется 1 изображение + 1 видео
             if (params.modelType.isKlingMotionControl) {
                 const imageCount = params.attachedFiles.filter((f) =>
-                    f.file.type.startsWith('image/')
+                    f.file.type.startsWith("image/"),
                 ).length;
                 const videoCount = params.attachedFiles.filter((f) =>
-                    f.file.type.startsWith('video/')
+                    f.file.type.startsWith("video/"),
                 ).length;
                 if (imageCount !== 1 || videoCount !== 1) {
                     submitInProgressRef.current = false;
                     setIsSubmitting(false);
                     if (onSendError) {
                         onSendError(
-                            'Kling Motion Control требует ровно 1 изображение (персонаж) и 1 видео (референс движения)'
+                            "Kling Motion Control требует ровно 1 изображение (персонаж) и 1 видео (референс движения)",
                         );
                     }
                     return;
@@ -144,7 +176,10 @@ export function useChatInputSubmit({
             // ВАЖНО: делаем это ДО pending-сообщения чтобы prompt совпадал
             let finalPrompt = params.prompt.trim();
 
-            if (params.modelType.isNanoBanana && !params.modelType.isNanoBananaPro) {
+            if (
+                params.modelType.isNanoBanana &&
+                !params.modelType.isNanoBananaPro
+            ) {
                 const promptParts: string[] = [];
 
                 if (params.format) {
@@ -156,7 +191,7 @@ export function useChatInputSubmit({
                 }
 
                 if (promptParts.length > 0) {
-                    finalPrompt = `${finalPrompt} ${promptParts.join(' ')}`;
+                    finalPrompt = `${finalPrompt} ${promptParts.join(" ")}`;
                 }
             }
 
@@ -175,13 +210,13 @@ export function useChatInputSubmit({
                 if (isTestMode) {
                     // Тестовый режим: используем последний файл из чата
                     console.log(
-                        '[ChatInput] 🧪 ТЕСТОВЫЙ РЕЖИМ: отправка запроса БЕЗ вызова нейронки',
+                        "[ChatInput] 🧪 ТЕСТОВЫЙ РЕЖИМ: отправка запроса БЕЗ вызова нейронки",
                         {
                             chatId,
                             prompt: finalPrompt.substring(0, 50),
-                            note: 'Используется последний файл из чата, запрос в API нейронки НЕ отправляется',
+                            note: "Используется последний файл из чата, запрос в API нейронки НЕ отправляется",
                             timestamp: new Date().toISOString(),
-                        }
+                        },
                     );
                     try {
                         result = await generateMediaTest({
@@ -189,22 +224,22 @@ export function useChatInputSubmit({
                             prompt: finalPrompt,
                             ...(params.seed !== undefined &&
                                 params.seed !== null &&
-                                params.seed !== '' && { seed: params.seed }),
+                                params.seed !== "" && { seed: params.seed }),
                         }).unwrap();
                     } catch (error: unknown) {
                         // Обрабатываем ошибку "нет файлов" в тестовом режиме
                         if (
                             error &&
-                            typeof error === 'object' &&
-                            'data' in error &&
+                            typeof error === "object" &&
+                            "data" in error &&
                             error.data &&
-                            typeof error.data === 'object' &&
-                            'error' in error.data &&
-                            typeof error.data.error === 'string' &&
-                            error.data.error.includes('нет файлов')
+                            typeof error.data === "object" &&
+                            "error" in error.data &&
+                            typeof error.data.error === "string" &&
+                            error.data.error.includes("нет файлов")
                         ) {
                             alert(
-                                'В чате нет файлов для тестового режима. Сначала создайте хотя бы один файл.'
+                                "В чате нет файлов для тестового режима. Сначала создайте хотя бы один файл.",
                             );
                             submitInProgressRef.current = false;
                             setIsSubmitting(false);
@@ -213,13 +248,13 @@ export function useChatInputSubmit({
                         throw error;
                     }
                     console.log(
-                        '[ChatInput] 🧪 ТЕСТОВЫЙ РЕЖИМ: заглушка создана, файл скопирован БЕЗ вызова нейронки, requestId:',
-                        result.requestId
+                        "[ChatInput] 🧪 ТЕСТОВЫЙ РЕЖИМ: заглушка создана, файл скопирован БЕЗ вызова нейронки, requestId:",
+                        result.requestId,
                     );
                 } else {
                     // Обычный режим: отправляем реальный запрос
                     console.log(
-                        '[ChatInput] ✅ Обычный режим: отправка запроса на генерацию в нейронку:',
+                        "[ChatInput] ✅ Обычный режим: отправка запроса на генерацию в нейронку:",
                         {
                             chatId,
                             prompt: finalPrompt.substring(0, 50),
@@ -234,15 +269,15 @@ export function useChatInputSubmit({
                                 : undefined,
                             attachedFilesCount: params.attachedFiles.length,
                             imageFilesCount: params.attachedFiles.filter((f) =>
-                                f.file.type.startsWith('image/')
+                                f.file.type.startsWith("image/"),
                             ).length,
                             timestamp: new Date().toISOString(),
-                        }
+                        },
                     );
 
                     // Формируем inputFiles: используем imgbbUrl для изображений, если есть, иначе загружаем на imgbb
                     const imageFiles = params.attachedFiles.filter((f) =>
-                        f.file.type.startsWith('image/')
+                        f.file.type.startsWith("image/"),
                     );
                     const inputFilesUrls: string[] = [];
                     let tailImageUrl: string | undefined;
@@ -254,7 +289,9 @@ export function useChatInputSubmit({
                         if (firstImage.imgbbUrl) {
                             inputFilesUrls.push(firstImage.imgbbUrl);
                         } else {
-                            const base64 = await getFileAsBase64(firstImage.file);
+                            const base64 = await getFileAsBase64(
+                                firstImage.file,
+                            );
                             const result = await uploadToImgbb({
                                 files: [base64],
                             }).unwrap();
@@ -262,7 +299,7 @@ export function useChatInputSubmit({
                                 inputFilesUrls.push(result.urls[0]);
                             } else {
                                 throw new Error(
-                                    `Не удалось загрузить файл ${firstImage.file.name} на imgbb`
+                                    `Не удалось загрузить файл ${firstImage.file.name} на imgbb`,
                                 );
                             }
                         }
@@ -273,7 +310,9 @@ export function useChatInputSubmit({
                             if (secondImage.imgbbUrl) {
                                 tailImageUrl = secondImage.imgbbUrl;
                             } else {
-                                const base64 = await getFileAsBase64(secondImage.file);
+                                const base64 = await getFileAsBase64(
+                                    secondImage.file,
+                                );
                                 const result = await uploadToImgbb({
                                     files: [base64],
                                 }).unwrap();
@@ -281,7 +320,7 @@ export function useChatInputSubmit({
                                     tailImageUrl = result.urls[0];
                                 } else {
                                     throw new Error(
-                                        `Не удалось загрузить tail изображение ${secondImage.file.name} на imgbb`
+                                        `Не удалось загрузить tail изображение ${secondImage.file.name} на imgbb`,
                                     );
                                 }
                             }
@@ -295,8 +334,8 @@ export function useChatInputSubmit({
                             } else {
                                 // Fallback: загружаем на imgbb и получаем URL
                                 console.log(
-                                    '[ChatInput] ⚠️ imgbbUrl отсутствует, загружаем на imgbb...',
-                                    file.file.name
+                                    "[ChatInput] ⚠️ imgbbUrl отсутствует, загружаем на imgbb...",
+                                    file.file.name,
                                 );
                                 const base64 = await getFileAsBase64(file.file);
                                 const result = await uploadToImgbb({
@@ -306,7 +345,7 @@ export function useChatInputSubmit({
                                     inputFilesUrls.push(result.urls[0]);
                                 } else {
                                     throw new Error(
-                                        `Не удалось загрузить файл ${file.file.name} на imgbb`
+                                        `Не удалось загрузить файл ${file.file.name} на imgbb`,
                                     );
                                 }
                             }
@@ -317,7 +356,7 @@ export function useChatInputSubmit({
                     let inputVideoFilesUrls: string[] | undefined;
                     if (params.modelType.isKlingMotionControl) {
                         const videoFiles = params.attachedFiles.filter((f) =>
-                            f.file.type.startsWith('video/')
+                            f.file.type.startsWith("video/"),
                         );
                         inputVideoFilesUrls = await Promise.all(
                             videoFiles.map(async (f) => {
@@ -325,30 +364,36 @@ export function useChatInputSubmit({
                                     return getMediaFileUrl(f.serverPath);
                                 }
                                 return getFileAsBase64(f.file);
-                            })
+                            }),
                         );
                     }
 
-                    console.log('[ChatInput] 📤 Отправка запроса generateMedia:', {
-                        chatId,
-                        model: currentModel,
-                        inputFilesUrlsCount: inputFilesUrls.length,
-                        inputVideoFilesCount: inputVideoFilesUrls?.length ?? 0,
-                        hasInputFiles: inputFilesUrls.length > 0,
-                    });
+                    console.log(
+                        "[ChatInput] 📤 Отправка запроса generateMedia:",
+                        {
+                            chatId,
+                            model: currentModel,
+                            inputFilesUrlsCount: inputFilesUrls.length,
+                            inputVideoFilesCount:
+                                inputVideoFilesUrls?.length ?? 0,
+                            hasInputFiles: inputFilesUrls.length > 0,
+                        },
+                    );
 
                     result = await generateMedia({
                         chatId,
                         prompt: finalPrompt,
+                        enhancedPrompt: params.enhancedPrompt,
+                        appMode: params.appMode || appMode,
                         model: currentModel,
                         inputFiles:
                             inputFilesUrls.length > 0
                                 ? inputFilesUrls
                                 : undefined,
-                        ...((params.modelType.supportsFormat &&
-                            params.format) && { format: params.format }),
-                        ...((params.modelType.supportsQuality &&
-                            params.quality) && { quality: params.quality }),
+                        ...(params.modelType.supportsFormat &&
+                            params.format && { format: params.format }),
+                        ...(params.modelType.supportsQuality &&
+                            params.quality && { quality: params.quality }),
                         ...(params.modelType.isVeo &&
                             params.videoFormat && { ar: params.videoFormat }),
                         ...(params.modelType.supportsVeoGenerationType &&
@@ -378,7 +423,7 @@ export function useChatInputSubmit({
                         ...(params.modelType.supportsSeed &&
                             params.seed !== undefined &&
                             params.seed !== null &&
-                            params.seed !== '' && { seed: params.seed }),
+                            params.seed !== "" && { seed: params.seed }),
                         ...(params.modelType.isKling25 &&
                             params.klingAspectRatio && {
                                 format: params.klingAspectRatio,
@@ -406,23 +451,31 @@ export function useChatInputSubmit({
                             stability: params.stability,
                             similarityBoost: params.similarityBoost,
                             speed: params.speed,
-                            ...(params.languageCode && { languageCode: params.languageCode }),
+                            ...(params.languageCode && {
+                                languageCode: params.languageCode,
+                            }),
                         }),
                         ...(params.modelType.isKlingMotionControl &&
                             inputVideoFilesUrls &&
                             inputVideoFilesUrls.length > 0 && {
                                 inputVideoFiles: inputVideoFilesUrls,
                                 characterOrientation:
-                                    params.klingMotionCharacterOrientation ?? 'image',
+                                    params.klingMotionCharacterOrientation ??
+                                    "image",
                                 videoQuality:
-                                    params.klingMotionVideoQuality === '1080p'
-                                        ? '1080p'
-                                        : '720p',
+                                    params.klingMotionVideoQuality === "1080p"
+                                        ? "1080p"
+                                        : "720p",
+                            }),
+                        ...(currentModel === "Z_IMAGE_TURBO_LORA_WAVESPEED" &&
+                            params.loras &&
+                            params.loras.length > 0 && {
+                                loras: params.loras,
                             }),
                     }).unwrap();
                     console.log(
-                        '[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:',
-                        result.requestId
+                        "[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:",
+                        result.requestId,
                     );
                 }
 
@@ -439,7 +492,7 @@ export function useChatInputSubmit({
                         if (file.imgbbUrl) {
                             // Для изображений - используем imgbbUrl
                             savedFilesData.push(file.imgbbUrl);
-                        } else if (file.file.type.startsWith('video/')) {
+                        } else if (file.file.type.startsWith("video/")) {
                             // Для видео - используем preview blob URL
                             savedFilesData.push(file.preview);
                         } else {
@@ -457,7 +510,7 @@ export function useChatInputSubmit({
                         params.prompt.trim(),
                         savedFilesData,
                         chatId,
-                        currentModel
+                        currentModel,
                     );
                     // Не очищаем форму, если режим сохранения активен
                 } else {
@@ -469,25 +522,25 @@ export function useChatInputSubmit({
                 submitInProgressRef.current = false;
                 setIsSubmitting(false);
             } catch (error) {
-                console.error('[ChatInput] ❌ Ошибка генерации:', error);
-                
+                console.error("[ChatInput] ❌ Ошибка генерации:", error);
+
                 // Проверяем, является ли ошибка ошибкой авторизации
                 const isAuthError =
                     (error &&
-                        typeof error === 'object' &&
-                        'status' in error &&
+                        typeof error === "object" &&
+                        "status" in error &&
                         error.status === 401) ||
                     (error &&
-                        typeof error === 'object' &&
-                        'data' in error &&
+                        typeof error === "object" &&
+                        "data" in error &&
                         error.data &&
-                        typeof error.data === 'object' &&
-                        'error' in error.data &&
-                        typeof error.data.error === 'string' &&
-                        (error.data.error.includes('No token provided') ||
-                            error.data.error.includes('token') ||
-                            error.data.error.includes('авторизац')));
-                
+                        typeof error.data === "object" &&
+                        "error" in error.data &&
+                        typeof error.data.error === "string" &&
+                        (error.data.error.includes("No token provided") ||
+                            error.data.error.includes("token") ||
+                            error.data.error.includes("авторизац")));
+
                 if (isAuthError) {
                     // При ошибке авторизации сразу перенаправляем на логин
                     handleSessionTimeout();
@@ -496,17 +549,17 @@ export function useChatInputSubmit({
                     setIsSubmitting(false);
                     return;
                 }
-                
+
                 const errorMessage =
                     error &&
-                    typeof error === 'object' &&
-                    'data' in error &&
+                    typeof error === "object" &&
+                    "data" in error &&
                     error.data &&
-                    typeof error.data === 'object' &&
-                    'error' in error.data &&
-                    typeof error.data.error === 'string'
+                    typeof error.data === "object" &&
+                    "error" in error.data &&
+                    typeof error.data.error === "string"
                         ? error.data.error
-                        : 'Не удалось отправить запрос. Попробуйте еще раз.';
+                        : "Не удалось отправить запрос. Попробуйте еще раз.";
 
                 // Уведомляем родителя об ошибке для обновления pending-сообщения
                 if (onSendError) {
@@ -531,7 +584,8 @@ export function useChatInputSubmit({
             onSendError,
             getFileAsBase64,
             uploadToImgbb,
-        ]
+            appMode,
+        ],
     );
 
     return {

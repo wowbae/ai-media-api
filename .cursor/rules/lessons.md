@@ -46,6 +46,46 @@
 - Prevention rule: для multi-model провайдера сохранять lightweight routing state по `taskId` сразу после `generate()`, и использовать его в `checkTaskStatus/getTaskResult`.
 - Checklist item: "Для каждого multi-model провайдера: есть явный роутинг taskId к обработчику, без fallback на исключения как на control flow".
 
+## 2026-03-23 - Stable fallback config in UI
+
+- Context: после добавления новой модели в backend, при ее выборе UI падал с `Maximum update depth exceeded`.
+- Mistake: `getModelSettingsConfig()` возвращал новый объект `{}` для неизвестной модели на каждом рендере, а `useEffect` зависел от `config` и вызывал `setState`.
+- Root cause: нестабильная ссылка fallback-объекта + неполная синхронизация frontend model unions/configs с backend.
+- Prevention rule: fallback-конфиги должны быть константой со стабильной ссылкой, и при добавлении модели обновлять backend + frontend model registry в одном changelist.
+- Checklist item: "Новая модель добавлена синхронно в backend config, frontend type union, model-config, settings-config и icon map; fallback объекты не создаются inline".
+
+## 2026-03-23 - Feature completeness for new model
+
+- Context: после внедрения `Z_IMAGE_TURBO_LORA_WAVESPEED` backend поддерживал `loras`, но в ChatInput не было полей для ввода LoRA.
+- Mistake: интеграция новой модели завершена только на уровне API/провайдера без обязательного UI surface для model-specific параметров.
+- Root cause: проверка done-критериев была сфокусирована на transport и status flow, а не на полном пользовательском пути.
+- Prevention rule: для каждой новой модели с уникальными параметрами проверять end-to-end цепочку: type -> settings UI -> submit payload -> backend validation.
+- Checklist item: "Перед закрытием задачи по модели: есть ли в интерфейсе поля для всех пользовательских параметров модели (не только в API-контракте)".
+
+## 2026-03-23 - Model-specific file upload flow
+
+- Context: для LoRA нужен не только ручной `path`, но и удобная загрузка `.safetensors` из UI.
+- Mistake: пытаться переиспользовать общий image/video attachment pipeline для другого типа сущности приводит к несовместимости mime/хранилища.
+- Root cause: смешение доменов "input media" и "model asset (LoRA)" в одном upload-потоке.
+- Prevention rule: для model assets делать отдельный endpoint и отдельный UI control, который возвращает готовый `path` для payload.
+- Checklist item: "Если параметр модели — внешний asset, есть ли отдельный upload flow с явным контрактом `{ file -> provider-path }`".
+
+## 2026-03-23 - Server-side asset library UX
+
+- Context: пользовательский запрос на хранение LoRA на сервере и выбор из списка без повторного drag/drop в чат.
+- Mistake: initial upload feature решал только одноразовую загрузку, но не reusable-библиотеку ассетов.
+- Root cause: акцент на transport вместо сценария повторного использования ассетов между генерациями.
+- Prevention rule: для любых "тяжелых" файлов добавлять библиотечный слой (list + upload + select) как часть первого релиза.
+- Checklist item: "Новый asset flow завершен только если есть загрузка, серверное хранение и повторный выбор из UI списка".
+
+## 2026-03-23 - Dense controls readability
+
+- Context: в блоке LoRA controls были собраны в одну строку и выглядели перегруженно.
+- Mistake: попытка уместить select + несколько CTA в один row без mobile-first разбиения.
+- Root cause: focus на функциональность без отдельной проверки визуальной плотности и сканируемости.
+- Prevention rule: для form-block с 3+ действиями использовать двухэтапный layout (выбор/добавление + загрузка) и избегать long-row controls.
+- Checklist item: "Новый UI-блок проверен на читаемость: нет перегруженной одной строки с несколькими CTA".
+
 ## 2026-03-23 - Mode isolation planning for private route
 
 - Context: проектирование отдельного режима `/ai-model` с приватным UI, отдельной библиотекой медиа и новыми prompt-полями.
@@ -53,3 +93,19 @@
 - Root cause: недооценка того, что библиотека и SSE живут на уровне backend/data, а не только UI.
 - Prevention rule: для любого "отдельного режима" сначала вводить явный `appMode` в контракты, хранение и фильтрацию API, и только потом дорабатывать UI.
 - Checklist item: "Если появляется новый режим интерфейса: проверить изоляцию на 3 уровнях — БД, API выдача, SSE-события".
+
+## 2026-03-23 - Reuse existing LoRA path
+
+- Context: обновление плана для `/ai-model` с учетом передачи LoRA в Wavespeed `z-image/turbo-lora`.
+- Mistake: можно ошибочно планировать новый UI/контракт для LoRA, хотя в проекте уже есть рабочая реализация на фронте и backend.
+- Root cause: недостаточная проверка текущего кода перед расширением требований.
+- Prevention rule: перед добавлением нового поля/блока UI сначала делать "reuse-аудит" по проекту (UI, API, provider) и только затем принимать решение о новом интерфейсе.
+- Checklist item: "Для каждого нового требования: подтвердить, есть ли уже реализованный поток, и зафиксировать re-use в плане отдельным пунктом".
+
+## 2026-03-23 - Public mode must be end-to-end
+
+- Context: внедрение `/ai-model` без логина с отдельной библиотекой и prompt enhancement.
+- Mistake: легко ограничиться только роутом на фронте и забыть, что `appMode` должен проходить через все API (chats/files/requests/models/generate).
+- Root cause: фокус на UI вместо сквозного контракта данных.
+- Prevention rule: для каждого нового режима фиксировать единый параметр режима (`appMode`) и проверять его прохождение по цепочке: create chat -> generate -> store settings -> list/read endpoints -> model list.
+- Checklist item: "Перед завершением режима: проверить изоляцию данных в обе стороны (default не видит ai-model и ai-model не видит default)".

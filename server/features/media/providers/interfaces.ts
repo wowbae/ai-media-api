@@ -2,6 +2,7 @@
 import type { MediaModel } from "../interfaces";
 import type { SavedFileInfo } from "../file.service";
 import type { GenerationLoraInput } from "../interfaces";
+import type { AppMode } from "../app-mode";
 
 // Реэкспорт MediaModelConfig из config.ts (единственный источник истины)
 export type { MediaModelConfig, MediaProviderType } from "../config";
@@ -10,7 +11,9 @@ export type { MediaModelConfig, MediaProviderType } from "../config";
 export interface GenerateParams {
     requestId: number;
     prompt: string;
+    enhancedPrompt?: string;
     model: MediaModel;
+    appMode?: AppMode;
     inputFiles?: string[];
     aspectRatio?:
         | "1:1"

@@ -1,18 +1,47 @@
 // Роуты для работы с запросами
-import { Router, Request, Response } from 'express';
-import { prisma } from 'prisma/client';
+import { Router, Request, Response } from "express";
+import { prisma } from "prisma/client";
+import { APP_MODES, parseAppMode } from "../app-mode";
+
+function buildRequestModeWhere(appMode: "default" | "ai-model") {
+    if (appMode === APP_MODES.AI_MODEL) {
+        return {
+            settings: {
+                path: ["appMode"],
+                equals: APP_MODES.AI_MODEL,
+            },
+        };
+    }
+    return {
+        OR: [
+            {
+                settings: {
+                    path: ["appMode"],
+                    equals: APP_MODES.DEFAULT,
+                },
+            },
+            {
+                settings: {
+                    path: ["appMode"],
+                    equals: null,
+                },
+            },
+        ],
+    };
+}
 
 export function createRequestsRouter(): Router {
     const router = Router();
 
     // Получить статус запроса
-    router.get('/requests/:id', async (req: Request, res: Response) => {
+    router.get("/requests/:id", async (req: Request, res: Response) => {
         try {
             const requestId = parseInt(req.params.id);
+            const appMode = parseAppMode(req.query.appMode);
             if (isNaN(requestId)) {
                 return res
                     .status(400)
-                    .json({ success: false, error: 'Некорректный ID запроса' });
+                    .json({ success: false, error: "Некорректный ID запроса" });
             }
 
             const request = await prisma.mediaRequest.findUnique({
@@ -32,7 +61,7 @@ export function createRequestsRouter(): Router {
                     inputFiles: true, // Нужно для повторения запросов
                     settings: true, // Нужно для повторения запросов с теми же параметрами
                     files: {
-                        orderBy: { createdAt: 'asc' },
+                        orderBy: { createdAt: "asc" },
                         select: {
                             id: true,
                             requestId: true,
@@ -54,11 +83,22 @@ export function createRequestsRouter(): Router {
             if (!request) {
                 return res
                     .status(404)
-                    .json({ success: false, error: 'Запрос не найден' });
+                    .json({ success: false, error: "Запрос не найден" });
+            }
+
+            const requestMode =
+                (request.settings as { appMode?: string } | null)?.appMode ===
+                APP_MODES.AI_MODEL
+                    ? APP_MODES.AI_MODEL
+                    : APP_MODES.DEFAULT;
+            if (requestMode !== appMode) {
+                return res
+                    .status(404)
+                    .json({ success: false, error: "Запрос не найден" });
             }
 
             console.log(
-                `[API] Запрос /requests/${requestId}: статус=${request.status}, файлов=${request.files.length}`
+                `[API] Запрос /requests/${requestId}: статус=${request.status}, файлов=${request.files.length}`,
             );
             if (request.files.length > 0) {
                 console.log(
@@ -67,30 +107,32 @@ export function createRequestsRouter(): Router {
                         id: f.id,
                         filename: f.filename,
                         path: f.path,
-                    }))
+                    })),
                 );
             }
 
             res.json({ success: true, data: request });
         } catch (error) {
-            console.error('Ошибка получения запроса:', error);
+            console.error("Ошибка получения запроса:", error);
             res.status(500).json({
                 success: false,
-                error: 'Ошибка получения запроса',
+                error: "Ошибка получения запроса",
             });
         }
     });
 
     // Получить все запросы чата
     router.get(
-        '/chats/:chatId/requests',
+        "/chats/:chatId/requests",
         async (req: Request, res: Response) => {
             try {
                 const chatId = parseInt(req.params.chatId);
+                const appMode = parseAppMode(req.query.appMode);
                 if (isNaN(chatId)) {
-                    return res
-                        .status(400)
-                        .json({ success: false, error: 'Некорректный ID чата' });
+                    return res.status(400).json({
+                        success: false,
+                        error: "Некорректный ID чата",
+                    });
                 }
 
                 const pageParam = req.query.page
@@ -103,14 +145,14 @@ export function createRequestsRouter(): Router {
                 if (isNaN(pageParam) || pageParam < 1) {
                     return res.status(400).json({
                         success: false,
-                        error: 'Некорректный параметр page',
+                        error: "Некорректный параметр page",
                     });
                 }
 
                 if (isNaN(limitParam) || limitParam < 1 || limitParam > 100) {
                     return res.status(400).json({
                         success: false,
-                        error: 'Некорректный параметр limit (должен быть от 1 до 100)',
+                        error: "Некорректный параметр limit (должен быть от 1 до 100)",
                     });
                 }
 
@@ -120,8 +162,11 @@ export function createRequestsRouter(): Router {
 
                 const [requests, total] = await Promise.all([
                     prisma.mediaRequest.findMany({
-                        where: { chatId },
-                        orderBy: { createdAt: 'desc' },
+                        where: {
+                            chatId,
+                            ...buildRequestModeWhere(appMode),
+                        },
+                        orderBy: { createdAt: "desc" },
                         skip,
                         take: limit,
                         select: {
@@ -151,7 +196,12 @@ export function createRequestsRouter(): Router {
                             },
                         },
                     }),
-                    prisma.mediaRequest.count({ where: { chatId } }),
+                    prisma.mediaRequest.count({
+                        where: {
+                            chatId,
+                            ...buildRequestModeWhere(appMode),
+                        },
+                    }),
                 ]);
 
                 res.json({
@@ -165,13 +215,13 @@ export function createRequestsRouter(): Router {
                     },
                 });
             } catch (error) {
-                console.error('Ошибка получения запросов:', error);
+                console.error("Ошибка получения запросов:", error);
                 res.status(500).json({
                     success: false,
-                    error: 'Ошибка получения запросов',
+                    error: "Ошибка получения запросов",
                 });
             }
-        }
+        },
     );
 
     return router;

@@ -1,5 +1,5 @@
 // Компонент галереи всех медиафайлов чата
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
     ChevronDown,
     ImageIcon,
@@ -8,34 +8,41 @@ import {
     RefreshCcw,
     Download,
     X,
-} from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { MediaPreview } from './media-preview';
-import { MediaFullscreenView } from './media-fullscreen-view';
-import { GalleryFileCard } from './gallery-file-card';
+} from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { MediaPreview } from "./media-preview";
+import { MediaFullscreenView } from "./media-fullscreen-view";
+import { GalleryFileCard } from "./gallery-file-card";
 import {
     type MediaFile,
     useDeleteFileMutation,
     useGetFilesQuery,
     useGetChatQuery,
     useGetPricingQuery,
-} from '@/redux/media-api';
+} from "@/redux/media-api";
 import {
     PANEL_HEADER_CLASSES,
     PANEL_HEADER_TITLE_CLASSES,
-} from '@/lib/panel-styles';
-import { getMediaFileUrl } from '@/lib/constants';
-import { cn, downloadFile, getOriginalFileUrl } from '@/lib/utils';
-import { calculateTotalChatCost, formatCost } from '@/lib/cost-utils';
-import { createLoadingEffectForAttachFile } from '@/lib/media-utils';
+} from "@/lib/panel-styles";
+import { getMediaFileUrl } from "@/lib/constants";
+import { cn, downloadFile, getOriginalFileUrl } from "@/lib/utils";
+import { calculateTotalChatCost, formatCost } from "@/lib/cost-utils";
+import { createLoadingEffectForAttachFile } from "@/lib/media-utils";
+import type { AppMode } from "@/lib/app-mode";
+import { APP_MODES } from "@/lib/app-mode";
 
 interface MediaGalleryProps {
     chatId?: number; // Optional - если не указан, загружаем все файлы
-    onAttachFile?: (fileUrl: string, filename: string, imgbbUrl?: string) => void;
+    onAttachFile?: (
+        fileUrl: string,
+        filename: string,
+        imgbbUrl?: string,
+    ) => void;
     onRepeatRequest?: (requestId: number) => void;
+    appMode?: AppMode;
 }
 
 // Количество файлов для первоначального отображения
@@ -47,6 +54,7 @@ export function MediaGallery({
     chatId,
     onAttachFile,
     onRepeatRequest,
+    appMode = APP_MODES.DEFAULT,
 }: MediaGalleryProps) {
     const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null);
     const [deleteFile, { isLoading: isDeleting }] = useDeleteFileMutation();
@@ -58,13 +66,13 @@ export function MediaGallery({
     const [isPinnedExpanded, setIsPinnedExpanded] = useState(true);
     const [attachingFile, setAttachingFile] = useState(false);
     const [pinnedImageIds, setPinnedImageIds] = useState<Set<number>>(
-        new Set()
+        new Set(),
     );
 
     // Создаем функцию для эффекта загрузки
     const loadingEffectForAttachFile = useMemo(
         () => createLoadingEffectForAttachFile(setAttachingFile),
-        []
+        [],
     );
 
     // Загружаем закрепленные изображения из localStorage
@@ -78,7 +86,7 @@ export function MediaGallery({
                 const newSet = new Set(ids);
                 setPinnedImageIds(newSet);
             } catch (error) {
-                console.error('Error loading pinned images:', error);
+                console.error("Error loading pinned images:", error);
             }
         } else {
             setPinnedImageIds(new Set<number>());
@@ -101,17 +109,18 @@ export function MediaGallery({
             page,
             limit: 50, // Загружаем по 50 файлов за раз
             chatId: chatId, // Передаем chatId для фильтрации
+            appMode,
         },
         {
             // Пропускаем запрос, если chatId не указан
             skip: chatId === undefined,
-        }
+        },
     );
 
     // Загружаем данные чата для расчета стоимости (все запросы)
     // refetchOnMountOrArgChange: false — не дублируем запросы с основным чатом, обновление через invalidateTags
     const { data: chatData } = useGetChatQuery(
-        { id: chatId!, limit: 1000 },
+        { id: chatId!, limit: 1000, appMode },
         {
             skip: chatId === undefined,
             refetchOnMountOrArgChange: false,
@@ -145,7 +154,7 @@ export function MediaGallery({
                 // ВАЖНО: не сохраняем файлы, которые уже есть в новых данных, чтобы не дублировать
                 // и не перезаписывать актуальные данные о превью устаревшими
                 const preservedPinnedFiles = prev.filter(
-                    (f) => currentPinnedIds.has(f.id) && !newFilesIds.has(f.id)
+                    (f) => currentPinnedIds.has(f.id) && !newFilesIds.has(f.id),
                 );
 
                 // ВАЖНО: файлы из filesData.data имеют приоритет над сохраненными,
@@ -159,14 +168,14 @@ export function MediaGallery({
                 const newFilesIds = new Set(filesData.data.map((f) => f.id));
                 const existingIds = new Set(prev.map((f) => f.id));
                 const newFiles = filesData.data.filter(
-                    (f) => !existingIds.has(f.id)
+                    (f) => !existingIds.has(f.id),
                 );
 
                 // Обновляем существующие файлы актуальными данными из пагинации
                 // Это важно для закрепленных файлов, которые были предзагружены из chatData
                 // Создаем Map для быстрого поиска обновленных файлов
                 const updatedFilesMap = new Map(
-                    filesData.data.map((f) => [f.id, f])
+                    filesData.data.map((f) => [f.id, f]),
                 );
 
                 // Обновляем существующие файлы или оставляем их как есть
@@ -223,7 +232,7 @@ export function MediaGallery({
                 const storageKey = `pinned-images-chat-${chatId}`;
                 localStorage.setItem(
                     storageKey,
-                    JSON.stringify(Array.from(newPinned))
+                    JSON.stringify(Array.from(newPinned)),
                 );
             }
             return newPinned;
@@ -237,9 +246,9 @@ export function MediaGallery({
         const unpinned: MediaFile[] = [];
 
         accumulatedFiles.forEach((file) => {
-            if (file.type === 'VIDEO') {
+            if (file.type === "VIDEO") {
                 videos.push(file);
-            } else if (file.type === 'IMAGE') {
+            } else if (file.type === "IMAGE") {
                 if (pinnedImageIds.has(file.id)) {
                     pinned.push(file);
                 } else {
@@ -276,7 +285,7 @@ export function MediaGallery({
                     setPage((prev) => prev + 1);
                 }
             },
-            { threshold: 0.1 }
+            { threshold: 0.1 },
         );
 
         observer.observe(loadMoreTriggerRef.current);
@@ -297,7 +306,7 @@ export function MediaGallery({
         try {
             await deleteFile(fileId).unwrap();
         } catch (error) {
-            console.error('Ошибка удаления файла:', error);
+            console.error("Ошибка удаления файла:", error);
             // В случае ошибки файл будет восстановлен при следующем обновлении данных
         }
     }
@@ -317,7 +326,7 @@ export function MediaGallery({
                                     key={`skeleton-${index}`}
                                     className='aspect-square w-full rounded-xl'
                                 />
-                            )
+                            ),
                         )}
                     </div>
                 </ScrollArea>
@@ -332,7 +341,9 @@ export function MediaGallery({
                     <h2 className={PANEL_HEADER_TITLE_CLASSES}>Медиафайлы</h2>
                 </div>
                 <div className='flex flex-1 items-center justify-center'>
-                    <p className='text-sm text-muted-foreground'>Нет медиафайлов</p>
+                    <p className='text-sm text-muted-foreground'>
+                        Нет медиафайлов
+                    </p>
                 </div>
             </div>
         );
@@ -345,7 +356,7 @@ export function MediaGallery({
                 <div
                     className={cn(
                         PANEL_HEADER_CLASSES,
-                        'flex-row items-center justify-between bg-background'
+                        "flex-row items-center justify-between bg-background",
                     )}
                 >
                     <h2 className={PANEL_HEADER_TITLE_CLASSES}>
@@ -378,7 +389,7 @@ export function MediaGallery({
                                     </div>
                                     <ChevronDown
                                         className={`h-4 w-4 transition-transform ${
-                                            isPinnedExpanded ? 'rotate-180' : ''
+                                            isPinnedExpanded ? "rotate-180" : ""
                                         }`}
                                     />
                                 </button>
@@ -390,12 +401,16 @@ export function MediaGallery({
                                                 file={file}
                                                 onClick={handleFileClick}
                                                 onAttachFile={onAttachFile}
-                                                onRepeatRequest={onRepeatRequest}
+                                                onRepeatRequest={
+                                                    onRepeatRequest
+                                                }
                                                 onDeleteFile={handleDeleteFile}
                                                 onTogglePin={togglePinImage}
                                                 isDeleting={isDeleting}
                                                 attachingFile={attachingFile}
-                                                onLoadingEffect={loadingEffectForAttachFile}
+                                                onLoadingEffect={
+                                                    loadingEffectForAttachFile
+                                                }
                                                 isPinned={true}
                                             />
                                         ))}
@@ -422,7 +437,7 @@ export function MediaGallery({
                                     </div>
                                     <ChevronDown
                                         className={`h-4 w-4 transition-transform ${
-                                            isImageExpanded ? 'rotate-180' : ''
+                                            isImageExpanded ? "rotate-180" : ""
                                         }`}
                                     />
                                 </button>
@@ -434,12 +449,16 @@ export function MediaGallery({
                                                 file={file}
                                                 onClick={handleFileClick}
                                                 onAttachFile={onAttachFile}
-                                                onRepeatRequest={onRepeatRequest}
+                                                onRepeatRequest={
+                                                    onRepeatRequest
+                                                }
                                                 onDeleteFile={handleDeleteFile}
                                                 onTogglePin={togglePinImage}
                                                 isDeleting={isDeleting}
                                                 attachingFile={attachingFile}
-                                                onLoadingEffect={loadingEffectForAttachFile}
+                                                onLoadingEffect={
+                                                    loadingEffectForAttachFile
+                                                }
                                                 isPinned={false}
                                             />
                                         ))}
@@ -464,7 +483,7 @@ export function MediaGallery({
 
                                     <ChevronDown
                                         className={`h-4 w-4 transition-transform ${
-                                            isVideoExpanded ? 'rotate-180' : ''
+                                            isVideoExpanded ? "rotate-180" : ""
                                         }`}
                                     />
                                 </button>
@@ -476,11 +495,15 @@ export function MediaGallery({
                                                 file={file}
                                                 onClick={handleFileClick}
                                                 onAttachFile={onAttachFile}
-                                                onRepeatRequest={onRepeatRequest}
+                                                onRepeatRequest={
+                                                    onRepeatRequest
+                                                }
                                                 onDeleteFile={handleDeleteFile}
                                                 isDeleting={isDeleting}
                                                 attachingFile={attachingFile}
-                                                onLoadingEffect={loadingEffectForAttachFile}
+                                                onLoadingEffect={
+                                                    loadingEffectForAttachFile
+                                                }
                                                 isVideo={true}
                                             />
                                         ))}
@@ -514,7 +537,7 @@ export function MediaGallery({
             {selectedFile && (
                 <>
                     {/* Для видео используем Dialog как в message-item */}
-                    {selectedFile.type === 'VIDEO' && (
+                    {selectedFile.type === "VIDEO" && (
                         <Dialog
                             open={!!selectedFile}
                             onOpenChange={(open) =>
@@ -530,7 +553,10 @@ export function MediaGallery({
                                 </DialogTitle>
                                 <div className='relative'>
                                     <video
-                                        src={getOriginalFileUrl(selectedFile) || ''}
+                                        src={
+                                            getOriginalFileUrl(selectedFile) ||
+                                            ""
+                                        }
                                         controls
                                         autoPlay
                                         className='max-h-[90vh] w-full'
@@ -543,7 +569,7 @@ export function MediaGallery({
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     onRepeatRequest(
-                                                        selectedFile.requestId
+                                                        selectedFile.requestId,
                                                     );
                                                 }}
                                                 className='h-9 w-9 text-slate-400 hover:text-cyan-400 focus:text-cyan-400'
@@ -556,12 +582,21 @@ export function MediaGallery({
                                             size='icon'
                                             variant='secondary'
                                             onClick={() => {
-                                                const downloadUrl = getOriginalFileUrl(selectedFile);
+                                                const downloadUrl =
+                                                    getOriginalFileUrl(
+                                                        selectedFile,
+                                                    );
                                                 if (!downloadUrl) {
-                                                    console.warn('[MediaGallery] Невозможно скачать файл: нет оригинального URL', selectedFile);
+                                                    console.warn(
+                                                        "[MediaGallery] Невозможно скачать файл: нет оригинального URL",
+                                                        selectedFile,
+                                                    );
                                                     return;
                                                 }
-                                                downloadFile(downloadUrl, selectedFile.filename);
+                                                downloadFile(
+                                                    downloadUrl,
+                                                    selectedFile.filename,
+                                                );
                                             }}
                                             title='Скачать файл'
                                         >
@@ -582,7 +617,7 @@ export function MediaGallery({
                         </Dialog>
                     )}
                     {/* Для изображений используем MediaFullscreenView */}
-                    {selectedFile.type !== 'VIDEO' && (
+                    {selectedFile.type !== "VIDEO" && (
                         <MediaFullscreenView
                             file={selectedFile}
                             onClose={() => setSelectedFile(null)}

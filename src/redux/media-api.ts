@@ -2,7 +2,7 @@
 // Реэкспорт из новой структуры для обратной совместимости
 
 // Реэкспорт API
-export { baseApi as mediaApi } from './api/base';
+export { baseApi as mediaApi } from "./api/base";
 
 // Реэкспорт всех типов
 export type {
@@ -19,10 +19,13 @@ export type {
     UpdateChatRequest,
     GenerateMediaRequest,
     GenerateMediaResponse,
+    PromptEnhanceRequest,
+    PromptEnhanceResponse,
     PaginatedResponse,
     ApiResponse,
     PricingMap,
-} from './api/index';
+    LoraFileInfo,
+} from "./api/index";
 
 // Реэкспорт всех хуков
 export {
@@ -41,5 +44,9 @@ export {
     useDeleteFileMutation,
     useUploadToImgbbMutation,
     useUploadUserMediaMutation,
+    useGetLoraFilesQuery,
+    useUploadLoraFileMutation,
+    useDeleteLoraFileMutation,
+    usePromptEnhanceMutation,
     useGetModelsQuery,
-} from './api/index';
+} from "./api/index";
