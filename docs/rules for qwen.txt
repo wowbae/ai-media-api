@@ -1,0 +1,80 @@
+Communication
+User-facing language is Russian in all normal interactions.
+After answering, execute code changes when the task implies implementation; do not wait for repeated prompts.
+If the user proposes a weak or beginner-level approach, explain why and suggest a stronger practice.
+Work as an autonomous agent in a real environment: run commands and investigate directly.
+
+Planning and execution discipline
+Before implementation, create a concrete todo list and keep statuses updated while working.
+For non-trivial tasks with multiple steps or architecture impact, plan first and re-plan when blocked.
+Do not mark work done without verification evidence such as tests, logs, or direct behavior checks.
+
+Mandatory project files and exact locations
+Main task checklist document: docs/tasks/todo.md
+Mandatory agent lessons document: .cursor/rules/lessons.md
+
+Mandatory lessons workflow
+After each completed task, write an improvement note to .cursor/rules/lessons.md.
+If it was USEFUL and FUNDAMENTAL or ELEGANT correction, append a concrete mistake pattern and prevention rule to .cursor/rules/lessons.md.
+Lessons entries must be specific: context, mistake, root cause, prevention rule, and a short checklist item.
+Do not skip lessons updates when a new pattern appears.
+
+Reasoning and documentation tools
+Use sequential thinking for complex reasoning and multi-step decisions.
+Use Context7 for current library documentation and implementation examples.
+
+Code conventions
+Prefer functional style over heavy OOP.
+Use clear state-oriented names such as isLoading and hasError.
+Use readable naming and practical comments; do not add noisy comments.
+Directory naming uses lowercase kebab-case, for example components/auth-wizard.
+Prefer named exports for components and reusable modules.
+Prefer function declarations for focused top-level logic.
+Avoid unnecessary braces in simple one-line conditions if local style allows.
+
+TypeScript conventions
+Strict TypeScript mode is required.
+Do not use any.
+Prefer interface for object contracts unless union or mapped types require type.
+Prefer const objects with as const instead of enum where practical.
+For React components, use functional components with interface-based props.
+
+React and Tailwind conventions
+Only Tailwind for styling. Do not use CSS files.
+Use linear class utilities instead of gradient class utilities.
+
+Terminal and package manager
+Use bun instead of npm when the project supports bun.
+
+Architecture rules
+Validate and handle errors early in functions.
+Use early returns to reduce nesting; keep the happy path at the end.
+Keep modules low-coupled and cohesive.
+Split files before they become too large; target readability before roughly 500 lines.
+Store shared cross-cutting constants and configs in shared, including shared/constants, so frontend and backend use one source of truth.
+Keep values such as AI model names and Telegram IDs in shared constants for centralized edits.
+Use singleton only when it clearly reduces complexity and matches architecture.
+
+Editing constraints
+Do not remove existing comment lines during edits unless they are objectively wrong.
+Change only what is required by the task; avoid unrelated refactors.
+
+Core quality principles
+Simplicity first: smallest safe change that solves the real problem.
+Root-cause first: avoid temporary patches that can become permanent debt.
+Minimal blast radius: avoid side effects and avoid touching unrelated areas.
+
+Workflow orchestration for agents
+Subagents:
+Use subagents to keep primary context focused, especially for research, exploration, and parallel analysis.
+Assign one focused task per subagent.
+Self-improvement loop:
+After useful and fundamental user corrections, record the mistake pattern in .cursor/rules/lessons.md and tighten prevention rules.
+Verification before completion:
+Do not declare tasks complete without evidence such as tests, logs, or direct correctness checks.
+For non-trivial work, validate that result quality is at least staff-level.
+Elegance balance:
+For non-trivial changes, check whether a cleaner and more elegant implementation exists.
+Do not over-engineer trivial fixes.
+Autonomous bug fixing:
+For bug reports, diagnose from logs, errors, and tests, then fix directly when the path is clear.

@@ -4,7 +4,7 @@ import { prisma } from 'prisma/client';
 import { Prisma } from '@prisma/client';
 import { generateMedia } from '../generation.service';
 import { copyFile } from '../file.service';
-import { mediaStorageConfig } from '../config';
+import { mediaStorageConfig, isMediaUrlPubliclyAccessible } from '../config';
 import { notifyTelegramGroup } from '../telegram.notifier';
 import type { GenerateMediaRequest, MediaModel } from '../interfaces';
 import { invalidateChatCache } from './cache';
@@ -115,6 +115,23 @@ export function createGenerateRouter(): Router {
             const { processedFiles } = await convertBase64FilesToUrls(inputFiles);
             // Конвертируем видео в публичные URL (base64 → сохраняем на сервер, путь → полный URL)
             const { processedVideoFiles } = await convertVideoFilesToUrls(inputVideoFiles);
+
+            // Kling Motion Control: Kie.ai должен скачивать видео по URL — localhost им недоступен
+            const isKlingMotionControl =
+                selectedModel === 'KLING_2_6_MOTION_CONTROL_KIEAI';
+            if (
+                isKlingMotionControl &&
+                processedVideoFiles.length > 0 &&
+                !isMediaUrlPubliclyAccessible()
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        'Kling Motion Control требует публичный URL для видео. ' +
+                        'Kie.ai не может скачать файл с localhost. ' +
+                        'Установи MEDIA_PUBLIC_BASE_URL в .env на публичный адрес (например, ngrok для локальной разработки).',
+                });
+            }
 
             // Проверяем дубликаты запросов
             const recentRequest = await prisma.mediaRequest.findFirst({

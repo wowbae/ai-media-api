@@ -261,11 +261,19 @@ export function getMediaPublicBaseUrl(): string {
   ).replace(/\/$/, "");
 }
 
+// Проверка: доступен ли URL снаружи (Kie.ai должен скачивать видео по ссылке)
+export function isMediaUrlPubliclyAccessible(): boolean {
+  const baseUrl = getMediaPublicBaseUrl();
+  return (
+    !baseUrl.includes("localhost") && !baseUrl.includes("127.0.0.1")
+  );
+}
+
 // Пути для сохранения файлов
 export const mediaStorageConfig = {
   basePath: "ai-media",
   previewsPath: "ai-media/previews",
-  maxFileSize: 50 * 1024 * 1024, // 50MB
+  maxFileSize: 100 * 1024 * 1024, // 100MB (Kling Motion Control — видео до 100MB)
   allowedImageTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"],
   allowedVideoTypes: ["video/mp4", "video/webm", "video/quicktime"],
   allowedAudioTypes: ["audio/mpeg", "audio/wav", "audio/ogg"],

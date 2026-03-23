@@ -21,8 +21,8 @@ export const serverConfig = {
   // Максимальный размер файла (в байтах)
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE_MB || '50', 10) * 1024 * 1024,
   
-  // Лимиты для express body parser
-  bodyLimit: `${process.env.MAX_FILE_SIZE_MB || '50'}mb`,
+  // Лимиты для express body parser (150mb — видео до 100MB в base64 ~133MB)
+  bodyLimit: `${process.env.BODY_LIMIT_MB || process.env.MAX_FILE_SIZE_MB || '150'}mb`,
 } as const;
 
 // Конфигурация аутентификации

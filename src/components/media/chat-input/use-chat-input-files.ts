@@ -14,10 +14,18 @@ export interface AttachedFile {
 function getErrorMessage(error: unknown, fallback: string): string {
     if (error instanceof Error) return error.message;
     if (typeof error === 'object' && error !== null) {
-        const err = error as { data?: { error?: string } | string; message?: string };
+        const err = error as {
+            status?: number;
+            data?: { error?: string } | string;
+            message?: string;
+            error?: string;
+        };
+        if (err.status === 413)
+            return 'Файл слишком большой. Видео — макс 100MB, изображения — 10MB.';
         if (typeof err.data === 'object' && typeof err.data?.error === 'string')
             return err.data.error;
         if (typeof err.data === 'string') return err.data;
+        if (typeof err.error === 'string') return err.error;
         if (typeof err.message === 'string') return err.message;
     }
     return fallback;
@@ -169,29 +177,19 @@ export function useChatInputFiles(chatId?: number) {
 
                     console.log('[ChatInput] ✅ Файлы успешно сохранены в БД и ai-media');
 
-                    // Обновляем attachedFiles с полученными URL/path (чтобы при отправке промпта не загружать заново)
+                    // Мержим serverPath/imgbbUrl в newFiles (setState не успевает — файлы ещё не в state)
                     if (result && result.files) {
-                        setAttachedFiles(prev => {
-                            const updated = [...prev];
-                            result.files.forEach(serverFile => {
-                                const localFileIndex = updated.findIndex(
-                                    f => f.file.name === serverFile.filename
-                                );
-                                if (localFileIndex === -1) return;
-                                const isVideo = serverFile.type === 'VIDEO';
-                                if (isVideo && serverFile.path) {
-                                    updated[localFileIndex] = {
-                                        ...updated[localFileIndex],
-                                        serverPath: serverFile.path,
-                                    };
-                                } else if (serverFile.url) {
-                                    updated[localFileIndex] = {
-                                        ...updated[localFileIndex],
-                                        imgbbUrl: serverFile.url,
-                                    };
-                                }
-                            });
-                            return updated;
+                        result.files.forEach((serverFile) => {
+                            const localFile = newFiles.find(
+                                (f) => f.file.name === serverFile.filename
+                            );
+                            if (!localFile) return;
+                            const isVideo = serverFile.type === 'VIDEO';
+                            if (isVideo && serverFile.path) {
+                                localFile.serverPath = serverFile.path;
+                            } else if (serverFile.url) {
+                                localFile.imgbbUrl = serverFile.url;
+                            }
                         });
                     }
                 } catch (error) {

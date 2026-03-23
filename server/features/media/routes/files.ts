@@ -429,6 +429,7 @@ export function createFilesRouter(): Router {
             });
 
             const savedFiles: any[] = [];
+            let firstSaveError: string | null = null;
 
             // Сохраняем каждый файл
             for (const fileData of files) {
@@ -499,11 +500,21 @@ export function createFilesRouter(): Router {
                         );
                     });
                 } catch (error) {
+                    const msg =
+                        error instanceof Error ? error.message : String(error);
+                    if (!firstSaveError) firstSaveError = msg;
                     console.error(
                         `[API] ❌ Ошибка сохранения файла ${fileData.filename}:`,
                         error,
                     );
                 }
+            }
+
+            if (savedFiles.length === 0 && firstSaveError) {
+                return res.status(400).json({
+                    success: false,
+                    error: firstSaveError,
+                });
             }
 
             // Собираем URL из сохраненных файлов для inputFiles
@@ -569,13 +580,15 @@ export function createFilesRouter(): Router {
                 },
             });
         } catch (error) {
+            const message =
+                error instanceof Error ? error.message : String(error);
             console.error(
                 '[API] ❌ Ошибка загрузки пользовательских медиа:',
                 error,
             );
             res.status(500).json({
                 success: false,
-                error: 'Ошибка при загрузке файлов',
+                error: message || 'Ошибка при загрузке файлов',
             });
         }
     });

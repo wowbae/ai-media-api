@@ -1,26 +1,13 @@
 // Менеджер провайдеров - фабрика и маппинг моделей на провайдеры
-import type { MediaModel } from '../config';
-import type { MediaProvider } from './interfaces';
-import { createGPTunnelMediaProvider } from './gptunnel';
-import { createLaoZhangProvider } from './laozhang';
-import {
-    createKieAiMidjourneyProvider,
-    createKieAiKlingProvider,
-    createKieAiKling3Provider,
-    createKieAiNanoBananaProvider,
-    createKieAiNanoBanana2Provider,
-    createKieAiImagen4Provider,
-    createKieAiSeedreamProvider,
-    createKieAiSeedream5Provider,
-    createKieAiVeo3Provider,
-    createKieAiElevenLabsProvider,
-    createKieAiSeedanceProvider,
-    createKieAiKlingMotionControlProvider,
-} from './kieai';
-import type { KieAiConfig } from './kieai/interfaces';
-import { createWavespeedProvider } from './wavespeed';
-import { MEDIA_MODELS, type MediaModelConfig } from '../config';
-import 'dotenv/config';
+import type { MediaModel } from "../config";
+import type { MediaProvider } from "./interfaces";
+import { createGPTunnelMediaProvider } from "./gptunnel";
+import { createLaoZhangProvider } from "./laozhang";
+import { createUnifiedKieAiProvider } from "./kieai/unified-provider";
+import type { KieAiConfig } from "./kieai/interfaces";
+import { createWavespeedProvider } from "./wavespeed";
+import { MEDIA_MODELS, type MediaModelConfig } from "../config";
+import "dotenv/config";
 
 export interface ProviderManager {
     // Получить провайдер для конкретной модели
@@ -44,52 +31,38 @@ export function createProviderManager(): ProviderManager {
     const providers: Record<string, MediaProvider> = {};
 
     // GPTunnel провайдеры
-    const gptunnelApiKey = process.env.GPTUNNEL_API_KEY || '';
+    const gptunnelApiKey = process.env.GPTUNNEL_API_KEY || "";
     if (gptunnelApiKey) {
         const gptunnelConfig = {
             apiKey: gptunnelApiKey,
-            baseURL: 'https://gptunnel.ru',
+            baseURL: "https://gptunnel.ru",
         };
 
         // Media провайдер (для Veo 3.1 Fast и других моделей /v1/media API)
         providers.gptunnel = createGPTunnelMediaProvider(gptunnelConfig);
     }
 
-    // Kie.ai провайдеры - кешируем по модели, чтобы сохранять состояние (например, recordId Map)
-    const kieaiProviders: Record<string, MediaProvider> = {};
-
-    // Маппинг моделей kieai на фабрики провайдеров
-    const KIEAI_MODEL_FACTORIES: Record<
-        string,
-        (config: KieAiConfig) => MediaProvider
-    > = {
-        KLING_2_6_KIEAI: createKieAiKlingProvider,
-        KLING_3_0_KIEAI: createKieAiKling3Provider,
-        NANO_BANANA_PRO_KIEAI: createKieAiNanoBananaProvider,
-        NANO_BANANA_2_KIEAI: createKieAiNanoBanana2Provider,
-        IMAGEN4_KIEAI: createKieAiImagen4Provider,
-        IMAGEN4_ULTRA_KIEAI: createKieAiImagen4Provider,
-        VEO_3_1_FAST_KIEAI: createKieAiVeo3Provider,
-        SEEDREAM_4_5_KIEAI: createKieAiSeedreamProvider,
-        SEEDREAM_4_5_EDIT_KIEAI: createKieAiSeedreamProvider,
-        SEEDREAM_5_0_LITE_KIEAI: createKieAiSeedream5Provider,
-        SEEDREAM_5_0_LITE_EDIT_KIEAI: createKieAiSeedream5Provider,
-        ELEVENLABS_MULTILINGUAL_V2_KIEAI: createKieAiElevenLabsProvider,
-        SEEDANCE_1_5_PRO_KIEAI: createKieAiSeedanceProvider,
-        KLING_2_6_MOTION_CONTROL_KIEAI: createKieAiKlingMotionControlProvider,
-    };
+    // Единый Kie.ai провайдер для всех kieai-моделей
+    const kieaiApiKey = process.env.KIEAI_API_KEY || "";
+    if (kieaiApiKey) {
+        const kieaiConfig: KieAiConfig = {
+            apiKey: kieaiApiKey,
+            baseURL: "https://api.kie.ai",
+        };
+        providers.kieai = createUnifiedKieAiProvider(kieaiConfig);
+    }
 
     // LaoZhang провайдер (Nano Banana Pro, Sora 2, Veo 3.1)
-    const laozhangApiKey = process.env.LAOZHANG_API_KEY || '';
+    const laozhangApiKey = process.env.LAOZHANG_API_KEY || "";
     if (laozhangApiKey) {
         providers.laozhang = createLaoZhangProvider({
             apiKey: laozhangApiKey,
-            baseURL: 'https://api.laozhang.ai',
+            baseURL: "https://api.laozhang.ai",
         });
     }
 
     // Wavespeed провайдер (Kling Video O1)
-    const wavespeedApiKey = process.env.WAVESPEED_AI_API_KEY || '';
+    const wavespeedApiKey = process.env.WAVESPEED_AI_API_KEY || "";
     if (wavespeedApiKey) {
         providers.wavespeed = createWavespeedProvider({
             apiKey: wavespeedApiKey,
@@ -103,41 +76,11 @@ export function createProviderManager(): ProviderManager {
                 throw new Error(`Неизвестная модель: ${model}`);
             }
 
-            // Для kieai провайдера используем маппинг фабрик
-            if (modelConfig.provider === 'kieai') {
-                // Кешируем провайдеры, чтобы сохранять состояние между вызовами
-                if (kieaiProviders[model]) {
-                    return kieaiProviders[model];
-                }
-
-                const kieaiApiKey = process.env.KIEAI_API_KEY || '';
-                if (!kieaiApiKey) {
-                    throw new Error('KIEAI_API_KEY не настроен');
-                }
-
-                const kieaiConfig: KieAiConfig = {
-                    apiKey: kieaiApiKey,
-                    baseURL: 'https://api.kie.ai',
-                };
-
-                // Используем маппинг фабрик
-                const factory = KIEAI_MODEL_FACTORIES[model];
-                if (!factory) {
-                    // Fallback на midjourney провайдер для неизвестных kieai моделей
-                    kieaiProviders[model] =
-                        createKieAiMidjourneyProvider(kieaiConfig);
-                    return kieaiProviders[model];
-                }
-
-                kieaiProviders[model] = factory(kieaiConfig);
-                return kieaiProviders[model];
-            }
-
             // Для остальных провайдеров
             const provider = providers[modelConfig.provider];
             if (!provider) {
                 throw new Error(
-                    `Провайдер ${modelConfig.provider} не настроен. Проверьте переменные окружения.`
+                    `Провайдер ${modelConfig.provider} не настроен. Проверьте переменные окружения.`,
                 );
             }
 
