@@ -22,6 +22,14 @@
 - Prevention rule: после удаления модуля обязательно сокращать связанные interface-файлы до фактически используемых контрактов.
 - Checklist item: "После cleanup реализации: `rg` по старым типам должен вернуть 0 совпадений".
 
+## 2026-03-23 - Duplicate interface key in frontend DTO
+
+- Context: общий `tsc --noEmit` падал из-за `Duplicate identifier 'videoQuality'` в `GenerateMediaRequest`.
+- Mistake: одно и то же поле было объявлено дважды внутри одного интерфейса.
+- Root cause: ручное объединение полей без финальной проверки на дубликаты в типах запроса.
+- Prevention rule: после правок DTO всегда запускать проектный `tsc --noEmit`, даже если изменения локально выглядят тривиальными.
+- Checklist item: "Перед завершением: проверить интерфейсы запросов на duplicate keys".
+
 ## 2026-03-23 - Planning before provider refactor
 
 - Context: подготовка плана внедрения новой модели `z-image/turbo-lora` с потенциальным рефакторингом структуры провайдеров.
@@ -29,6 +37,14 @@
 - Root cause: смешение двух целей: feature delivery и архитектурная унификация всего provider-слоя.
 - Prevention rule: при добавлении одной модели применять "минимальный безопасный рефакторинг" только внутри целевого провайдера, а глобальную унификацию выносить в отдельный этап.
 - Checklist item: "Перед стартом: разделить scope на V1 (feature) и V2 (архитектурное улучшение), зафиксировать границы изменений".
+
+## 2026-03-23 - Provider task routing memory
+
+- Context: добавление image-модели в уже существующий async-provider Wavespeed, где раньше был только video-flow.
+- Mistake: если не хранить тип задачи (`image`/`video`) в момент создания task, далее статус/результат приходится определять через try/catch эвристики.
+- Root cause: отсутствие явной связи `taskId -> handler` внутри провайдера.
+- Prevention rule: для multi-model провайдера сохранять lightweight routing state по `taskId` сразу после `generate()`, и использовать его в `checkTaskStatus/getTaskResult`.
+- Checklist item: "Для каждого multi-model провайдера: есть явный роутинг taskId к обработчику, без fallback на исключения как на control flow".
 
 ## 2026-03-23 - Mode isolation planning for private route
 

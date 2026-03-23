@@ -1,7 +1,7 @@
 // Базовые типы и конфигурация для Redux API
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { createAuthHeaders, handleSessionTimeout } from './utils';
-import { config } from '@/lib/config';
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createAuthHeaders, handleSessionTimeout } from "./utils";
+import { config } from "@/lib/config";
 
 // URL API сервера
 export const API_BASE_URL = config.apiUrl;
@@ -9,31 +9,32 @@ export const API_BASE_URL = config.apiUrl;
 // ==================== Базовые типы ====================
 
 export type MediaModel =
-    | 'MIDJOURNEY'
-    | 'VEO_3_1_FAST_KIEAI'
-    | 'NANO_BANANA_PRO_LAOZHANG'
-    | 'KLING_2_6_KIEAI'
-    | 'KLING_3_0_KIEAI'
-    | 'NANO_BANANA_PRO_KIEAI'
-    | 'NANO_BANANA_2_KIEAI'
-    | 'IMAGEN4_KIEAI'
-    | 'IMAGEN4_ULTRA_KIEAI'
-    | 'SEEDREAM_4_5_KIEAI'
-    | 'SEEDREAM_4_5_EDIT_KIEAI'
-    | 'SEEDREAM_5_0_LITE_KIEAI'
-    | 'SEEDREAM_5_0_LITE_EDIT_KIEAI'
-    | 'ELEVENLABS_MULTILINGUAL_V2_KIEAI'
-    | 'KLING_VIDEO_O1_WAVESPEED'
-    | 'SEEDANCE_1_5_PRO_KIEAI'
-    | 'KLING_2_6_MOTION_CONTROL_KIEAI';
+    | "MIDJOURNEY"
+    | "VEO_3_1_FAST_KIEAI"
+    | "NANO_BANANA_PRO_LAOZHANG"
+    | "KLING_2_6_KIEAI"
+    | "KLING_3_0_KIEAI"
+    | "NANO_BANANA_PRO_KIEAI"
+    | "NANO_BANANA_2_KIEAI"
+    | "IMAGEN4_KIEAI"
+    | "IMAGEN4_ULTRA_KIEAI"
+    | "SEEDREAM_4_5_KIEAI"
+    | "SEEDREAM_4_5_EDIT_KIEAI"
+    | "SEEDREAM_5_0_LITE_KIEAI"
+    | "SEEDREAM_5_0_LITE_EDIT_KIEAI"
+    | "ELEVENLABS_MULTILINGUAL_V2_KIEAI"
+    | "KLING_VIDEO_O1_WAVESPEED"
+    | "SEEDANCE_1_5_PRO_KIEAI"
+    | "KLING_2_6_MOTION_CONTROL_KIEAI";
 
-export type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
-export type RequestStatus = 'PENDING' | 'PROCESSING' | 'COMPLETING' | 'COMPLETED' | 'FAILED';
-export type MediaProviderType =
-    | 'gptunnel'
-    | 'laozhang'
-    | 'kieai'
-    | 'wavespeed';
+export type MediaType = "IMAGE" | "VIDEO" | "AUDIO";
+export type RequestStatus =
+    | "PENDING"
+    | "PROCESSING"
+    | "COMPLETING"
+    | "COMPLETED"
+    | "FAILED";
+export type MediaProviderType = "gptunnel" | "laozhang" | "kieai" | "wavespeed";
 
 // ==================== Интерфейсы сущностей ====================
 
@@ -123,16 +124,20 @@ export interface GenerateMediaRequest {
     prompt: string;
     model?: MediaModel;
     inputFiles?: string[];
-    format?: '1:1' | '4:3' | '3:4' | '9:16' | '16:9' | '2:3' | '3:2' | '21:9';
-    quality?: '1k' | '2k' | '4k';
-    videoQuality?: '480p' | '720p' | '1080p';
+    format?: "1:1" | "4:3" | "3:4" | "9:16" | "16:9" | "2:3" | "3:2" | "21:9";
+    quality?: "1k" | "2k" | "4k";
+    videoQuality?: "480p" | "720p" | "1080p";
     duration?: number;
-    ar?: '16:9' | '9:16';
-    generationType?: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO';
+    ar?: "16:9" | "9:16";
+    generationType?:
+        | "TEXT_2_VIDEO"
+        | "FIRST_AND_LAST_FRAMES_2_VIDEO"
+        | "REFERENCE_2_VIDEO"
+        | "EXTEND_VIDEO";
     originalTaskId?: string;
     sound?: boolean;
     fixedLens?: boolean;
-    outputFormat?: 'png' | 'jpg';
+    outputFormat?: "png" | "jpg";
     negativePrompt?: string;
     seed?: string | number;
     cfgScale?: number;
@@ -143,8 +148,7 @@ export interface GenerateMediaRequest {
     speed?: number;
     languageCode?: string;
     inputVideoFiles?: string[];
-    characterOrientation?: 'image' | 'video';
-    videoQuality?: '480p' | '720p' | '1080p';
+    characterOrientation?: "image" | "video";
 }
 
 export interface GenerateMediaResponse {
@@ -179,7 +183,7 @@ export async function baseQueryWithErrorHandling(
     args: any,
     api: any,
     extraOptions: any,
-    baseUrl?: string
+    baseUrl?: string,
 ) {
     const result = await fetchBaseQuery({
         baseUrl: baseUrl || API_BASE_URL,
@@ -187,9 +191,13 @@ export async function baseQueryWithErrorHandling(
     })(args, api, extraOptions);
 
     // Обработка ошибок 401 (Unauthorized)
-    if (result.error && 'status' in result.error && result.error.status === 401) {
-        const url = typeof args === 'string' ? args : args?.url || '';
-        if (!url.includes('/auth/me')) {
+    if (
+        result.error &&
+        "status" in result.error &&
+        result.error.status === 401
+    ) {
+        const url = typeof args === "string" ? args : args?.url || "";
+        if (!url.includes("/auth/me")) {
             handleSessionTimeout();
         }
     }
@@ -198,9 +206,9 @@ export async function baseQueryWithErrorHandling(
 }
 
 export const baseApi = createApi({
-    reducerPath: 'mediaApi',
+    reducerPath: "mediaApi",
     baseQuery: baseQueryWithErrorHandling,
-    tagTypes: ['Chat', 'Request', 'File', 'Model'],
+    tagTypes: ["Chat", "Request", "File", "Model"],
     keepUnusedDataFor: 60,
     // 60 сек вместо 10 — снижает нагрузку при бездействии (было: постоянные запросы каждые 10 сек)
     refetchOnMountOrArgChange: 60,

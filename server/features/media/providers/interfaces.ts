@@ -1,101 +1,109 @@
 // Интерфейсы для абстракции провайдеров медиа-генерации
 import type { MediaModel } from "../interfaces";
 import type { SavedFileInfo } from "../file.service";
+import type { GenerationLoraInput } from "../interfaces";
 
 // Реэкспорт MediaModelConfig из config.ts (единственный источник истины)
 export type { MediaModelConfig, MediaProviderType } from "../config";
 
 // Параметры запроса на генерацию
 export interface GenerateParams {
-  requestId: number;
-  prompt: string;
-  model: MediaModel;
-  inputFiles?: string[];
-  aspectRatio?:
-    | "1:1"
-    | "4:3"
-    | "3:4"
-    | "9:16"
-    | "16:9"
-    | "2:3"
-    | "3:2"
-    | "21:9";
-  quality?: "1k" | "2k" | "4k" | "LOW" | "MEDIUM" | "HIGH" | "ULTRA";
-  videoQuality?: "480p" | "720p" | "1080p";
-  duration?: number;
-  ar?: "16:9" | "9:16"; // Формат видео для Veo (передается как ar в теле запроса)
-  generationType?: "TEXT_2_VIDEO" | "FIRST_AND_LAST_FRAMES_2_VIDEO" | "REFERENCE_2_VIDEO" | "EXTEND_VIDEO"; // Режим генерации для Veo 3.1
-  originalTaskId?: string; // taskId оригинального видео для режима EXTEND_VIDEO
-  sound?: boolean; // Звук для Kling 2.6 / generate_audio для Seedance 1.5 Pro
-  fixedLens?: boolean; // Фиксация камеры (fixed_lens) для Seedance 1.5 Pro
-  outputFormat?: "png" | "jpg" | "jpeg"; // Формат выходного изображения для Nano Banana Pro
-  negativePrompt?: string; // Негативный промпт для Imagen4 и Kling 2.5 Turbo Pro
-  seed?: string | number; // Seed для Imagen4
-  cfgScale?: number; // CFG scale для Kling 2.5 Turbo Pro
-  tailImageUrl?: string; // Tail frame image для Kling 2.5 Turbo Pro (image-to-video)
-  // Параметры для ElevenLabs Multilingual v2
-  voice?: string; // Голос для TTS (по умолчанию "Rachel")
-  stability?: number; // Стабильность (0-1, по умолчанию 0.5)
-  similarityBoost?: number; // Усиление сходства (0-1, по умолчанию 0.75)
-  speed?: number; // Скорость (0.5-2, по умолчанию 1)
-  languageCode?: string; // Код языка (опционально)
-  // Параметры для Kling 3.0
-  mode?: "std" | "pro"; // Режим генерации для Kling 3.0
-  multiShots?: boolean; // Multi-shot режим для Kling 3.0
-  // Параметры для Kling 2.6 Motion Control
-  inputVideoFiles?: string[]; // URL видео для motion reference
-  characterOrientation?: "image" | "video"; // image: макс 10с, video: макс 30с
+    requestId: number;
+    prompt: string;
+    model: MediaModel;
+    inputFiles?: string[];
+    aspectRatio?:
+        | "1:1"
+        | "4:3"
+        | "3:4"
+        | "9:16"
+        | "16:9"
+        | "2:3"
+        | "3:2"
+        | "21:9";
+    quality?: "1k" | "2k" | "4k" | "LOW" | "MEDIUM" | "HIGH" | "ULTRA";
+    videoQuality?: "480p" | "720p" | "1080p";
+    duration?: number;
+    ar?: "16:9" | "9:16"; // Формат видео для Veo (передается как ar в теле запроса)
+    generationType?:
+        | "TEXT_2_VIDEO"
+        | "FIRST_AND_LAST_FRAMES_2_VIDEO"
+        | "REFERENCE_2_VIDEO"
+        | "EXTEND_VIDEO"; // Режим генерации для Veo 3.1
+    originalTaskId?: string; // taskId оригинального видео для режима EXTEND_VIDEO
+    sound?: boolean; // Звук для Kling 2.6 / generate_audio для Seedance 1.5 Pro
+    fixedLens?: boolean; // Фиксация камеры (fixed_lens) для Seedance 1.5 Pro
+    outputFormat?: "png" | "jpg" | "jpeg"; // Формат выходного изображения для Nano Banana Pro
+    negativePrompt?: string; // Негативный промпт для Imagen4 и Kling 2.5 Turbo Pro
+    seed?: string | number; // Seed для Imagen4
+    cfgScale?: number; // CFG scale для Kling 2.5 Turbo Pro
+    tailImageUrl?: string; // Tail frame image для Kling 2.5 Turbo Pro (image-to-video)
+    loras?: GenerationLoraInput[]; // LoRA adapters для Wavespeed Z-Image Turbo LoRA
+    // Параметры для ElevenLabs Multilingual v2
+    voice?: string; // Голос для TTS (по умолчанию "Rachel")
+    stability?: number; // Стабильность (0-1, по умолчанию 0.5)
+    similarityBoost?: number; // Усиление сходства (0-1, по умолчанию 0.75)
+    speed?: number; // Скорость (0.5-2, по умолчанию 1)
+    languageCode?: string; // Код языка (опционально)
+    // Параметры для Kling 3.0
+    mode?: "std" | "pro"; // Режим генерации для Kling 3.0
+    multiShots?: boolean; // Multi-shot режим для Kling 3.0
+    // Параметры для Kling 2.6 Motion Control
+    inputVideoFiles?: string[]; // URL видео для motion reference
+    characterOrientation?: "image" | "video"; // image: макс 10с, video: макс 30с
 }
 
 // Результат создания задачи (для async провайдеров)
 export interface TaskCreatedResult {
-  taskId: string;
-  status: "pending" | "processing";
+    taskId: string;
+    status: "pending" | "processing";
 }
 
 // Результат проверки статуса задачи
 export interface TaskStatusResult {
-  status: "pending" | "processing" | "done" | "failed";
-  url?: string;
-  /** URL результатов (при status=done) — позволяет избежать повторного API вызова в getTaskResult */
-  resultUrls?: string[];
-  error?: string;
+    status: "pending" | "processing" | "done" | "failed";
+    url?: string;
+    /** URL результатов (при status=done) — позволяет избежать повторного API вызова в getTaskResult */
+    resultUrls?: string[];
+    error?: string;
 }
 
 // Маппинг статусов провайдеров на внутренние (общий для gptunnel и midjourney)
 export const PROVIDER_STATUS_MAP: Record<string, TaskStatusResult["status"]> = {
-  idle: "pending",
-  processing: "processing",
-  done: "done",
-  failed: "failed",
+    idle: "pending",
+    processing: "processing",
+    done: "done",
+    failed: "failed",
 };
 
 // Абстрактный интерфейс провайдера медиа-генерации
 // Большинство провайдеров работают по async-схеме
 export interface MediaProvider {
-  readonly name: string;
-  readonly isAsync: boolean;
-  
-  // Создать задачу (async провайдеры возвращают taskId, sync - сразу файлы)
-  generate(params: GenerateParams): Promise<TaskCreatedResult | SavedFileInfo[]>;
-  
-  // Проверить статус задачи (обязательно для async провайдеров)
-  checkTaskStatus?(taskId: string): Promise<TaskStatusResult>;
-  
-  // Получить результат задачи (обязательно для async провайдеров)
-  getTaskResult?(taskId: string): Promise<SavedFileInfo[]>;
+    readonly name: string;
+    readonly isAsync: boolean;
+
+    // Создать задачу (async провайдеры возвращают taskId, sync - сразу файлы)
+    generate(
+        params: GenerateParams,
+    ): Promise<TaskCreatedResult | SavedFileInfo[]>;
+
+    // Проверить статус задачи (обязательно для async провайдеров)
+    checkTaskStatus?(taskId: string): Promise<TaskStatusResult>;
+
+    // Получить результат задачи (обязательно для async провайдеров)
+    getTaskResult?(taskId: string): Promise<SavedFileInfo[]>;
 }
 
 // Конфигурация провайдера
 export interface ProviderConfig {
-  apiKey: string;
-  baseURL: string;
-  defaultHeaders?: Record<string, string>;
+    apiKey: string;
+    baseURL: string;
+    defaultHeaders?: Record<string, string>;
 }
 
 // Тип для проверки является ли результат async
 export function isTaskCreatedResult(
-  result: SavedFileInfo[] | TaskCreatedResult,
+    result: SavedFileInfo[] | TaskCreatedResult,
 ): result is TaskCreatedResult {
-  return "taskId" in result && "status" in result;
+    return "taskId" in result && "status" in result;
 }

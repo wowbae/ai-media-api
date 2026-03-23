@@ -62,7 +62,8 @@ export function createProviderManager(): ProviderManager {
     }
 
     // Wavespeed провайдер (Kling Video O1)
-    const wavespeedApiKey = process.env.WAVESPEED_AI_API_KEY || "";
+    const wavespeedApiKey =
+        process.env.WAVESPEED_API_KEY || process.env.WAVESPEED_AI_API_KEY || "";
     if (wavespeedApiKey) {
         providers.wavespeed = createWavespeedProvider({
             apiKey: wavespeedApiKey,
