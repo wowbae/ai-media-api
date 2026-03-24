@@ -264,6 +264,58 @@ export function createUnifiedKieAiProvider(config: KieAiConfig): MediaProvider {
             },
         },
 
+        // ========== GROK IMAGINE ==========
+        GROK_IMAGINE_IMAGE_TO_IMAGE_KIEAI: {
+            endpoint: "/api/v1/jobs/createTask",
+            model: "grok-imagine/image-to-image",
+            types: ["IMAGE"],
+            mapParams: (params) => {
+                const firstInputFile = params.inputFiles?.[0];
+                if (!firstInputFile) {
+                    throw new Error(
+                        "Grok Imagine Image-to-Image требует одно входное изображение",
+                    );
+                }
+
+                return {
+                    model: "grok-imagine/image-to-image",
+                    input: {
+                        prompt: params.prompt,
+                        image_urls: [firstInputFile],
+                    },
+                };
+            },
+        },
+
+        GROK_IMAGINE_IMAGE_TO_VIDEO_KIEAI: {
+            endpoint: "/api/v1/jobs/createTask",
+            model: "grok-imagine/image-to-video",
+            types: ["VIDEO"],
+            mapParams: (params) => {
+                const firstInputFile = params.inputFiles?.[0];
+                if (!firstInputFile) {
+                    throw new Error(
+                        "Grok Imagine Image-to-Video требует одно входное изображение",
+                    );
+                }
+
+                const duration = params.duration === 10 ? "10" : "6";
+                const resolution =
+                    params.videoQuality === "720p" ? "720p" : "480p";
+
+                return {
+                    model: "grok-imagine/image-to-video",
+                    input: {
+                        image_urls: [firstInputFile],
+                        prompt: params.prompt,
+                        duration,
+                        resolution,
+                        mode: "normal",
+                    },
+                };
+            },
+        },
+
         // ========== IMAGEN4 / IMAGEN4 ULTRA ==========
         IMAGEN4_KIEAI: {
             endpoint: "/api/v1/jobs/createTask",

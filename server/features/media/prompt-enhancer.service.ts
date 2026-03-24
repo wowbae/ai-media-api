@@ -62,6 +62,8 @@ export async function enhancePromptWithGrok(
                     "Верни ТОЛЬКО JSON объект вида:",
                     '{"enhancedPrompt":"...", "negativePrompt":"..."}',
                     "Никакого markdown, комментариев и пояснений.",
+                    "Если в исходном запросе явно есть слово 'карусель' (или 'carousel'), верни enhancedPrompt как 5 отдельных промптов, разделенных символом '*'.",
+                    "Формат для карусели: prompt1 * prompt2 * prompt3 * prompt4 * prompt5",
                     `Исходный prompt: ${params.prompt}`,
                 ].join("\n"),
             },

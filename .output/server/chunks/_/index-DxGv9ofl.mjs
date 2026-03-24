@@ -1,7 +1,7 @@
 import { jsxDEV, Fragment } from 'react/jsx-dev-runtime';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { u as useGetChatsQuery, A as APP_MODES, a as useCreateChatMutation, C as ChatSidebar } from './router-B09gZx3S.mjs';
+import { u as useGetChatsQuery, A as APP_MODES, a as useCreateChatMutation, C as ChatSidebar } from './router-v613AfRH.mjs';
 import { Loader2, Sparkles } from 'lucide-react';
 import 'react-redux';
 import '@reduxjs/toolkit';
@@ -54,7 +54,7 @@ function AiModelIndexPage() {
       console.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u0447\u0430\u0442\u0430:", error);
     }
   }
-  return /* @__PURE__ */ jsxDEV("div", { className: "flex h-screen bg-background", children: [
+  return /* @__PURE__ */ jsxDEV("div", { className: "ai-model-theme flex h-screen bg-background", children: [
     /* @__PURE__ */ jsxDEV(ChatSidebar, { appMode: APP_MODES.AI_MODEL, routeBase: "/ai-model" }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/ai-model/index.tsx?tsr-split=component",
       lineNumber: 46,
@@ -143,4 +143,4 @@ function AiModelIndexPage() {
 }
 
 export { AiModelIndexPage as component };
-//# sourceMappingURL=index-C53ma_Y6.mjs.map
+//# sourceMappingURL=index-DxGv9ofl.mjs.map

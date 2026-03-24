@@ -42,7 +42,7 @@ function AiModelIndexPage() {
     }
 
     return (
-        <div className='flex h-screen bg-background'>
+        <div className='ai-model-theme flex h-screen bg-background'>
             <ChatSidebar appMode={APP_MODES.AI_MODEL} routeBase='/ai-model' />
             <div className='flex flex-1 flex-col items-center justify-center'>
                 {isChatsLoading ? (

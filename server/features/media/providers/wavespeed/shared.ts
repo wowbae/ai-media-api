@@ -81,6 +81,25 @@ export async function fetchPredictionResult(
     return (await response.json()) as WavespeedResultResponse;
 }
 
+export async function fetchPredictionResultByUrl(
+    apiKey: string,
+    resultUrl: string,
+): Promise<WavespeedResultResponse> {
+    const response = await fetch(resultUrl, {
+        method: "GET",
+        headers: createWavespeedHeaders(apiKey),
+    });
+
+    if (!response.ok) {
+        const details = await parseWavespeedError(response);
+        throw new Error(
+            `Wavespeed result URL вернул ошибку ${response.status}: ${details}`,
+        );
+    }
+
+    return (await response.json()) as WavespeedResultResponse;
+}
+
 export async function downloadOutputs(
     outputs: string[],
 ): Promise<SavedFileInfo[]> {

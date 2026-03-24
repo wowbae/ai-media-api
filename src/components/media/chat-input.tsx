@@ -1342,7 +1342,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             type='button'
                             size='icon-sm'
                             variant='secondary'
-                            className='absolute bottom-1.5 right-11 h-8 w-8 text-emerald-300 hover:text-emerald-200'
+                            className='absolute bottom-10 right-1.5 h-8 w-8 text-emerald-300 hover:text-emerald-200'
                             onClick={handleEnhancePrompt}
                             disabled={
                                 isDisabled ||
@@ -1396,7 +1396,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     <Button
                         size='icon'
                         variant='secondary'
-                        className='absolute -top-14 right-1 z-30 h-10 w-10 rounded-full bg-slate-950/60 backdrop-blur-xl text-foreground shadow-2xl shadow-cyan-900/20 border border-white/10 hover:bg-slate-950/80'
+                        className={cn(
+                            "absolute -top-14 right-1 z-30 h-10 w-10 rounded-full bg-slate-950/60 backdrop-blur-xl text-foreground shadow-2xl border border-white/10 hover:bg-slate-950/80",
+                            isAiModelMode
+                                ? "shadow-emerald-900/30"
+                                : "shadow-cyan-900/20",
+                        )}
                         onClick={scrollToBottom}
                     >
                         <ChevronDown className='h-6 w-6' />

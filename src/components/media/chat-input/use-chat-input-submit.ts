@@ -92,6 +92,13 @@ export function useChatInputSubmit({
     const submitInProgressRef = useRef(false);
     const [uploadToImgbb] = useUploadToImgbbMutation();
 
+    function splitPromptsByAsterisk(input: string): string[] {
+        return input
+            .split("*")
+            .map((part) => part.trim())
+            .filter((part) => part.length > 0);
+    }
+
     const handleSubmit = useCallback(
         async (
             event: React.MouseEvent | React.KeyboardEvent | undefined,
@@ -162,6 +169,39 @@ export function useChatInputSubmit({
                     if (onSendError) {
                         onSendError(
                             "Kling Motion Control требует ровно 1 изображение (персонаж) и 1 видео (референс движения)",
+                        );
+                    }
+                    return;
+                }
+            }
+
+            const isGrokImagineImageToImage =
+                currentModel === "GROK_IMAGINE_IMAGE_TO_IMAGE_KIEAI";
+            const isGrokImagineImageToVideo =
+                currentModel === "GROK_IMAGINE_IMAGE_TO_VIDEO_KIEAI";
+
+            if (isGrokImagineImageToImage || isGrokImagineImageToVideo) {
+                const imageCount = params.attachedFiles.filter((f) =>
+                    f.file.type.startsWith("image/"),
+                ).length;
+
+                if (imageCount === 0) {
+                    submitInProgressRef.current = false;
+                    setIsSubmitting(false);
+                    if (onSendError) {
+                        onSendError(
+                            "Grok Imagine требует 1 входное изображение",
+                        );
+                    }
+                    return;
+                }
+
+                if (imageCount > 1) {
+                    submitInProgressRef.current = false;
+                    setIsSubmitting(false);
+                    if (onSendError) {
+                        onSendError(
+                            "Grok Imagine поддерживает только 1 входное изображение",
                         );
                     }
                     return;
@@ -251,6 +291,9 @@ export function useChatInputSubmit({
                         "[ChatInput] 🧪 ТЕСТОВЫЙ РЕЖИМ: заглушка создана, файл скопирован БЕЗ вызова нейронки, requestId:",
                         result.requestId,
                     );
+                    if (onRequestCreated && result.requestId) {
+                        onRequestCreated(result.requestId);
+                    }
                 } else {
                     // Обычный режим: отправляем реальный запрос
                     console.log(
@@ -380,109 +423,162 @@ export function useChatInputSubmit({
                         },
                     );
 
-                    result = await generateMedia({
-                        chatId,
-                        prompt: finalPrompt,
-                        enhancedPrompt: params.enhancedPrompt,
-                        appMode: params.appMode || appMode,
-                        model: currentModel,
-                        inputFiles:
-                            inputFilesUrls.length > 0
-                                ? inputFilesUrls
-                                : undefined,
-                        ...(params.modelType.supportsFormat &&
-                            params.format && { format: params.format }),
-                        ...(params.modelType.supportsQuality &&
-                            params.quality && { quality: params.quality }),
-                        ...(params.modelType.isVeo &&
-                            params.videoFormat && { ar: params.videoFormat }),
-                        ...(params.modelType.supportsVeoGenerationType &&
-                            params.veoGenerationType && {
-                                generationType: params.veoGenerationType,
+                    const generationSourcePrompt =
+                        params.enhancedPrompt?.trim() || finalPrompt;
+                    const promptBatch = splitPromptsByAsterisk(
+                        generationSourcePrompt,
+                    );
+                    const promptsToGenerate =
+                        promptBatch.length > 0
+                            ? promptBatch
+                            : [generationSourcePrompt];
+
+                    if (promptsToGenerate.length > 1) {
+                        console.log(
+                            "[ChatInput] 🔀 Обнаружен мульти-промпт по '*':",
+                            {
+                                promptsCount: promptsToGenerate.length,
+                            },
+                        );
+                    }
+
+                    let lastResult: {
+                        requestId: number;
+                        status: string;
+                        message: string;
+                    } | null = null;
+
+                    for (const [
+                        index,
+                        promptPart,
+                    ] of promptsToGenerate.entries()) {
+                        const currentResult = await generateMedia({
+                            chatId,
+                            prompt: promptPart,
+                            enhancedPrompt:
+                                params.enhancedPrompt?.trim() &&
+                                promptsToGenerate.length === 1
+                                    ? params.enhancedPrompt?.trim()
+                                    : undefined,
+                            appMode: params.appMode || appMode,
+                            model: currentModel,
+                            inputFiles:
+                                inputFilesUrls.length > 0
+                                    ? inputFilesUrls
+                                    : undefined,
+                            ...(params.modelType.supportsFormat &&
+                                params.format && { format: params.format }),
+                            ...(params.modelType.supportsQuality &&
+                                params.quality && { quality: params.quality }),
+                            ...(params.modelType.isVeo &&
+                                params.videoFormat && {
+                                    ar: params.videoFormat,
+                                }),
+                            ...(params.modelType.supportsVeoGenerationType &&
+                                params.veoGenerationType && {
+                                    generationType: params.veoGenerationType,
+                                }),
+                            ...(params.modelType.isKling &&
+                                params.klingAspectRatio && {
+                                    format: params.klingAspectRatio,
+                                }),
+                            ...(params.modelType.supportsDuration &&
+                                params.klingDuration && {
+                                    duration: params.klingDuration,
+                                }),
+                            ...(params.modelType.supportsSound &&
+                                params.klingSound !== undefined && {
+                                    sound: params.klingSound,
+                                }),
+                            ...(params.fixedLens !== undefined && {
+                                fixedLens: params.fixedLens,
                             }),
-                        ...(params.modelType.isKling &&
-                            params.klingAspectRatio && {
-                                format: params.klingAspectRatio,
+                            ...(params.modelType.supportsNegativePrompt &&
+                                params.negativePrompt &&
+                                params.negativePrompt.trim() && {
+                                    negativePrompt:
+                                        params.negativePrompt.trim(),
+                                }),
+                            ...(params.modelType.supportsSeed &&
+                                params.seed !== undefined &&
+                                params.seed !== null &&
+                                params.seed !== "" && { seed: params.seed }),
+                            ...(params.modelType.isKling25 &&
+                                params.klingAspectRatio && {
+                                    format: params.klingAspectRatio,
+                                }),
+                            ...(params.modelType.isKling25 &&
+                                params.klingDuration && {
+                                    duration: params.klingDuration,
+                                }),
+                            ...(params.modelType.isKling25 &&
+                                params.negativePrompt &&
+                                params.negativePrompt.trim() && {
+                                    negativePrompt:
+                                        params.negativePrompt.trim(),
+                                }),
+                            ...(params.modelType.supportsCfgScale &&
+                                params.cfgScale !== undefined &&
+                                params.cfgScale !== null && {
+                                    cfgScale: params.cfgScale,
+                                }),
+                            ...(params.modelType.supportsTailImageUrl &&
+                                tailImageUrl && {
+                                    tailImageUrl,
+                                }),
+                            ...(params.modelType.supportsElevenLabsParams && {
+                                voice: params.voice,
+                                stability: params.stability,
+                                similarityBoost: params.similarityBoost,
+                                speed: params.speed,
+                                ...(params.languageCode && {
+                                    languageCode: params.languageCode,
+                                }),
                             }),
-                        ...(params.modelType.supportsDuration &&
-                            params.klingDuration && {
-                                duration: params.klingDuration,
-                            }),
-                        ...(params.modelType.supportsSound &&
-                            params.klingSound !== undefined && {
-                                sound: params.klingSound,
-                            }),
-                        ...(params.fixedLens !== undefined && {
-                            fixedLens: params.fixedLens,
-                        }),
-                        ...(params.modelType.supportsNegativePrompt &&
-                            params.negativePrompt &&
-                            params.negativePrompt.trim() && {
-                                negativePrompt: params.negativePrompt.trim(),
-                            }),
-                        ...(params.modelType.supportsSeed &&
-                            params.seed !== undefined &&
-                            params.seed !== null &&
-                            params.seed !== "" && { seed: params.seed }),
-                        ...(params.modelType.isKling25 &&
-                            params.klingAspectRatio && {
-                                format: params.klingAspectRatio,
-                            }),
-                        ...(params.modelType.isKling25 &&
-                            params.klingDuration && {
-                                duration: params.klingDuration,
-                            }),
-                        ...(params.modelType.isKling25 &&
-                            params.negativePrompt &&
-                            params.negativePrompt.trim() && {
-                                negativePrompt: params.negativePrompt.trim(),
-                            }),
-                        ...(params.modelType.supportsCfgScale &&
-                            params.cfgScale !== undefined &&
-                            params.cfgScale !== null && {
-                                cfgScale: params.cfgScale,
-                            }),
-                        ...(params.modelType.supportsTailImageUrl &&
-                            tailImageUrl && {
-                                tailImageUrl,
-                            }),
-                        ...(params.modelType.supportsElevenLabsParams && {
-                            voice: params.voice,
-                            stability: params.stability,
-                            similarityBoost: params.similarityBoost,
-                            speed: params.speed,
-                            ...(params.languageCode && {
-                                languageCode: params.languageCode,
-                            }),
-                        }),
-                        ...(params.modelType.isKlingMotionControl &&
-                            inputVideoFilesUrls &&
-                            inputVideoFilesUrls.length > 0 && {
-                                inputVideoFiles: inputVideoFilesUrls,
-                                characterOrientation:
-                                    params.klingMotionCharacterOrientation ??
-                                    "image",
-                                videoQuality:
-                                    params.klingMotionVideoQuality === "1080p"
-                                        ? "1080p"
-                                        : "720p",
-                            }),
-                        ...(currentModel === "Z_IMAGE_TURBO_LORA_WAVESPEED" &&
-                            params.loras &&
-                            params.loras.length > 0 && {
-                                loras: params.loras,
-                            }),
-                    }).unwrap();
+                            ...(params.modelType.isKlingMotionControl &&
+                                inputVideoFilesUrls &&
+                                inputVideoFilesUrls.length > 0 && {
+                                    inputVideoFiles: inputVideoFilesUrls,
+                                    characterOrientation:
+                                        params.klingMotionCharacterOrientation ??
+                                        "image",
+                                    videoQuality:
+                                        params.klingMotionVideoQuality ===
+                                        "1080p"
+                                            ? "1080p"
+                                            : "720p",
+                                }),
+                            ...(currentModel ===
+                                "Z_IMAGE_TURBO_LORA_WAVESPEED" &&
+                                params.loras &&
+                                params.loras.length > 0 && {
+                                    loras: params.loras,
+                                }),
+                        }).unwrap();
+
+                        lastResult = currentResult;
+                        if (onRequestCreated && currentResult.requestId) {
+                            onRequestCreated(currentResult.requestId);
+                        }
+                        console.log(
+                            "[ChatInput] ✅ Подзапрос отправлен",
+                            `${index + 1}/${promptsToGenerate.length}`,
+                        );
+                    }
+
+                    if (!lastResult) {
+                        throw new Error(
+                            "Не удалось отправить запрос на генерацию",
+                        );
+                    }
+                    result = lastResult;
                     console.log(
                         "[ChatInput] ✅ Обычный режим: запрос в нейронку отправлен, requestId:",
                         result.requestId,
                     );
                 }
 
-                // Уведомляем родителя о создании запроса для запуска SSE отслеживания
-                if (onRequestCreated && result.requestId) {
-                    onRequestCreated(result.requestId);
-                }
+                // Для batch-режима колбэк onRequestCreated вызывается внутри цикла.
 
                 // Сохраняем промпт и изображения, если кнопка замочка активна
                 if (params.isLockEnabled) {

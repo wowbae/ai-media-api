@@ -16,21 +16,21 @@ import {
     fetchPredictionResult,
     mapWavespeedStatus,
     parseWavespeedError,
+    fetchPredictionResultByUrl,
 } from "./shared";
 import { getMediaPublicBaseUrl } from "../../config";
 
 const Z_IMAGE_TURBO_LORA_MODEL_ID = "wavespeed-ai/z-image/turbo-lora";
 
-const ASPECT_RATIO_TO_SIZE: Record<string, WavespeedImageTaskRequest["size"]> =
-    {
-        "1:1": "1:1",
-        "16:9": "16:9",
-        "9:16": "9:16",
-        "4:3": "4:3",
-        "3:4": "3:4",
-        "3:2": "3:2",
-        "2:3": "2:3",
-    };
+const ASPECT_RATIO_TO_SIZE: Record<string, string> = {
+    "1:1": "1024*1024",
+    "16:9": "1280*720",
+    "9:16": "720*1280",
+    "4:3": "1024*768",
+    "3:4": "768*1024",
+    "3:2": "1152*768",
+    "2:3": "768*1152",
+};
 
 function parseSeed(seed?: string | number): number | undefined {
     if (seed === undefined || seed === null || String(seed).trim() === "") {
@@ -44,11 +44,13 @@ function parseSeed(seed?: string | number): number | undefined {
 
 function buildImageRequest(params: GenerateParams): WavespeedImageTaskRequest {
     const publicBaseUrl = getMediaPublicBaseUrl();
+    const mappedSize = params.aspectRatio
+        ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
+        : undefined;
+
     return {
         prompt: params.prompt,
-        size: params.aspectRatio
-            ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
-            : undefined,
+        size: mappedSize || ASPECT_RATIO_TO_SIZE["1:1"],
         seed: parseSeed(params.seed),
         loras: params.loras?.slice(0, 3).map((lora) => ({
             path: lora.path.startsWith("/media-files/")
@@ -63,8 +65,9 @@ export function createWavespeedImageHandlers(options: {
     apiKey: string;
     baseURL: string;
     taskResultsCache: Map<string, SavedFileInfo[]>;
+    taskResultUrlById: Map<string, string>;
 }) {
-    const { apiKey, baseURL, taskResultsCache } = options;
+    const { apiKey, baseURL, taskResultsCache, taskResultUrlById } = options;
 
     return {
         async generateImage(
@@ -106,6 +109,9 @@ export function createWavespeedImageHandlers(options: {
 
             const submit = (await response.json()) as WavespeedSubmitResponse;
             const taskId = ensureTaskId(submit);
+            if (submit.data?.urls?.get) {
+                taskResultUrlById.set(taskId, submit.data.urls.get);
+            }
 
             return {
                 taskId,
@@ -119,18 +125,18 @@ export function createWavespeedImageHandlers(options: {
         async checkImageTaskStatus(taskId: string): Promise<TaskStatusResult> {
             assertTaskIdFormat(taskId);
 
-            const resultData = await fetchPredictionResult(
-                baseURL,
-                apiKey,
-                taskId,
-            );
+            const resultUrl = taskResultUrlById.get(taskId);
+            const resultData = resultUrl
+                ? await fetchPredictionResultByUrl(apiKey, resultUrl)
+                : await fetchPredictionResult(baseURL, apiKey, taskId);
             if (!resultData.data)
                 throw new Error("Wavespeed API не вернул data в ответе");
 
             if (resultData.data.status === "failed") {
-                throw new Error(
-                    `Wavespeed задача провалилась: ${resultData.data.error || "Unknown error"}`,
-                );
+                return {
+                    status: "failed",
+                    error: resultData.data.error || "Unknown error",
+                };
             }
 
             if (
@@ -155,11 +161,10 @@ export function createWavespeedImageHandlers(options: {
                 return cached;
             }
 
-            const resultData = await fetchPredictionResult(
-                baseURL,
-                apiKey,
-                taskId,
-            );
+            const resultUrl = taskResultUrlById.get(taskId);
+            const resultData = resultUrl
+                ? await fetchPredictionResultByUrl(apiKey, resultUrl)
+                : await fetchPredictionResult(baseURL, apiKey, taskId);
             if (!resultData.data)
                 throw new Error("Wavespeed API не вернул data в ответе");
             if (resultData.data.status !== "completed") {

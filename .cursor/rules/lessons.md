@@ -109,3 +109,43 @@
 - Root cause: фокус на UI вместо сквозного контракта данных.
 - Prevention rule: для каждого нового режима фиксировать единый параметр режима (`appMode`) и проверять его прохождение по цепочке: create chat -> generate -> store settings -> list/read endpoints -> model list.
 - Checklist item: "Перед завершением режима: проверить изоляцию данных в обе стороны (default не видит ai-model и ai-model не видит default)".
+
+## 2026-03-23 - Multi-prompt delimiter contract
+
+- Context: добавление batch-генерации по разделителю `*` и карусели в prompt enhancement.
+- Mistake: при внедрении split-логики легко оставить ее только на фронте или только в enhancer-логике, что дает непредсказуемый UX.
+- Root cause: отсутствие единого контракта "как интерпретируется `*`" в двух потоках (ручной ввод и авто-enhance).
+- Prevention rule: при поддержке multi-prompt разделителя синхронно обновлять и submit-flow, и prompt-enhancer-инструкции, и явно логировать число подзапросов.
+- Checklist item: "Если появился разделитель батча: проверить сценарии 1 prompt, 2+ prompt, пустые сегменты между разделителями".
+
+## 2026-03-23 - Provider-native status URL priority
+
+- Context: задачи Wavespeed успешно создавались, но статус-поллинг падал с `task not found` при проверке через `/predictions/{id}`.
+- Mistake: после submit использовался только синтетический endpoint по `taskId`, игнорируя `data.urls.get`, который возвращает сам провайдер.
+- Root cause: предположение о едином формате result endpoint для всех моделей/версий API вместо использования provider-native ссылки из ответа.
+- Prevention rule: для async-провайдеров приоритетно хранить и использовать result/status URL из submit-ответа; `taskId`-endpoint оставлять только как fallback.
+- Checklist item: "После интеграции async API: проверить, что polling идет по URL из submit-response, если он доступен".
+
+## 2026-03-23 - Failed status must not throw in poller
+
+- Context: у Wavespeed задачи реально переходили в `failed`, но трекер продолжал цикл проверок вместо финализации запроса.
+- Mistake: провайдер в `checkTaskStatus` бросал exception при `status=failed`, из-за чего общий polling-контур воспринимал это как временную ошибку проверки.
+- Root cause: смешение бизнес-статуса задачи (`failed`) и транспортной ошибки запроса (exception).
+- Prevention rule: в `checkTaskStatus` возвращать `{ status: "failed", error }` как нормальный результат; exception оставлять только для network/protocol сбоев.
+- Checklist item: "Для каждого async провайдера: `status=failed` проходит через единый failure-handler без retry-loop по исключению".
+
+## 2026-03-23 - Ratio vs dimension contract mismatch
+
+- Context: задачи `Z_IMAGE_TURBO_LORA_WAVESPEED` падали мгновенно со строкой `invalid literal for int() with base 10: '9:16'`.
+- Mistake: в поле `size` отправлялся аспект-рейшио формат (`9:16`), тогда как API ожидает размер в пикселях (`width*height`).
+- Root cause: перенос frontend-представления формата (`a:b`) напрямую в provider payload без адаптации под контракт внешнего API.
+- Prevention rule: для каждого провайдера держать явный mapping UI format -> provider payload format и валидировать его на реальном failed-кейсе.
+- Checklist item: "Перед релизом новой модели: проверить, что числовые параметры (`size`, `duration`, `seed`) передаются в нативном для API формате".
+
+## 2026-03-24 - Model-specific input cardinality guard
+
+- Context: добавление Grok Imagine методов (`image-to-image`, `image-to-video`) в `/ai-model`, где endpoint принимает только 1 входное изображение.
+- Mistake: полагаться только на backend-провайдер валидацию без раннего UI-check приводит к лишним failed task и плохому UX.
+- Root cause: отсутствие явного контракта "сколько файлов допускается" в submit-flow для новой модели.
+- Prevention rule: при подключении новой модели сразу фиксировать cardinality guard в `use-chat-input-submit` (min/max input files) и дублировать hard-check в provider mapping.
+- Checklist item: "Для новой модели проверено: ограничение входных файлов валидируется и на фронте, и на backend до отправки задачи".

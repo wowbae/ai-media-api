@@ -6,16 +6,20 @@ import {
     RefreshCcw,
     Maximize2,
     Loader2,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { MediaPreview } from './media-preview';
-import type { MediaFile } from '@/redux/media-api';
-import { getMediaFileUrl } from '@/lib/constants';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MediaPreview } from "./media-preview";
+import type { MediaFile } from "@/redux/media-api";
+import { getMediaFileUrl } from "@/lib/constants";
 
 interface GalleryFileCardProps {
     file: MediaFile;
     onClick: (file: MediaFile) => void;
-    onAttachFile?: (fileUrl: string, filename: string, imgbbUrl?: string) => void;
+    onAttachFile?: (
+        fileUrl: string,
+        filename: string,
+        imgbbUrl?: string,
+    ) => void;
     onRepeatRequest?: (requestId: number) => void;
     onDeleteFile: (event: React.MouseEvent, fileId: number) => void;
     onTogglePin?: (fileId: number) => void;
@@ -46,13 +50,13 @@ export function GalleryFileCard({
         if (!onAttachFile) return;
 
         // Используем path если есть, иначе url (для файлов на imgbb)
-        const fileUrl = file.path
-            ? getMediaFileUrl(file.path)
-            : file.url;
+        const fileUrl = file.path ? getMediaFileUrl(file.path) : file.url;
 
         if (!fileUrl) {
-            console.warn('[MediaGallery] Нет file.path и file.url');
-            alert('Ошибка: у файла отсутствует путь или URL. Невозможно прикрепить файл.');
+            console.warn("[MediaGallery] Нет file.path и file.url");
+            alert(
+                "Ошибка: у файла отсутствует путь или URL. Невозможно прикрепить файл.",
+            );
             return;
         }
 
@@ -61,7 +65,7 @@ export function GalleryFileCard({
         onAttachFile(
             fileUrl,
             file.filename,
-            file.type === 'IMAGE' ? (file.url || undefined) : undefined
+            file.type === "IMAGE" ? file.url || undefined : undefined,
         );
     }
 
@@ -75,17 +79,14 @@ export function GalleryFileCard({
             role='button'
             tabIndex={0}
             onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+                if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     onClick(file);
                 }
             }}
         >
             <div onClick={(e) => e.stopPropagation()}>
-                <MediaPreview
-                    file={file}
-                    className='h-full w-full'
-                />
+                <MediaPreview file={file} className='h-full w-full' />
             </div>
 
             {/* Кнопка прикрепления */}
@@ -93,7 +94,7 @@ export function GalleryFileCard({
                 <Button
                     size='icon'
                     variant='ghost'
-                    className='absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 group-hover:opacity-100'
+                    className='absolute left-1 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-primary hover:bg-primary/20 group-hover:opacity-100'
                     onClick={handleAttach}
                     title='Прикрепить к промпту'
                 >
@@ -110,7 +111,7 @@ export function GalleryFileCard({
                 <Button
                     size='icon'
                     variant='ghost'
-                    className='absolute left-8 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-cyan-400 hover:bg-cyan-600/20 focus:text-cyan-400 focus:bg-cyan-600/20 group-hover:opacity-100'
+                    className='absolute left-8 top-1 h-6 w-6 text-slate-400 opacity-0 transition-opacity hover:text-primary hover:bg-primary/20 focus:text-primary focus:bg-primary/20 group-hover:opacity-100'
                     onClick={(e) => {
                         e.stopPropagation();
                         onRepeatRequest(file.requestId);
@@ -144,16 +145,18 @@ export function GalleryFileCard({
                     variant='ghost'
                     className={`absolute right-7 top-1 h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100 ${
                         isPinned
-                            ? 'text-yellow-400 hover:text-yellow-300 hover:bg-yellow-600/20'
-                            : 'text-slate-400 hover:text-yellow-400 hover:bg-yellow-600/20'
+                            ? "text-yellow-400 hover:text-yellow-300 hover:bg-yellow-600/20"
+                            : "text-slate-400 hover:text-yellow-400 hover:bg-yellow-600/20"
                     }`}
                     onClick={(e) => {
                         e.stopPropagation();
                         onTogglePin(file.id);
                     }}
-                    title={isPinned ? 'Открепить' : 'Закрепить'}
+                    title={isPinned ? "Открепить" : "Закрепить"}
                 >
-                    <Pin className={`h-3.5 w-3.5 ${isPinned ? 'fill-current' : ''}`} />
+                    <Pin
+                        className={`h-3.5 w-3.5 ${isPinned ? "fill-current" : ""}`}
+                    />
                 </Button>
             )}
 

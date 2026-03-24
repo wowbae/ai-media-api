@@ -435,7 +435,12 @@ export function MediaChatPage({
     const showUpdatingIndicator = isChatFetching && !isChatLoading;
 
     return (
-        <div className='flex h-[calc(100vh-3.5rem)] bg-background'>
+        <div
+            className={cn(
+                "flex h-[calc(100vh-3.5rem)] bg-background",
+                appMode === APP_MODES.AI_MODEL && "ai-model-theme",
+            )}
+        >
             {/* Сайдбар */}
             <ChatSidebar appMode={appMode} routeBase={routeBase} />
 

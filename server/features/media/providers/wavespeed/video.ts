@@ -17,6 +17,7 @@ import {
     fetchPredictionResult,
     mapWavespeedStatus,
     parseWavespeedError,
+    fetchPredictionResultByUrl,
 } from "./shared";
 
 const KLING_VIDEO_MODEL_ID = "kwaivgi/kling-video-o1-std/reference-to-video";
@@ -99,8 +100,9 @@ export function createWavespeedVideoHandlers(options: {
     apiKey: string;
     baseURL: string;
     taskResultsCache: Map<string, SavedFileInfo[]>;
+    taskResultUrlById: Map<string, string>;
 }) {
-    const { apiKey, baseURL, taskResultsCache } = options;
+    const { apiKey, baseURL, taskResultsCache, taskResultUrlById } = options;
     const uploader = new Client(apiKey);
 
     return {
@@ -154,6 +156,9 @@ export function createWavespeedVideoHandlers(options: {
 
             const submit = (await response.json()) as WavespeedSubmitResponse;
             const taskId = ensureTaskId(submit);
+            if (submit.data?.urls?.get) {
+                taskResultUrlById.set(taskId, submit.data.urls.get);
+            }
 
             return {
                 taskId,
@@ -167,18 +172,18 @@ export function createWavespeedVideoHandlers(options: {
         async checkVideoTaskStatus(taskId: string): Promise<TaskStatusResult> {
             assertTaskIdFormat(taskId);
 
-            const resultData = await fetchPredictionResult(
-                baseURL,
-                apiKey,
-                taskId,
-            );
+            const resultUrl = taskResultUrlById.get(taskId);
+            const resultData = resultUrl
+                ? await fetchPredictionResultByUrl(apiKey, resultUrl)
+                : await fetchPredictionResult(baseURL, apiKey, taskId);
             if (!resultData.data)
                 throw new Error("Wavespeed API не вернул data в ответе");
 
             if (resultData.data.status === "failed") {
-                throw new Error(
-                    `Wavespeed задача провалилась: ${resultData.data.error || "Unknown error"}`,
-                );
+                return {
+                    status: "failed",
+                    error: resultData.data.error || "Unknown error",
+                };
             }
 
             if (
@@ -203,11 +208,10 @@ export function createWavespeedVideoHandlers(options: {
                 return cached;
             }
 
-            const resultData = await fetchPredictionResult(
-                baseURL,
-                apiKey,
-                taskId,
-            );
+            const resultUrl = taskResultUrlById.get(taskId);
+            const resultData = resultUrl
+                ? await fetchPredictionResultByUrl(apiKey, resultUrl)
+                : await fetchPredictionResult(baseURL, apiKey, taskId);
             if (!resultData.data)
                 throw new Error("Wavespeed API не вернул data в ответе");
             if (resultData.data.status !== "completed") {

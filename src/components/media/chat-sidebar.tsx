@@ -377,7 +377,7 @@ function ChatItem({
                         className={cn(
                             "h-6 w-6 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
                             isActive &&
-                                "group-hover:bg-orange-100 dark:group-hover:bg-orange-900/20 hover:bg-orange-200 dark:hover:bg-orange-900/30",
+                                "group-hover:bg-primary/20 hover:bg-primary/30",
                         )}
                     >
                         <MoreVertical className='h-4 w-4' />

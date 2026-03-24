@@ -173,6 +173,11 @@ const DURATION_OPTIONS: DurationOption[] = [
     { value: "10", label: "10 сек" },
 ];
 
+const DURATION_OPTIONS_GROK_IMAGINE: DurationOption[] = [
+    { value: "6", label: "6 сек" },
+    { value: "10", label: "10 сек" },
+];
+
 // Опции для длительности Wavespeed Kling Video O1 (от 3 до 10 секунд)
 const DURATION_OPTIONS_WAVESPEED: DurationOption[] = [
     { value: "3", label: "3 сек" },
@@ -236,6 +241,13 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
         quality: {
             options: QUALITY_OPTIONS_1K_2K_4K,
             defaultValue: "2k",
+        },
+    },
+    GROK_IMAGINE_IMAGE_TO_IMAGE_KIEAI: {},
+    GROK_IMAGINE_IMAGE_TO_VIDEO_KIEAI: {
+        duration: {
+            options: DURATION_OPTIONS_GROK_IMAGINE,
+            defaultValue: 6,
         },
     },
     IMAGEN4_KIEAI: {

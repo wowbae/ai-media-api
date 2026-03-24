@@ -68,6 +68,30 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.05, // $0.05 за изображение (ниже чем Pro)
         },
     },
+    GROK_IMAGINE_IMAGE_TO_IMAGE_KIEAI: {
+        id: "grok-imagine/image-to-image",
+        name: "Grok Imagine (Image to Image)",
+        types: ["IMAGE"] as const,
+        maxPromptLength: 5000,
+        promptLimit: 5000,
+        supportsImageInput: true,
+        provider: "kieai",
+        pricing: {
+            output: 0.1, // TODO: уточнить цену
+        },
+    },
+    GROK_IMAGINE_IMAGE_TO_VIDEO_KIEAI: {
+        id: "grok-imagine/image-to-video",
+        name: "Grok Imagine (Image to Video)",
+        types: ["VIDEO"] as const,
+        maxPromptLength: 5000,
+        promptLimit: 5000,
+        supportsImageInput: true,
+        provider: "kieai",
+        pricing: {
+            output: 0.15, // TODO: уточнить цену
+        },
+    },
     IMAGEN4_KIEAI: {
         id: "google/imagen4",
         name: "Google Imagen4",

@@ -1,6 +1,6 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
-@import 'tw-animate-css';
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -17,8 +17,8 @@ body {
     height: 100%;
     overflow-x: hidden;
     font-family:
-        -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
         sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -26,7 +26,7 @@ body {
 
 code {
     font-family:
-        source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
 :root {
@@ -98,6 +98,15 @@ code {
     --sidebar-accent-foreground: oklch(0.98 0.005 165);
     --sidebar-border: oklch(0.25 0.01 165);
     --sidebar-ring: oklch(0.65 0.25 45);
+}
+
+/* Scoped emerald accent theme for /ai-model routes */
+.dark .ai-model-theme {
+    --primary: oklch(0.68 0.2 158);
+    --primary-foreground: oklch(0.16 0.02 158);
+    --ring: oklch(0.68 0.2 158);
+    --sidebar-primary: oklch(0.68 0.2 158);
+    --sidebar-primary-foreground: oklch(0.16 0.02 158);
 }
 
 @theme inline {
@@ -211,4 +220,3 @@ code {
     scrollbar-width: thin;
     scrollbar-color: var(--muted-foreground) transparent;
 }
-

@@ -19,6 +19,7 @@ export function createWavespeedProvider(
 ): MediaProvider {
     const taskResultsCache = new Map<string, SavedFileInfo[]>();
     const taskTypeById = new Map<string, "image" | "video">();
+    const taskResultUrlById = new Map<string, string>();
     const apiKey = config.apiKey;
     const baseURL = resolveWavespeedBaseUrl(config.baseURL);
 
@@ -26,12 +27,14 @@ export function createWavespeedProvider(
         apiKey,
         baseURL,
         taskResultsCache,
+        taskResultUrlById,
     });
 
     const videoHandlers = createWavespeedVideoHandlers({
         apiKey,
         baseURL,
         taskResultsCache,
+        taskResultUrlById,
     });
 
     return {
@@ -64,6 +67,7 @@ export function createWavespeedProvider(
             if (cached) {
                 taskResultsCache.delete(taskId);
                 taskTypeById.delete(taskId);
+                taskResultUrlById.delete(taskId);
                 return cached;
             }
 
@@ -71,11 +75,13 @@ export function createWavespeedProvider(
             if (taskType === "image") {
                 const result = await imageHandlers.getImageTaskResult(taskId);
                 taskTypeById.delete(taskId);
+                taskResultUrlById.delete(taskId);
                 return result;
             }
 
             const result = await videoHandlers.getVideoTaskResult(taskId);
             taskTypeById.delete(taskId);
+            taskResultUrlById.delete(taskId);
             return result;
         },
     };

@@ -2,7 +2,7 @@ import { jsxDEV } from 'react/jsx-dev-runtime';
 import { useParams } from '@tanstack/react-router';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
-import { b as useGetChatQuery, c as useUpdateChatMutation, d as useGenerateMediaMutation, e as useLazyGetRequestQuery, f as useTestMode, g as useGetModelsQuery, A as APP_MODES, h as API_BASE_URL, C as ChatSidebar, M as MessageList, i as ChatInput, j as MediaGallery, k as cn, l as getModelIcon, P as PANEL_HEADER_CLASSES } from './router-B09gZx3S.mjs';
+import { b as useGetChatQuery, c as useUpdateChatMutation, d as useGenerateMediaMutation, e as useLazyGetRequestQuery, f as useTestMode, g as useGetModelsQuery, A as APP_MODES, h as API_BASE_URL, C as ChatSidebar, i as cn, M as MessageList, j as ChatInput, k as MediaGallery, l as getModelIcon, P as PANEL_HEADER_CLASSES } from './router-v613AfRH.mjs';
 import 'react-redux';
 import '@reduxjs/toolkit';
 import '@reduxjs/toolkit/query/react';
@@ -322,7 +322,7 @@ function MediaChatPage({
     }
   }
   const showUpdatingIndicator = isChatFetching && !isChatLoading;
-  return /* @__PURE__ */ jsxDEV("div", { className: "flex h-[calc(100vh-3.5rem)] bg-background", children: [
+  return /* @__PURE__ */ jsxDEV("div", { className: cn("flex h-[calc(100vh-3.5rem)] bg-background", appMode === APP_MODES.AI_MODEL && "ai-model-theme"), children: [
     /* @__PURE__ */ jsxDEV(ChatSidebar, { appMode, routeBase }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/src/routes/media/$chatId.tsx?tsr-split=component",
       lineNumber: 362,
@@ -424,4 +424,4 @@ const SplitComponent = () => /* @__PURE__ */ jsxDEV(MediaChatPage, { appMode: AP
 }, void 0);
 
 export { MediaChatPage, SplitComponent as component };
-//# sourceMappingURL=_chatId-BOBvvUQX.mjs.map
+//# sourceMappingURL=_chatId-D3263aBU.mjs.map

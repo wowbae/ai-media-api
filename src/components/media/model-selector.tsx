@@ -54,9 +54,14 @@ const PROVIDER_BADGE_CONFIG: Record<
 interface ProviderBadgeProps {
     provider: MediaProviderType;
     className?: string;
+    appMode?: AppMode;
 }
 
-export function ProviderBadge({ provider, className }: ProviderBadgeProps) {
+export function ProviderBadge({
+    provider,
+    className,
+    appMode = APP_MODES.DEFAULT,
+}: ProviderBadgeProps) {
     const config = PROVIDER_BADGE_CONFIG[provider];
 
     // Если конфиг не найден, не рендерим бейдж
@@ -64,10 +69,15 @@ export function ProviderBadge({ provider, className }: ProviderBadgeProps) {
         return null;
     }
 
+    const modeClassName =
+        appMode === APP_MODES.AI_MODEL
+            ? "bg-emerald-900/50 text-emerald-400 border-emerald-700/50"
+            : config.className;
+
     return (
         <Badge
             variant='outline'
-            className={`ml-auto text-[10px] px-1.5 py-0 h-4 font-normal ${config.className} ${className || ""}`}
+            className={`ml-auto text-[10px] px-1.5 py-0 h-4 font-normal ${modeClassName} ${className || ""}`}
         >
             {config.label}
         </Badge>
@@ -159,6 +169,7 @@ export function ModelSelector({
                                     provider={
                                         currentModel.provider as MediaProviderType
                                     }
+                                    appMode={appMode}
                                 />
                             )}
                     </div>
@@ -205,6 +216,7 @@ export function ModelSelector({
                                                         provider={
                                                             model.provider as MediaProviderType
                                                         }
+                                                        appMode={appMode}
                                                     />
                                                 )}
                                         </div>
@@ -238,6 +250,7 @@ export function ModelSelector({
                                                         provider={
                                                             model.provider as MediaProviderType
                                                         }
+                                                        appMode={appMode}
                                                     />
                                                 )}
                                         </div>
@@ -271,6 +284,7 @@ export function ModelSelector({
                                                         provider={
                                                             model.provider as MediaProviderType
                                                         }
+                                                        appMode={appMode}
                                                     />
                                                 )}
                                         </div>
@@ -314,6 +328,7 @@ export function ModelBadge({
                 modelInfo.provider in PROVIDER_BADGE_CONFIG && (
                     <ProviderBadge
                         provider={modelInfo.provider as MediaProviderType}
+                        appMode={appMode}
                     />
                 )}
         </div>
