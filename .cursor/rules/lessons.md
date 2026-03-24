@@ -221,3 +221,27 @@
 - Root cause: whitelist режима хранится в двух отдельных файлах (`server/features/media/app-mode.ts` и `src/lib/app-mode.ts`) без compile-time связки.
 - Prevention rule: любое удаление/добавление модели для `/ai-model` делать единым change-set в backend + frontend allowlist с обязательной typecheck-проверкой.
 - Checklist item: "После правки ai-mode whitelist: модель отсутствует и в `/media/models?appMode=ai-model`, и в клиентском списке моделей".
+
+## 2026-03-24 - Wavespeed edit expects images array
+
+- Context: генерация для `wavespeed-ai/qwen-image-2.0-pro/edit` падала с `invalid request body: property "images" is missing`.
+- Mistake: в image-to-image builder отправлялось только поле `image`, без обязательного `images` массива для edit endpoint.
+- Root cause: перенос payload shape от другой модели family без сверки required полей для конкретного endpoint.
+- Prevention rule: при добавлении модели в существующий provider-family фиксировать request contract отдельно по endpoint и проверять обязательные поля по фактическому 4xx ответу API.
+- Checklist item: "Для каждого image-to-image/edit endpoint: в payload есть `images` при требовании API, плюс smoke-проверка реального submit запроса".
+
+## 2026-03-24 - Failed status can contain usable results
+
+- Context: в `ai-model` для `Nano Banana 2 (kieai-unified)` фронт показывал `[... ] No images found ... policy`, хотя фактический результат мог быть доступен.
+- Mistake: `checkTaskStatus` безусловно доверял `state=failed` и помечал задачу как `FAILED`, даже если в payload уже были `resultUrls`.
+- Root cause: опора только на provider state без cross-check фактических output URL в статус-ответе.
+- Prevention rule: в async-провайдерах финальный статус определять по комбинации `state + presence of outputs`; если есть валидные result URLs, не отдавать `failed`.
+- Checklist item: "Для каждого provider poller: проверено правило `failed + outputs => done` (или явная бизнес-альтернатива) и отсутствие ложных FAIL в UI".
+
+## 2026-03-24 - Ai-mode replacement needs provider routing sync
+
+- Context: замена модели в `/ai-model` с `SEEDREAM_4_5_EDIT_KIEAI` на `bytedance/seedream-v4.5/edit-sequential` (`SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED`).
+- Mistake: при простой замене allowlist можно забыть добавить новую модель в runtime-роутинг провайдера (`isImageModel`) и в model registry, из-за чего модель отображается в UI, но уходит в неверный handler.
+- Root cause: модель подключается в нескольких независимых слоях (типы, registry, mode whitelist, provider branching), а изменение в одном слое не гарантирует работоспособность всего потока.
+- Prevention rule: при замене модели в режиме (`instead of`) делать единый change-set из 5 точек: `server/interfaces` + `server/config` + backend/frontend allowlist + provider routing (`isImageModel`/endpoint branch).
+- Checklist item: "После замены модели в режиме: модель видна в `/media/models?appMode=ai-model`, отправляется в корректный provider endpoint и проходит локальные проверки без новых lint-ошибок".

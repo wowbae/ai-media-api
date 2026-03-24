@@ -15,6 +15,7 @@ export interface WavespeedLoraInput {
 export interface WavespeedImageTaskRequest {
     prompt: string;
     image?: string;
+    images?: string[];
     size?: string;
     seed?: number;
     loras?: WavespeedLoraInput[];

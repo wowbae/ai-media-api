@@ -14,7 +14,8 @@ function isImageModel(model: string): boolean {
     return (
         model === "Z_IMAGE_TURBO_LORA_WAVESPEED" ||
         model === "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED" ||
-        model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED"
+        model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED" ||
+        model === "SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED"
     );
 }
 

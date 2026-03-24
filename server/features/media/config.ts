@@ -261,6 +261,18 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.01, // TODO: уточнить цену
         },
     },
+    SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED: {
+        id: "bytedance/seedream-v4.5/edit-sequential",
+        name: "Seedream V4.5 Edit Sequential",
+        types: ["IMAGE"] as const,
+        maxPromptLength: 8192,
+        promptLimit: 5000,
+        supportsImageInput: true,
+        provider: "wavespeed",
+        pricing: {
+            output: 0.04, // $0.04 за изображение (согласно публичной странице Wavespeed)
+        },
+    },
     WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED: {
         id: "wavespeed-ai/wan-2.2/image-to-video-lora",
         name: "WAN 2.2 Image-to-Video LoRA",

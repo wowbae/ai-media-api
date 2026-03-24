@@ -392,6 +392,12 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: "1:1",
         },
     },
+    SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED: {
+        format: {
+            options: FORMAT_OPTIONS_SEEDREAM,
+            defaultValue: "1:1",
+        },
+    },
     WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,

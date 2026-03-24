@@ -24,6 +24,8 @@ const Z_IMAGE_TURBO_LORA_MODEL_ID = "wavespeed-ai/z-image/turbo-lora";
 const Z_IMAGE_TURBO_IMAGE_TO_IMAGE_MODEL_ID =
     "wavespeed-ai/z-image-turbo/image-to-image-lora";
 const QWEN_IMAGE_2_0_PRO_EDIT_MODEL_ID = "wavespeed-ai/qwen-image-2.0-pro/edit";
+const SEEDREAM_V4_5_EDIT_SEQUENTIAL_MODEL_ID =
+    "bytedance/seedream-v4.5/edit-sequential";
 
 const ASPECT_RATIO_TO_SIZE: Record<string, string> = {
     "1:1": "1024*1024",
@@ -69,6 +71,7 @@ function buildTurboLoraRequest(
 function buildImageToImageRequest(
     params: GenerateParams,
 ): WavespeedImageTaskRequest {
+    const publicBaseUrl = getMediaPublicBaseUrl();
     const mappedSize = params.aspectRatio
         ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
         : undefined;
@@ -78,10 +81,40 @@ function buildImageToImageRequest(
             "Для Wavespeed Z-Image Turbo Image-to-Image нужно входное изображение",
         );
     }
+    const normalizedInput = firstInput.startsWith("/media-files/")
+        ? `${publicBaseUrl}${firstInput}`
+        : firstInput;
 
     return {
         prompt: params.prompt,
-        image: firstInput,
+        image: normalizedInput,
+        images: [normalizedInput],
+        size: mappedSize || ASPECT_RATIO_TO_SIZE["1:1"],
+        seed: parseSeed(params.seed),
+    };
+}
+
+function buildSeedreamSequentialEditRequest(
+    params: GenerateParams,
+): WavespeedImageTaskRequest {
+    const publicBaseUrl = getMediaPublicBaseUrl();
+    const mappedSize = params.aspectRatio
+        ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
+        : undefined;
+    const normalizedInputs = (params.inputFiles || []).map((input) =>
+        input.startsWith("/media-files/") ? `${publicBaseUrl}${input}` : input,
+    );
+
+    if (!normalizedInputs.length) {
+        throw new Error(
+            "Для Seedream V4.5 Edit Sequential нужно минимум одно входное изображение",
+        );
+    }
+
+    return {
+        prompt: params.prompt,
+        image: normalizedInputs[0],
+        images: normalizedInputs,
         size: mappedSize || ASPECT_RATIO_TO_SIZE["1:1"],
         seed: parseSeed(params.seed),
     };
@@ -102,15 +135,21 @@ export function createWavespeedImageHandlers(options: {
             const isImageToImageModel =
                 params.model === "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED" ||
                 params.model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED";
-            const requestBody = isImageToImageModel
-                ? buildImageToImageRequest(params)
-                : buildTurboLoraRequest(params);
+            const isSeedreamSequentialModel =
+                params.model === "SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED";
+            const requestBody = isSeedreamSequentialModel
+                ? buildSeedreamSequentialEditRequest(params)
+                : isImageToImageModel
+                  ? buildImageToImageRequest(params)
+                  : buildTurboLoraRequest(params);
             const endpoint =
                 params.model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED"
                     ? QWEN_IMAGE_2_0_PRO_EDIT_MODEL_ID
-                    : isImageToImageModel
-                      ? Z_IMAGE_TURBO_IMAGE_TO_IMAGE_MODEL_ID
-                      : Z_IMAGE_TURBO_LORA_MODEL_ID;
+                    : isSeedreamSequentialModel
+                      ? SEEDREAM_V4_5_EDIT_SEQUENTIAL_MODEL_ID
+                      : isImageToImageModel
+                        ? Z_IMAGE_TURBO_IMAGE_TO_IMAGE_MODEL_ID
+                        : Z_IMAGE_TURBO_LORA_MODEL_ID;
 
             if (!requestBody.prompt?.trim()) {
                 throw new Error("Для Wavespeed Z-Image требуется prompt");

@@ -751,15 +751,23 @@ export function createUnifiedKieAiProvider(config: KieAiConfig): MediaProvider {
 
             const data = await getTaskStatus(taskId, model);
             const state = data.state || data.status || "waiting";
-            const mappedStatus = statusMap[state] || "pending";
-
             const resultUrls = extractResultUrls(data, model);
             const resultUrl = resultUrls[0];
+            const hasResultUrls = resultUrls.length > 0;
+            const mappedStatusRaw = statusMap[state] || "pending";
+            const mappedStatus =
+                mappedStatusRaw === "failed" && hasResultUrls
+                    ? "done"
+                    : mappedStatusRaw;
 
             const errorMessage =
                 data.failMsg || data.error || data.errorMessage;
 
-            if (state === "fail" || state === "failed") {
+            if (mappedStatusRaw === "failed" && hasResultUrls) {
+                console.warn(
+                    `[Kie.ai Unified] Получен failed-статус с результатами: taskId=${taskId}, state=${state}, urls=${resultUrls.length}`,
+                );
+            } else if (state === "fail" || state === "failed") {
                 console.warn(
                     `[Kie.ai Unified] Задача не удалась: taskId=${taskId}, error=${errorMessage}`,
                 );
@@ -773,7 +781,7 @@ export function createUnifiedKieAiProvider(config: KieAiConfig): MediaProvider {
                 status: mappedStatus,
                 url: resultUrl,
                 resultUrls: resultUrls.length > 0 ? resultUrls : undefined,
-                error: errorMessage,
+                error: mappedStatus === "failed" ? errorMessage : undefined,
             };
         },
 
