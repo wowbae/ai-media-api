@@ -21,6 +21,17 @@ import {
 } from "./shared";
 
 const KLING_VIDEO_MODEL_ID = "kwaivgi/kling-video-o1-std/reference-to-video";
+const WAN_2_2_IMAGE_TO_VIDEO_LORA_MODEL_ID =
+    "wavespeed-ai/wan-2.2/image-to-video-lora";
+const WAN_2_2_IMAGE_TO_VIDEO_MODEL_ID = "wavespeed-ai/wan-2.2/i2v-720p";
+
+function resolveVideoModelEndpoint(model: GenerateParams["model"]): string {
+    if (model === "WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED")
+        return WAN_2_2_IMAGE_TO_VIDEO_LORA_MODEL_ID;
+    if (model === "WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED")
+        return WAN_2_2_IMAGE_TO_VIDEO_MODEL_ID;
+    return KLING_VIDEO_MODEL_ID;
+}
 
 function mapDuration(duration?: number): number {
     const numericDuration =
@@ -127,11 +138,14 @@ export function createWavespeedVideoHandlers(options: {
 
             const requestBody = {
                 prompt: params.prompt,
+                image: imageUrls[0],
                 images: imageUrls,
                 duration: mapDuration(params.duration),
+                safety_checker: false,
             };
+            const endpoint = resolveVideoModelEndpoint(params.model);
 
-            const response = await fetch(`${baseURL}/${KLING_VIDEO_MODEL_ID}`, {
+            const response = await fetch(`${baseURL}/${endpoint}`, {
                 method: "POST",
                 headers: createWavespeedHeaders(apiKey),
                 body: JSON.stringify(requestBody),

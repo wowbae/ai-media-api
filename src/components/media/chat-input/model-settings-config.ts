@@ -409,6 +409,16 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: 5,
         },
     },
+    WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED: {
+        format: {
+            options: FORMAT_OPTIONS_16_9_9_16,
+            defaultValue: "9:16",
+        },
+        duration: {
+            options: DURATION_OPTIONS_WAVESPEED,
+            defaultValue: 5,
+        },
+    },
     SEEDANCE_1_5_PRO_KIEAI: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,

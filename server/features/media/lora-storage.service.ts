@@ -1,11 +1,15 @@
 import { mkdir, readdir, stat, writeFile, unlink } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
-import { mediaStorageConfig, getMediaPublicBaseUrl } from "./config";
+import { mediaStorageConfig } from "./config";
 
 const LORA_DIR_NAME = "loras";
 const LORA_FILE_EXT = ".safetensors";
 const MAX_LORA_FILE_SIZE_BYTES = 500 * 1024 * 1024;
+
+function buildLoraPublicPath(filename: string): string {
+    return `/media-files/${LORA_DIR_NAME}/${encodeURIComponent(filename)}`;
+}
 
 function getLoraDirectoryAbsolutePath(): string {
     return path.join(process.cwd(), mediaStorageConfig.basePath, LORA_DIR_NAME);
@@ -55,7 +59,7 @@ export async function saveLoraBase64File(params: {
     await writeFile(fullPath, buffer);
 
     const fileStat = await stat(fullPath);
-    const url = `${getMediaPublicBaseUrl()}/media-files/${LORA_DIR_NAME}/${encodeURIComponent(safeFilename)}`;
+    const url = buildLoraPublicPath(safeFilename);
 
     return {
         filename: safeFilename,
@@ -82,7 +86,7 @@ export async function listStoredLoraFiles(): Promise<StoredLoraFile[]> {
                 filename,
                 size: fileStat.size,
                 createdAt: fileStat.birthtime.toISOString(),
-                url: `${getMediaPublicBaseUrl()}/media-files/${LORA_DIR_NAME}/${encodeURIComponent(filename)}`,
+                url: buildLoraPublicPath(filename),
             };
         }),
     );

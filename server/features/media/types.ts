@@ -42,6 +42,7 @@ export interface GenerateMediaOptions {
     multiShots?: boolean;
     inputVideoFiles?: string[];
     characterOrientation?: "image" | "video";
+    triggerWord?: string;
 }
 
 // Опции для восстановления задач после перезапуска

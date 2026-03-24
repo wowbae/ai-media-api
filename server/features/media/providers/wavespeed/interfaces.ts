@@ -19,6 +19,7 @@ export interface WavespeedImageTaskRequest {
     size?: string;
     seed?: number;
     loras?: WavespeedLoraInput[];
+    safety_checker?: boolean;
 }
 
 // Ответ от REST API при создании задачи

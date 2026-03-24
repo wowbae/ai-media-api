@@ -261,3 +261,83 @@
 - Root cause: смешение двух разных доменов входных данных: media inputs для генерации и dataset asset для тренировки.
 - Prevention rule: для trainer/asset-моделей делать явный model-specific upload path: отдельная mime-валидация, передача base64/URL напрямую в provider и отключение media-only обработчиков.
 - Checklist item: "Если модель принимает архив/asset: проверены 3 шага — UI принимает нужный mime, submit отправляет asset в payload, provider преобразует в provider-compatible URL/format".
+
+## 2026-03-24 - Preflight remote LoRA URL before provider submit
+
+- Context: `Z-Image Turbo LoRA` падал в Wavespeed с `Failed to get remote file properties ... 404`, когда `loras[].path` указывал на недоступный URL.
+- Mistake: отправлять задачу во внешний API без локальной проверки доступности LoRA-файла по URL.
+- Root cause: отсутствие preflight-валидации внешнего asset URL в provider request pipeline.
+- Prevention rule: перед submit задач с remote assets выполнять preflight доступности URL (HEAD, fallback GET) и прерывать запрос с явной диагностикой при 4xx/5xx.
+- Checklist item: "Для каждого remote asset в payload есть preflight-check URL до вызова внешнего провайдера".
+
+## 2026-03-24 - Avoid host-bound asset URLs in local tunnel environments
+
+- Context: после смены ngrok домена генерация с LoRA продолжала использовать старый absolute URL, сохраненный ранее в `loras[].path`, и падала с 404.
+- Mistake: хранить и переиспользовать host-bound URL для локальных ассетов вместо стабильного относительного пути.
+- Root cause: URL формировался с текущим `MEDIA_PUBLIC_BASE_URL` на момент upload/list и сохранялся как абсолютный, а tunnel-host меняется между сессиями.
+- Prevention rule: для локальных ассетов возвращать/хранить относительный путь (`/media-files/...`) и нормализовать любые абсолютные URL с этим префиксом к текущему `MEDIA_PUBLIC_BASE_URL` перед provider submit.
+- Checklist item: "Если asset лежит локально: в контракте хранится относительный path, а публичный host подставляется только перед внешним API вызовом".
+
+## 2026-03-24 - Model flags should be explicit in typed provider payload
+
+- Context: для проверки гипотезы по деградации изображений понадобилось отключить safety checker в Wavespeed image-моделях.
+- Mistake: feature-флаг провайдера не был отражен в typed интерфейсе payload, из-за чего изменение могло остаться ad-hoc и неочевидным.
+- Root cause: неполная фиксация model-specific параметров в `WavespeedImageTaskRequest`.
+- Prevention rule: при любом model-specific флаге сначала расширять тип интерфейса запроса, затем синхронно прокидывать флаг во все релевантные request builders.
+- Checklist item: "Новый provider-флаг добавлен и в интерфейс, и в каждый builder соответствующей model family".
+
+## 2026-03-24 - Trainer params need end-to-end contract sync
+
+- Context: добавление `triggerWord` для `Z-Image LoRA Trainer` требовало изменения UI поля, submit payload, API DTO и provider params.
+- Mistake: легко ограничиться только UI и забыть добавить поле в `GenerateMediaOptions/GenerateParams`, что приводит к потере параметра до provider.
+- Root cause: trainer-параметры проходят через несколько слоев типизации без единого shared DTO.
+- Prevention rule: для каждого нового model-specific параметра фиксировать change-set по всей цепочке: frontend request type -> submit hook -> backend request type -> generation options -> provider params.
+- Checklist item: "Новый параметр модели присутствует в 5 точках цепочки и покрыт runtime валидацией на route уровне".
+
+## 2026-03-24 - Do model-specific validation after model resolution
+
+- Context: `Z-Image LoRA Trainer` в Wavespeed не требует `prompt`, но backend делал общую раннюю проверку `prompt обязателен`, из-за чего тренировка падала до provider call.
+- Mistake: применять общую валидацию обязательных полей до определения выбранной модели и ее контракта.
+- Root cause: порядок валидации был построен вокруг generic flow, без исключений для trainer endpoints.
+- Prevention rule: сначала определять `selectedModel`, затем выполнять model-specific валидации (required/optional поля) в роуте.
+- Checklist item: "Для каждого endpoint family есть явный блок model-specific validation после resolve модели".
+
+## 2026-03-24 - Stop retry loop on deterministic provider errors
+
+- Context: TaskTracking продолжал polling после ошибки `task not found`, создавая шум в логах и лишние запросы к провайдеру.
+- Mistake: обрабатывать все исключения в poller как временные и всегда планировать повторную проверку.
+- Root cause: отсутствие классификации ошибок на recoverable и terminal в трекере задач.
+- Prevention rule: для детерминированных ошибок (`not found`, `invalid task id`, и т.п.) делать fail-fast: останавливать tracking и переводить запрос в `FAILED`.
+- Checklist item: "В poller есть явный terminal-error branch, который не re-schedule'ит задачу".
+
+## 2026-03-24 - Добавить safety_checker: false во все POST-запросы к Wavespeed
+
+- Context: Wavespeed включает safety checker по умолчанию. image.ts уже имел `safety_checker: false`, но video.ts (`generateVideo` requestBody) был без него.
+- Mistake: при добавлении нового провайдера/хэндлера не копировать все флаги из уже существующих хэндлеров того же провайдера.
+- Root cause: video и image хэндлеры разрабатывались отдельно, флаг не был перенесён.
+- Prevention rule: при добавлении нового model handler для провайдера — сверять payload с уже реализованными хэндлерами того же провайдера и проверять все provider-level флаги (safety_checker, enable_safety_checker и т.п.).
+- Checklist item: "Каждый новый Wavespeed POST payload содержит `safety_checker: false`".
+
+## 2026-03-24 - Не использовать один video endpoint для всех Wavespeed моделей
+
+- Context: запросы для `WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED` уходили в `kwaivgi/kling-video-o1-std/reference-to-video`, потому что в `video.ts` был один захардкоженный endpoint.
+- Mistake: делать общий handler с фиксированным endpoint для семейства моделей, где у каждой модели свой API путь.
+- Root cause: в video provider отсутствовал resolver endpoint по `params.model`.
+- Prevention rule: в multi-model provider всегда иметь явный `resolveEndpoint(model)` и покрывать новые модели в switch/if до релиза.
+- Checklist item: "При добавлении новой видео-модели проверен runtime endpoint в логах и он совпадает с `config.id` модели".
+
+## 2026-03-24 - Обрабатывать aborted как отмену, а не как generic ошибку
+
+- Context: в UI приходила ошибка `was aborted`, но пользователь видел общий alert "Ошибка генерации", что выглядело как падение сервиса.
+- Mistake: не различать transport-level cancellation (`AbortError`, aborted signal) и реальные server/provider ошибки.
+- Root cause: в `use-chat-input-submit` catch-блок обрабатывал все исключения одинаково.
+- Prevention rule: выделять abort-like ошибки в отдельную ветку обработки: показывать мягкое сообщение и разрешать retry без тревожного alert.
+- Checklist item: "В async submit-потоке есть `isAbortLikeError` ветка до generic error handling".
+
+## 2026-03-24 - Держать ID модели синхронизированным между registry и provider endpoint
+
+- Context: WAN 2.2 endpoint был заменен на `wavespeed-ai/wan-2.2/i2v-720p`, но такой change требует правки в двух местах: model config (`id`) и runtime endpoint resolver.
+- Mistake: менять только display/config часть или только provider-часть.
+- Root cause: разнесенная ответственность между `config.ts` и `wavespeed/video.ts`.
+- Prevention rule: при смене vendor model id проверять и обновлять одновременно `MEDIA_MODELS[*].id` + provider endpoint constants.
+- Checklist item: "После смены id модели есть 2/2 совпадения: registry id == runtime endpoint".

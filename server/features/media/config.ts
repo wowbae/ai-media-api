@@ -297,6 +297,18 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.1, // TODO: уточнить цену
         },
     },
+    WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED: {
+        id: "wavespeed-ai/wan-2.2/i2v-720p",
+        name: "WAN 2.2 Image-to-Video",
+        types: ["VIDEO"] as const,
+        maxPromptLength: 4096,
+        promptLimit: 2500,
+        supportsImageInput: true,
+        provider: "wavespeed",
+        pricing: {
+            output: 0.1, // TODO: уточнить цену
+        },
+    },
     // Kie.ai провайдер - Kling 2.6 Motion Control (image + video → video)
     KLING_2_6_MOTION_CONTROL_KIEAI: {
         id: "kling-2.6/motion-control",

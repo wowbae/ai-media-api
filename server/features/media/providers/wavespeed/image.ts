@@ -31,6 +31,7 @@ const Z_IMAGE_LORA_TRAINER_MODEL_ID = "wavespeed-ai/z-image-lora-trainer";
 const QWEN_IMAGE_2_0_PRO_EDIT_MODEL_ID = "wavespeed-ai/qwen-image-2.0-pro/edit";
 const SEEDREAM_V4_5_EDIT_SEQUENTIAL_MODEL_ID =
     "bytedance/seedream-v4.5/edit-sequential";
+const MAX_TRAINER_ZIP_SIZE_BYTES = 50 * 1024 * 1024;
 
 const ASPECT_RATIO_TO_SIZE: Record<string, string> = {
     "1:1": "1024*1024",
@@ -65,10 +66,27 @@ function parseSeed(seed?: string | number): number | undefined {
     return parsed;
 }
 
+function normalizePublicMediaFileUrl(rawPath: string): string {
+    const mediaPrefix = "/media-files/";
+    const publicBaseUrl = getMediaPublicBaseUrl();
+
+    if (rawPath.startsWith(mediaPrefix)) return `${publicBaseUrl}${rawPath}`;
+
+    try {
+        const parsed = new URL(rawPath);
+        if (parsed.pathname.startsWith(mediaPrefix)) {
+            return `${publicBaseUrl}${parsed.pathname}`;
+        }
+    } catch {
+        // not an absolute URL, keep as is
+    }
+
+    return rawPath;
+}
+
 function buildTurboLoraRequest(
     params: GenerateParams,
 ): WavespeedImageTaskRequest {
-    const publicBaseUrl = getMediaPublicBaseUrl();
     const mappedSize = params.aspectRatio
         ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
         : undefined;
@@ -77,10 +95,9 @@ function buildTurboLoraRequest(
         prompt: params.prompt,
         size: mappedSize || ASPECT_RATIO_TO_SIZE["1:1"],
         seed: parseSeed(params.seed),
+        safety_checker: false,
         loras: params.loras?.slice(0, 3).map((lora) => ({
-            path: lora.path.startsWith("/media-files/")
-                ? `${publicBaseUrl}${lora.path}`
-                : lora.path,
+            path: normalizePublicMediaFileUrl(lora.path),
             scale: lora.scale,
         })),
     };
@@ -89,7 +106,6 @@ function buildTurboLoraRequest(
 function buildImageToImageRequest(
     params: GenerateParams,
 ): WavespeedImageTaskRequest {
-    const publicBaseUrl = getMediaPublicBaseUrl();
     const mappedSize = params.aspectRatio
         ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
         : undefined;
@@ -99,9 +115,7 @@ function buildImageToImageRequest(
             "Для Wavespeed Z-Image Turbo Image-to-Image нужно входное изображение",
         );
     }
-    const normalizedInput = firstInput.startsWith("/media-files/")
-        ? `${publicBaseUrl}${firstInput}`
-        : firstInput;
+    const normalizedInput = normalizePublicMediaFileUrl(firstInput);
 
     return {
         prompt: params.prompt,
@@ -109,18 +123,18 @@ function buildImageToImageRequest(
         images: [normalizedInput],
         size: mappedSize || ASPECT_RATIO_TO_SIZE["1:1"],
         seed: parseSeed(params.seed),
+        safety_checker: false,
     };
 }
 
 function buildSeedreamSequentialEditRequest(
     params: GenerateParams,
 ): WavespeedImageTaskRequest {
-    const publicBaseUrl = getMediaPublicBaseUrl();
     const mappedSize = params.aspectRatio
         ? SEEDREAM_SEQUENTIAL_ASPECT_RATIO_TO_SIZE[params.aspectRatio]
         : undefined;
     const normalizedInputs = (params.inputFiles || []).map((input) =>
-        input.startsWith("/media-files/") ? `${publicBaseUrl}${input}` : input,
+        normalizePublicMediaFileUrl(input),
     );
 
     if (!normalizedInputs.length) {
@@ -135,6 +149,7 @@ function buildSeedreamSequentialEditRequest(
         images: normalizedInputs,
         size: mappedSize || SEEDREAM_SEQUENTIAL_ASPECT_RATIO_TO_SIZE["1:1"],
         seed: parseSeed(params.seed),
+        safety_checker: false,
     };
 }
 
@@ -147,6 +162,39 @@ interface WavespeedLoraTrainerRequest {
     safety_checker: boolean;
 }
 
+async function validateRemoteLoraUrl(url: string): Promise<void> {
+    const methods: Array<"HEAD" | "GET"> = ["HEAD", "GET"];
+
+    for (const method of methods) {
+        const response = await fetch(url, { method });
+        if (response.ok) return;
+        if (response.status !== 405) {
+            throw new Error(
+                `LoRA URL недоступен (${response.status} ${response.statusText}): ${url}`,
+            );
+        }
+    }
+
+    throw new Error(`LoRA URL не поддерживает HEAD/GET: ${url}`);
+}
+
+async function validateLoraInputs(
+    loras?: Array<{ path: string }>,
+): Promise<void> {
+    if (!loras?.length) return;
+
+    await Promise.all(
+        loras.map(async (lora) => {
+            if (
+                lora.path.startsWith("http://") ||
+                lora.path.startsWith("https://")
+            ) {
+                await validateRemoteLoraUrl(lora.path);
+            }
+        }),
+    );
+}
+
 function parseZipBase64(input: string): Buffer {
     const matches = input.match(/^data:application\/zip;base64,(.+)$/);
     if (!matches?.[1]) {
@@ -154,7 +202,13 @@ function parseZipBase64(input: string): Buffer {
             "Для Z-Image LoRA Trainer передайте ZIP-архив в формате data:application/zip;base64,...",
         );
     }
-    return Buffer.from(matches[1], "base64");
+    const buffer = Buffer.from(matches[1], "base64");
+    if (buffer.byteLength > MAX_TRAINER_ZIP_SIZE_BYTES) {
+        throw new Error(
+            "ZIP-архив для LoRA Trainer слишком большой. Максимум 50MB",
+        );
+    }
+    return buffer;
 }
 
 async function uploadTrainerArchive(
@@ -241,6 +295,9 @@ export function createWavespeedImageHandlers(options: {
                   : isImageToImageModel
                     ? buildImageToImageRequest(params)
                     : buildTurboLoraRequest(params);
+            if (!isLoraTrainerModel && "loras" in requestBody) {
+                await validateLoraInputs(requestBody.loras);
+            }
             const endpoint =
                 params.model === "Z_IMAGE_LORA_TRAINER_WAVESPEED"
                     ? Z_IMAGE_LORA_TRAINER_MODEL_ID

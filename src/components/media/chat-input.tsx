@@ -131,6 +131,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     ) {
         const [prompt, setPrompt] = useState("");
         const [enhancedPrompt, setEnhancedPrompt] = useState("");
+        const [triggerWord, setTriggerWord] = useState("");
         const [loras, setLoras] = useState<LoraSettingInput[]>([]);
         const [selectedServerLoraUrl, setSelectedServerLoraUrl] = useState("");
         const [isLockEnabled, setIsLockEnabled] = useState(false);
@@ -350,6 +351,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     setNegativePrompt(settings.negativePrompt as string);
                 if (settings.enhancedPrompt)
                     setEnhancedPrompt(settings.enhancedPrompt as string);
+                if (settings.triggerWord)
+                    setTriggerWord(settings.triggerWord as string);
+                else setTriggerWord("");
                 if (settings.seed || request.seed)
                     setSeed((settings.seed || request.seed) as string | number);
                 if (settings.cfgScale) setCfgScale(settings.cfgScale as number);
@@ -525,6 +529,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     onClearForm: () => {
                         setPrompt("");
                         setEnhancedPrompt("");
+                        setTriggerWord("");
                         resetModelSpecificSettings();
                         setLoras([]);
                         clearFiles();
@@ -542,6 +547,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 ? { scale: lora.scale }
                                 : {}),
                         })),
+                    triggerWord:
+                        currentModel === "Z_IMAGE_LORA_TRAINER_WAVESPEED"
+                            ? triggerWord
+                            : undefined,
                     appMode,
                 };
                 handleSubmit(event, {
@@ -578,6 +587,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 veoGenerationType,
                 loras,
                 clearFiles,
+                triggerWord,
             ],
         );
 
@@ -897,6 +907,22 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 </Button>
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {currentModel === "Z_IMAGE_LORA_TRAINER_WAVESPEED" && (
+                    <div className='mb-2'>
+                        <Input
+                            type='text'
+                            placeholder='Trigger word для LoRA (например alina_style)'
+                            value={triggerWord}
+                            onChange={(e) => setTriggerWord(e.target.value)}
+                            disabled={isDisabled}
+                            className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl'
+                        />
+                        <p className='mt-1 text-xs text-muted-foreground'>
+                            ZIP для тренировки: максимум 50MB
+                        </p>
                     </div>
                 )}
 

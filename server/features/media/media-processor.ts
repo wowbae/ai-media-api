@@ -46,6 +46,7 @@ export async function processGeneration(
         multiShots,
         inputVideoFiles,
         characterOrientation,
+        triggerWord,
         appMode,
     } = options;
 
@@ -92,6 +93,7 @@ export async function processGeneration(
             multiShots,
             inputVideoFiles,
             characterOrientation,
+            triggerWord,
         };
 
         const result = await provider.generate(generateParams);

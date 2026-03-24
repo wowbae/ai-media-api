@@ -73,6 +73,7 @@ export function createGenerateRouter(): Router {
                 originalTaskId,
                 inputVideoFiles,
                 characterOrientation,
+                triggerWord,
             } = req.body as GenerateMediaRequest;
             const appMode = parseAppMode(appModeRaw);
             const user = resolveUserFromAuthHeader(req);
@@ -100,13 +101,6 @@ export function createGenerateRouter(): Router {
                 return res.status(400).json({
                     success: false,
                     error: "chatId обязателен и должен быть числом",
-                });
-            }
-
-            if (!prompt || prompt.trim().length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    error: "Промпт обязателен",
                 });
             }
 
@@ -173,6 +167,36 @@ export function createGenerateRouter(): Router {
                 });
             }
 
+            if (
+                selectedModel === "Z_IMAGE_LORA_TRAINER_WAVESPEED" &&
+                (!triggerWord || triggerWord.trim().length < 2)
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Для Z-Image LoRA Trainer поле triggerWord обязательно (минимум 2 символа)",
+                });
+            }
+
+            const promptText = typeof prompt === "string" ? prompt.trim() : "";
+            const enhancedPromptText =
+                typeof enhancedPrompt === "string" ? enhancedPrompt.trim() : "";
+            const isZImageLoraTrainerModel =
+                selectedModel === "Z_IMAGE_LORA_TRAINER_WAVESPEED";
+
+            if (!isZImageLoraTrainerModel && promptText.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Промпт обязателен",
+                });
+            }
+
+            const effectivePrompt =
+                enhancedPromptText ||
+                promptText ||
+                (triggerWord?.trim()
+                    ? `Train LoRA ${triggerWord.trim()}`
+                    : "Train LoRA");
+
             // Рассчитываем стоимость
             const pricing = getModelPricing(selectedModel as any);
             const costUsd = pricing?.finalPrice ?? null;
@@ -217,7 +241,7 @@ export function createGenerateRouter(): Router {
             const recentRequest = await prisma.mediaRequest.findFirst({
                 where: {
                     chatId,
-                    prompt: prompt.trim(),
+                    prompt: effectivePrompt,
                     status: { in: ["PENDING", "PROCESSING"] },
                     createdAt: { gte: new Date(Date.now() - 5000) },
                 },
@@ -276,6 +300,9 @@ export function createGenerateRouter(): Router {
             if (enhancedPrompt !== undefined && enhancedPrompt.trim() !== "") {
                 requestSettings.enhancedPrompt = enhancedPrompt;
             }
+            if (triggerWord !== undefined && triggerWord.trim() !== "") {
+                requestSettings.triggerWord = triggerWord.trim();
+            }
             requestSettings.appMode = appMode;
 
             // Создаём запрос в БД
@@ -283,7 +310,7 @@ export function createGenerateRouter(): Router {
                 data: {
                     userId: user?.userId,
                     chatId,
-                    prompt: enhancedPrompt?.trim() || prompt.trim(),
+                    prompt: effectivePrompt,
                     model: selectedModel,
                     inputFiles: processedFiles,
                     status: "PENDING",
@@ -324,8 +351,8 @@ export function createGenerateRouter(): Router {
             // Запускаем генерацию асинхронно
             generateMedia({
                 requestId: mediaRequest.id,
-                prompt: enhancedPrompt?.trim() || prompt.trim(),
-                enhancedPrompt: enhancedPrompt?.trim() || undefined,
+                prompt: effectivePrompt,
+                enhancedPrompt: enhancedPromptText || undefined,
                 appMode,
                 model: selectedModel,
                 inputFiles: processedFiles,
@@ -354,6 +381,7 @@ export function createGenerateRouter(): Router {
                         ? processedVideoFiles
                         : undefined,
                 characterOrientation,
+                triggerWord: triggerWord?.trim() || undefined,
             }).catch((error) => {
                 console.error("[API] Ошибка генерации:", error);
             });

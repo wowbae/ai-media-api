@@ -87,13 +87,20 @@ export function useChatInputFiles(
                     continue;
                 }
 
-                // Проверяем размер: изображения макс 10MB, видео макс 100MB (Kling Motion Control)
-                const maxSize = file.type.startsWith("video/")
-                    ? 100 * 1024 * 1024
-                    : 10 * 1024 * 1024;
+                // Проверяем размер: изображения макс 10MB, видео макс 100MB, ZIP (LoRA trainer) макс 50MB
+                const maxSize = isZipArchive
+                    ? 50 * 1024 * 1024
+                    : file.type.startsWith("video/")
+                      ? 100 * 1024 * 1024
+                      : 10 * 1024 * 1024;
                 if (!skipSizeCheck && file.size > maxSize) {
+                    const maxSizeLabel = isZipArchive
+                        ? "50"
+                        : file.type.startsWith("video/")
+                          ? "100"
+                          : "10";
                     alert(
-                        `Размер файла "${file.name}" не должен превышать ${file.type.startsWith("video/") ? "100" : "10"}MB`,
+                        `Размер файла "${file.name}" не должен превышать ${maxSizeLabel}MB`,
                     );
                     continue;
                 }

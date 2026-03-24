@@ -72,6 +72,7 @@ export interface SubmitParams {
         path: string;
         scale?: number;
     }>;
+    triggerWord?: string;
     enhancedPrompt?: string;
     appMode?: AppMode;
 }
@@ -91,6 +92,39 @@ export function useChatInputSubmit({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const submitInProgressRef = useRef(false);
     const [uploadToImgbb] = useUploadToImgbbMutation();
+
+    function isAbortLikeError(error: unknown): boolean {
+        if (error instanceof DOMException && error.name === "AbortError") {
+            return true;
+        }
+
+        if (!(error && typeof error === "object")) return false;
+
+        const maybeError = error as {
+            name?: unknown;
+            message?: unknown;
+            error?: unknown;
+            data?: { error?: unknown };
+            status?: unknown;
+        };
+
+        const rawParts = [
+            maybeError.name,
+            maybeError.message,
+            maybeError.error,
+            maybeError.data?.error,
+            maybeError.status,
+        ]
+            .filter((value): value is string => typeof value === "string")
+            .join(" ")
+            .toLowerCase();
+
+        return (
+            rawParts.includes("abort") ||
+            rawParts.includes("aborted") ||
+            rawParts.includes("signal timed out")
+        );
+    }
 
     function splitPromptsByAsterisk(input: string): string[] {
         return input
@@ -223,6 +257,19 @@ export function useChatInputSubmit({
                     setIsSubmitting(false);
                     const message =
                         "Z-Image LoRA Trainer требует ZIP-архив с датасетом";
+                    if (onSendError) onSendError(message);
+                    alert(message);
+                    return;
+                }
+
+                if (
+                    !params.triggerWord ||
+                    params.triggerWord.trim().length < 2
+                ) {
+                    submitInProgressRef.current = false;
+                    setIsSubmitting(false);
+                    const message =
+                        "Для Z-Image LoRA Trainer укажите trigger word (минимум 2 символа)";
                     if (onSendError) onSendError(message);
                     alert(message);
                     return;
@@ -591,6 +638,12 @@ export function useChatInputSubmit({
                                 params.loras.length > 0 && {
                                     loras: params.loras,
                                 }),
+                            ...(currentModel ===
+                                "Z_IMAGE_LORA_TRAINER_WAVESPEED" &&
+                                params.triggerWord &&
+                                params.triggerWord.trim().length > 0 && {
+                                    triggerWord: params.triggerWord.trim(),
+                                }),
                         }).unwrap();
 
                         lastResult = currentResult;
@@ -678,6 +731,17 @@ export function useChatInputSubmit({
                     // При ошибке авторизации сразу перенаправляем на логин
                     handleSessionTimeout();
                     // Сбрасываем флаги
+                    submitInProgressRef.current = false;
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                if (isAbortLikeError(error)) {
+                    const abortMessage =
+                        "Запрос был отменен (aborted). Повторите отправку.";
+                    if (onSendError) {
+                        onSendError(abortMessage);
+                    }
                     submitInProgressRef.current = false;
                     setIsSubmitting(false);
                     return;

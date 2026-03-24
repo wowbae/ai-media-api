@@ -26,6 +26,17 @@ interface TrackedTask {
     checkCount: number;
 }
 
+function isTaskNotFoundError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    if (!message) return false;
+
+    return (
+        message.includes("не найдена в wavespeed api") ||
+        message.includes("task not found") ||
+        message.includes("not found")
+    );
+}
+
 class TaskTrackingService {
     private trackedTasks: Map<string, TrackedTask> = new Map();
     private statusCheckTimeouts: Map<string, NodeJS.Timeout> = new Map();
@@ -331,7 +342,28 @@ class TaskTrackingService {
                 error instanceof Error ? error.message : error,
             );
 
-            // При ошибке продолжаем проверку статуса
+            if (isTaskNotFoundError(error)) {
+                const errorMessage = `Задача ${task.taskId} не найдена у провайдера и помечена как FAILED`;
+                console.warn(
+                    `[TaskTracking] ❌ Fail-fast: requestId=${task.requestId}, taskId=${task.taskId}, причина: task not found`,
+                );
+
+                this.stopTracking(task.requestId);
+                const failedStatus = {
+                    status: "failed" as const,
+                    error: errorMessage,
+                };
+                await this.sendSSEFailed(task, failedStatus);
+                await handleTaskFailed(
+                    task.requestId,
+                    task.taskId,
+                    failedStatus,
+                    task.model,
+                );
+                return;
+            }
+
+            // Для остальных ошибок продолжаем polling
         } finally {
             if (this.trackedTasks.has(key)) {
                 this.scheduleNextStatusCheck(key, task);

@@ -12,3 +12,14 @@
 - [x] Добавить модель `bytedance/seedream-v4.5/edit-sequential` в Wavespeed provider + registry и проверить `ReadLints`/`bunx tsc --noEmit` (с учетом существующих ошибок вне области задачи).
 - [x] Диагностировать `failed` для `bytedance/seedream-v4.5/edit-sequential`: воспроизвести API-запрос и проверить статус по `urls.get`.
 - [x] Исправить `size` для `SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED`: использовать отдельные high-resolution размеры (>= 3,686,400 px), чтобы убрать мгновенный fail по валидации Wavespeed.
+- [x] Диагностировать падение Wavespeed LoRA с `Failed to get remote file properties` и добавить раннюю preflight-проверку доступности LoRA URL (HEAD/GET) до отправки задачи провайдеру.
+- [x] Исправить нормализацию LoRA URL при смене ngrok домена: переписывать absolute URL с `/media-files/*` на текущий `MEDIA_PUBLIC_BASE_URL`.
+- [x] Перевести выдачу URL LoRA из storage-service на относительный путь `/media-files/loras/*`, чтобы исключить зависимость от конкретного туннеля.
+- [x] Добавить `safety_checker: false` в payload Wavespeed image-запросов (`turbo-lora`, `image-to-image`, `edit-sequential`) для проверки гипотезы о влиянии safety checker на результат.
+- [x] Добавить в UI/submit поток `triggerWord` для `Z_IMAGE_LORA_TRAINER_WAVESPEED` и backend-проверку обязательности (>=2 символов).
+- [x] Поднять лимит ZIP для LoRA Trainer до 50MB на фронте (file attach) и продублировать серверный guard размера в Wavespeed trainer parser.
+- [x] Сверить документацию Wavespeed Z-Image LoRA Trainer (PDF) и убрать некорректное требование `prompt` для trainer-модели в `/generate`.
+- [x] Исправить polling TaskTracking: при `task not found` завершать задачу как `FAILED` без повторных проверок статуса.
+- [x] Исправить маршрутизацию Wavespeed video-моделей: выбирать endpoint по `model` (чтобы `WAN_2_2_*` не отправлялся в `kling-video-o1`).
+- [x] Добавить модель `WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED` (`wavespeed-ai/wan-2.2/i2v-720p`) в backend/frontend конфиги и allowlist `ai-model`.
+- [x] Смягчить UX для отмененных запросов (`AbortError`/`aborted`) в `use-chat-input-submit`: не показывать generic alert, отдавать понятное сообщение и разрешать повторную отправку.

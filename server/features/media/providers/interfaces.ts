@@ -54,6 +54,7 @@ export interface GenerateParams {
     // Параметры для Kling 2.6 Motion Control
     inputVideoFiles?: string[]; // URL видео для motion reference
     characterOrientation?: "image" | "video"; // image: макс 10с, video: макс 30с
+    triggerWord?: string; // Trigger word для тренировки LoRA
 }
 
 // Результат создания задачи (для async провайдеров)

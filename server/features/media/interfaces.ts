@@ -25,6 +25,7 @@ export type MediaModel =
     | "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED"
     | "SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED"
     | "WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED"
+    | "WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED"
     | "SEEDANCE_1_5_PRO_KIEAI"
     | "KLING_2_6_MOTION_CONTROL_KIEAI";
 
@@ -75,6 +76,7 @@ export interface GenerateMediaRequest {
     // Параметры для Kling 2.6 Motion Control
     inputVideoFiles?: string[]; // URL видео для motion reference
     characterOrientation?: "image" | "video"; // image: макс 10с, video: макс 30с
+    triggerWord?: string; // Trigger word для Z-Image LoRA Trainer
 }
 
 export interface GenerateMediaResponse {
