@@ -253,3 +253,11 @@
 - Root cause: предположение, что единые размеры подходят для всего provider-family, хотя ограничения валидатора у моделей отличаются.
 - Prevention rule: для каждой новой модели фиксировать отдельную таблицу размеров, если API требует min/max по пикселям; валидировать минимум одним реальным submit+poll кейсом.
 - Checklist item: "После интеграции image-модели: проверить, что default `size` проходит provider validation (нет instant-fail на первом poll)".
+
+## 2026-03-24 - Trainer model needs non-media attachment path
+
+- Context: добавление `wavespeed-ai/z-image-lora-trainer`, где вход — ZIP-архив датасета, а не image/video файл.
+- Mistake: пытаться прогнать `.zip` через обычный media attachment pipeline (preview + imgbb + upload-user-media), который предназначен только для image/video.
+- Root cause: смешение двух разных доменов входных данных: media inputs для генерации и dataset asset для тренировки.
+- Prevention rule: для trainer/asset-моделей делать явный model-specific upload path: отдельная mime-валидация, передача base64/URL напрямую в provider и отключение media-only обработчиков.
+- Checklist item: "Если модель принимает архив/asset: проверены 3 шага — UI принимает нужный mime, submit отправляет asset в payload, provider преобразует в provider-compatible URL/format".

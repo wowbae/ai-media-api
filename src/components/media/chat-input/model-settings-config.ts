@@ -386,6 +386,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: "1:1",
         },
     },
+    Z_IMAGE_LORA_TRAINER_WAVESPEED: {},
     QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED: {
         format: {
             options: FORMAT_OPTIONS_SEEDREAM,

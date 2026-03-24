@@ -4,6 +4,10 @@ import type {
     TaskStatusResult,
 } from "../interfaces";
 import type { SavedFileInfo } from "../../file.service";
+import { Client } from "wavespeed";
+import { writeFile, unlink, mkdtemp } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
 import type {
     WavespeedImageTaskRequest,
     WavespeedSubmitResponse,
@@ -23,6 +27,7 @@ import { getMediaPublicBaseUrl } from "../../config";
 const Z_IMAGE_TURBO_LORA_MODEL_ID = "wavespeed-ai/z-image/turbo-lora";
 const Z_IMAGE_TURBO_IMAGE_TO_IMAGE_MODEL_ID =
     "wavespeed-ai/z-image-turbo/image-to-image-lora";
+const Z_IMAGE_LORA_TRAINER_MODEL_ID = "wavespeed-ai/z-image-lora-trainer";
 const QWEN_IMAGE_2_0_PRO_EDIT_MODEL_ID = "wavespeed-ai/qwen-image-2.0-pro/edit";
 const SEEDREAM_V4_5_EDIT_SEQUENTIAL_MODEL_ID =
     "bytedance/seedream-v4.5/edit-sequential";
@@ -133,6 +138,80 @@ function buildSeedreamSequentialEditRequest(
     };
 }
 
+interface WavespeedLoraTrainerRequest {
+    data: string;
+    trigger_word?: string;
+    steps?: number;
+    learning_rate?: number;
+    lora_rank?: number;
+    safety_checker: boolean;
+}
+
+function parseZipBase64(input: string): Buffer {
+    const matches = input.match(/^data:application\/zip;base64,(.+)$/);
+    if (!matches?.[1]) {
+        throw new Error(
+            "Для Z-Image LoRA Trainer передайте ZIP-архив в формате data:application/zip;base64,...",
+        );
+    }
+    return Buffer.from(matches[1], "base64");
+}
+
+async function uploadTrainerArchive(
+    uploader: Client,
+    archiveBase64OrUrl: string,
+): Promise<string> {
+    if (
+        archiveBase64OrUrl.startsWith("http://") ||
+        archiveBase64OrUrl.startsWith("https://")
+    ) {
+        return archiveBase64OrUrl;
+    }
+
+    const zipBuffer = parseZipBase64(archiveBase64OrUrl);
+    const tempDir = await mkdtemp(join(tmpdir(), "wavespeed-lora-trainer-"));
+    const tempFilePath = join(tempDir, "dataset.zip");
+    try {
+        await writeFile(tempFilePath, zipBuffer);
+        return await uploader.upload(tempFilePath);
+    } finally {
+        await unlink(tempFilePath).catch(() => {});
+    }
+}
+
+async function buildLoraTrainerRequest(
+    params: GenerateParams,
+    uploader: Client,
+): Promise<WavespeedLoraTrainerRequest> {
+    const archiveInput = params.inputFiles?.[0];
+    if (!archiveInput) {
+        throw new Error(
+            "Для Z-Image LoRA Trainer требуется ZIP-архив датасета в inputFiles[0]",
+        );
+    }
+
+    const uploadedArchiveUrl = await uploadTrainerArchive(
+        uploader,
+        archiveInput,
+    );
+    const settings = params as GenerateParams & {
+        triggerWord?: string;
+        trainingSteps?: number;
+        learningRate?: number;
+        loraRank?: number;
+    };
+
+    return {
+        data: uploadedArchiveUrl,
+        trigger_word:
+            settings.triggerWord || params.prompt?.trim() || undefined,
+        steps: settings.trainingSteps,
+        learning_rate: settings.learningRate,
+        lora_rank: settings.loraRank,
+        safety_checker: false,
+    };
+}
+
 export function createWavespeedImageHandlers(options: {
     apiKey: string;
     baseURL: string;
@@ -140,6 +219,7 @@ export function createWavespeedImageHandlers(options: {
     taskResultUrlById: Map<string, string>;
 }) {
     const { apiKey, baseURL, taskResultsCache, taskResultUrlById } = options;
+    const uploader = new Client(apiKey);
 
     return {
         async generateImage(
@@ -150,21 +230,32 @@ export function createWavespeedImageHandlers(options: {
                 params.model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED";
             const isSeedreamSequentialModel =
                 params.model === "SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED";
-            const requestBody = isSeedreamSequentialModel
-                ? buildSeedreamSequentialEditRequest(params)
-                : isImageToImageModel
-                  ? buildImageToImageRequest(params)
-                  : buildTurboLoraRequest(params);
+            const isLoraTrainerModel =
+                params.model === "Z_IMAGE_LORA_TRAINER_WAVESPEED";
+            const requestBody:
+                | WavespeedImageTaskRequest
+                | WavespeedLoraTrainerRequest = isLoraTrainerModel
+                ? await buildLoraTrainerRequest(params, uploader)
+                : isSeedreamSequentialModel
+                  ? buildSeedreamSequentialEditRequest(params)
+                  : isImageToImageModel
+                    ? buildImageToImageRequest(params)
+                    : buildTurboLoraRequest(params);
             const endpoint =
-                params.model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED"
-                    ? QWEN_IMAGE_2_0_PRO_EDIT_MODEL_ID
-                    : isSeedreamSequentialModel
-                      ? SEEDREAM_V4_5_EDIT_SEQUENTIAL_MODEL_ID
-                      : isImageToImageModel
-                        ? Z_IMAGE_TURBO_IMAGE_TO_IMAGE_MODEL_ID
-                        : Z_IMAGE_TURBO_LORA_MODEL_ID;
+                params.model === "Z_IMAGE_LORA_TRAINER_WAVESPEED"
+                    ? Z_IMAGE_LORA_TRAINER_MODEL_ID
+                    : params.model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED"
+                      ? QWEN_IMAGE_2_0_PRO_EDIT_MODEL_ID
+                      : isSeedreamSequentialModel
+                        ? SEEDREAM_V4_5_EDIT_SEQUENTIAL_MODEL_ID
+                        : isImageToImageModel
+                          ? Z_IMAGE_TURBO_IMAGE_TO_IMAGE_MODEL_ID
+                          : Z_IMAGE_TURBO_LORA_MODEL_ID;
 
-            if (!requestBody.prompt?.trim()) {
+            if (
+                !isLoraTrainerModel &&
+                (!("prompt" in requestBody) || !requestBody.prompt?.trim())
+            ) {
                 throw new Error("Для Wavespeed Z-Image требуется prompt");
             }
 

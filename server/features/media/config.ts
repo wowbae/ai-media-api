@@ -249,6 +249,18 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.005, // согласно публичной странице Wavespeed
         },
     },
+    Z_IMAGE_LORA_TRAINER_WAVESPEED: {
+        id: "wavespeed-ai/z-image-lora-trainer",
+        name: "Z-Image LoRA Trainer",
+        types: ["IMAGE"] as const,
+        maxPromptLength: 8192,
+        promptLimit: 5000,
+        supportsImageInput: true,
+        provider: "wavespeed",
+        pricing: {
+            output: 1.25, // $1.25 за 1000 шагов (биллинг пропорционально)
+        },
+    },
     QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED: {
         id: "wavespeed-ai/qwen-image-2.0-pro/edit",
         name: "Qwen Image 2.0 Pro Edit",

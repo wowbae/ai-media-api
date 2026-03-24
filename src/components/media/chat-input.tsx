@@ -212,7 +212,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             cleanup,
             clearFiles,
             getFileAsBase64,
-        } = useChatInputFiles(chatId, appMode);
+        } = useChatInputFiles(
+            chatId,
+            appMode,
+            currentModel === "Z_IMAGE_LORA_TRAINER_WAVESPEED",
+        );
 
         // Создаем функцию для эффекта загрузки
         const loadingEffectForAttachFile = useMemo(
@@ -733,12 +737,19 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     <div className='mb-3 flex flex-wrap gap-2 items-center'>
                         {attachedFiles.map((file) => {
                             const isVideo = file.file.type.startsWith("video/");
+                            const isZipArchive =
+                                file.file.type === "application/zip" ||
+                                file.file.name.toLowerCase().endsWith(".zip");
                             return (
                                 <div
                                     key={file.id}
                                     className='group relative h-16 w-16 overflow-hidden rounded-xl border border-border bg-secondary shadow-sm'
                                 >
-                                    {isVideo ? (
+                                    {isZipArchive ? (
+                                        <div className='flex h-full w-full items-center justify-center px-1 text-[10px] font-medium text-slate-300 text-center leading-tight'>
+                                            ZIP
+                                        </div>
+                                    ) : isVideo ? (
                                         <video
                                             src={file.preview}
                                             className='h-full w-full object-cover'
@@ -1251,7 +1262,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     <input
                         ref={fileInputRef}
                         type='file'
-                        accept='image/*,video/*'
+                        accept={
+                            currentModel === "Z_IMAGE_LORA_TRAINER_WAVESPEED"
+                                ? "image/*,video/*,.zip,application/zip"
+                                : "image/*,video/*"
+                        }
                         multiple
                         onChange={handleFileSelect}
                         className='hidden'

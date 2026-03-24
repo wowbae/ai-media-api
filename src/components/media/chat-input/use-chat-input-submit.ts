@@ -179,6 +179,8 @@ export function useChatInputSubmit({
                 currentModel === "GROK_IMAGINE_IMAGE_TO_IMAGE_KIEAI";
             const isGrokImagineImageToVideo =
                 currentModel === "GROK_IMAGINE_IMAGE_TO_VIDEO_KIEAI";
+            const isZImageLoraTrainer =
+                currentModel === "Z_IMAGE_LORA_TRAINER_WAVESPEED";
 
             if (isGrokImagineImageToImage || isGrokImagineImageToVideo) {
                 const imageCount = params.attachedFiles.filter((f) =>
@@ -205,6 +207,23 @@ export function useChatInputSubmit({
                     if (onSendError) {
                         onSendError(message);
                     }
+                    alert(message);
+                    return;
+                }
+            }
+
+            if (isZImageLoraTrainer) {
+                const zipCount = params.attachedFiles.filter(
+                    (f) =>
+                        f.file.type === "application/zip" ||
+                        f.file.name.toLowerCase().endsWith(".zip"),
+                ).length;
+                if (zipCount === 0) {
+                    submitInProgressRef.current = false;
+                    setIsSubmitting(false);
+                    const message =
+                        "Z-Image LoRA Trainer требует ZIP-архив с датасетом";
+                    if (onSendError) onSendError(message);
                     alert(message);
                     return;
                 }
@@ -324,6 +343,11 @@ export function useChatInputSubmit({
                     const imageFiles = params.attachedFiles.filter((f) =>
                         f.file.type.startsWith("image/"),
                     );
+                    const zipFiles = params.attachedFiles.filter(
+                        (f) =>
+                            f.file.type === "application/zip" ||
+                            f.file.name.toLowerCase().endsWith(".zip"),
+                    );
                     const inputFilesUrls: string[] = [];
                     let tailImageUrl: string | undefined;
 
@@ -395,6 +419,13 @@ export function useChatInputSubmit({
                                 }
                             }
                         }
+                    }
+
+                    if (isZImageLoraTrainer && zipFiles.length > 0) {
+                        const firstArchiveBase64 = await getFileAsBase64(
+                            zipFiles[0].file,
+                        );
+                        inputFilesUrls.push(firstArchiveBase64);
                     }
 
                     // Для Kling Motion Control: собираем inputVideoFiles из видео

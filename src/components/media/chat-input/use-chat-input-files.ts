@@ -49,6 +49,7 @@ function fileToBase64(file: File): Promise<string> {
 export function useChatInputFiles(
     chatId?: number,
     appMode: AppMode = APP_MODES.DEFAULT,
+    allowZipArchive = false,
 ) {
     const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
     const [isDragging, setIsDragging] = useState(false);
@@ -70,10 +71,14 @@ export function useChatInputFiles(
 
             // Разделяем файлы на изображения и видео
             for (const file of files) {
-                // Проверяем тип файла (только изображения и видео)
+                const isZipArchive =
+                    file.type === "application/zip" ||
+                    file.name.toLowerCase().endsWith(".zip");
+                // Проверяем тип файла (изображения, видео и ZIP для LoRA trainer)
                 if (
                     !file.type.startsWith("image/") &&
-                    !file.type.startsWith("video/")
+                    !file.type.startsWith("video/") &&
+                    !(allowZipArchive && isZipArchive)
                 ) {
                     console.warn(
                         "[ChatInput] Пропущен файл недопустимого типа:",
@@ -95,16 +100,32 @@ export function useChatInputFiles(
 
                 if (file.type.startsWith("image/")) {
                     imageFiles.push(file);
-                } else {
+                } else if (file.type.startsWith("video/")) {
                     videoFiles.push(file);
                 }
             }
 
             // Создаем preview URL для всех файлов
-            for (const file of [...imageFiles, ...videoFiles]) {
+            const filesForPreview = [...imageFiles, ...videoFiles];
+            const zipFiles = files.filter(
+                (file) =>
+                    (file.type === "application/zip" ||
+                        file.name.toLowerCase().endsWith(".zip")) &&
+                    !file.type.startsWith("image/") &&
+                    !file.type.startsWith("video/"),
+            );
+
+            for (const file of [...filesForPreview, ...zipFiles]) {
                 try {
-                    const preview = URL.createObjectURL(file);
-                    previewUrlsRef.current.add(preview);
+                    const isZipArchive =
+                        file.type === "application/zip" ||
+                        file.name.toLowerCase().endsWith(".zip");
+                    const preview = isZipArchive
+                        ? "zip-archive"
+                        : URL.createObjectURL(file);
+                    if (!isZipArchive) {
+                        previewUrlsRef.current.add(preview);
+                    }
 
                     newFiles.push({
                         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -169,17 +190,28 @@ export function useChatInputFiles(
                 }
             }
 
-            // Загружаем файлы в БД и в ai-media (только если это новый пользовательский файл)
+            // Загружаем в БД и ai-media только изображения/видео.
+            // ZIP-архивы для LoRA trainer не сохраняем локально: передадим их дальше как base64.
             if (shouldUpload && chatId && newFiles.length > 0) {
                 try {
                     const uploadFiles = await Promise.all(
-                        newFiles.map(async (f) => ({
-                            base64: await fileToBase64(f.file),
-                            mimeType: f.file.type,
-                            filename: f.file.name,
-                            imgbbUrl: f.imgbbUrl,
-                        })),
+                        newFiles
+                            .filter(
+                                (f) =>
+                                    f.file.type.startsWith("image/") ||
+                                    f.file.type.startsWith("video/"),
+                            )
+                            .map(async (f) => ({
+                                base64: await fileToBase64(f.file),
+                                mimeType: f.file.type,
+                                filename: f.file.name,
+                                imgbbUrl: f.imgbbUrl,
+                            })),
                     );
+
+                    if (uploadFiles.length === 0) {
+                        return newFiles;
+                    }
 
                     console.log(
                         `[ChatInput] Загрузка ${uploadFiles.length} файлов в БД (ai-media)...`,
@@ -225,7 +257,7 @@ export function useChatInputFiles(
 
             return newFiles;
         },
-        [uploadToImgbb, uploadUserMedia, chatId, appMode],
+        [uploadToImgbb, uploadUserMedia, chatId, appMode, allowZipArchive],
     );
 
     // Загрузка файла по URL и конвертация в File объект
@@ -347,9 +379,11 @@ export function useChatInputFiles(
         setAttachedFiles((prev) => {
             const file = prev.find((f) => f.id === fileId);
             if (file) {
-                URL.revokeObjectURL(file.preview);
-                // Удаляем URL из ref
-                previewUrlsRef.current.delete(file.preview);
+                if (file.preview !== "zip-archive") {
+                    URL.revokeObjectURL(file.preview);
+                    // Удаляем URL из ref
+                    previewUrlsRef.current.delete(file.preview);
+                }
             }
             return prev.filter((f) => f.id !== fileId);
         });
@@ -475,8 +509,10 @@ export function useChatInputFiles(
     const clearFiles = useCallback(() => {
         setAttachedFiles((prev) => {
             prev.forEach((f) => {
-                URL.revokeObjectURL(f.preview);
-                previewUrlsRef.current.delete(f.preview);
+                if (f.preview !== "zip-archive") {
+                    URL.revokeObjectURL(f.preview);
+                    previewUrlsRef.current.delete(f.preview);
+                }
             });
             return [];
         });
