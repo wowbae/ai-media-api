@@ -10,3 +10,5 @@
 - [x] Исправить маппинг статуса в `kieai` provider: при `failed` + `resultUrls` считать задачу успешной и не прокидывать ошибку на фронт.
 - [x] Заменить `SEEDREAM_4_5_EDIT_KIEAI` на `SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED` в `/ai-model` allowlist (backend + frontend sync).
 - [x] Добавить модель `bytedance/seedream-v4.5/edit-sequential` в Wavespeed provider + registry и проверить `ReadLints`/`bunx tsc --noEmit` (с учетом существующих ошибок вне области задачи).
+- [x] Диагностировать `failed` для `bytedance/seedream-v4.5/edit-sequential`: воспроизвести API-запрос и проверить статус по `urls.get`.
+- [x] Исправить `size` для `SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED`: использовать отдельные high-resolution размеры (>= 3,686,400 px), чтобы убрать мгновенный fail по валидации Wavespeed.

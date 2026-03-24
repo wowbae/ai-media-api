@@ -245,3 +245,11 @@
 - Root cause: модель подключается в нескольких независимых слоях (типы, registry, mode whitelist, provider branching), а изменение в одном слое не гарантирует работоспособность всего потока.
 - Prevention rule: при замене модели в режиме (`instead of`) делать единый change-set из 5 точек: `server/interfaces` + `server/config` + backend/frontend allowlist + provider routing (`isImageModel`/endpoint branch).
 - Checklist item: "После замены модели в режиме: модель видна в `/media/models?appMode=ai-model`, отправляется в корректный provider endpoint и проходит локальные проверки без новых lint-ошибок".
+
+## 2026-03-24 - Model-specific minimum pixel constraints
+
+- Context: `bytedance/seedream-v4.5/edit-sequential` в Wavespeed принимал submit, но сразу возвращал `failed` со строкой `image size must be at least 3686400 pixels` при `size=1024*1024`.
+- Mistake: переиспользовать общий mapping `aspectRatio -> size` от других image-моделей без проверки минимального порога пикселей у конкретного endpoint.
+- Root cause: предположение, что единые размеры подходят для всего provider-family, хотя ограничения валидатора у моделей отличаются.
+- Prevention rule: для каждой новой модели фиксировать отдельную таблицу размеров, если API требует min/max по пикселям; валидировать минимум одним реальным submit+poll кейсом.
+- Checklist item: "После интеграции image-модели: проверить, что default `size` проходит provider validation (нет instant-fail на первом poll)".

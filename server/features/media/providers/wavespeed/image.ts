@@ -37,6 +37,19 @@ const ASPECT_RATIO_TO_SIZE: Record<string, string> = {
     "2:3": "768*1152",
 };
 
+// Seedream v4.5 edit-sequential требует минимум 3,686,400 пикселей.
+// Подбираем размеры выше этого порога для всех поддерживаемых аспектов.
+const SEEDREAM_SEQUENTIAL_ASPECT_RATIO_TO_SIZE: Record<string, string> = {
+    "1:1": "2048*2048",
+    "16:9": "2560*1440",
+    "9:16": "1440*2560",
+    "4:3": "2304*1728",
+    "3:4": "1728*2304",
+    "3:2": "2496*1664",
+    "2:3": "1664*2496",
+    "21:9": "2940*1260",
+};
+
 function parseSeed(seed?: string | number): number | undefined {
     if (seed === undefined || seed === null || String(seed).trim() === "") {
         return undefined;
@@ -99,7 +112,7 @@ function buildSeedreamSequentialEditRequest(
 ): WavespeedImageTaskRequest {
     const publicBaseUrl = getMediaPublicBaseUrl();
     const mappedSize = params.aspectRatio
-        ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
+        ? SEEDREAM_SEQUENTIAL_ASPECT_RATIO_TO_SIZE[params.aspectRatio]
         : undefined;
     const normalizedInputs = (params.inputFiles || []).map((input) =>
         input.startsWith("/media-files/") ? `${publicBaseUrl}${input}` : input,
@@ -115,7 +128,7 @@ function buildSeedreamSequentialEditRequest(
         prompt: params.prompt,
         image: normalizedInputs[0],
         images: normalizedInputs,
-        size: mappedSize || ASPECT_RATIO_TO_SIZE["1:1"],
+        size: mappedSize || SEEDREAM_SEQUENTIAL_ASPECT_RATIO_TO_SIZE["1:1"],
         seed: parseSeed(params.seed),
     };
 }
