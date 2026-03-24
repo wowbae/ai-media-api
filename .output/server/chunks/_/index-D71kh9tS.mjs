@@ -1,7 +1,7 @@
 import { jsxDEV, Fragment } from 'react/jsx-dev-runtime';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { u as useGetChatsQuery, A as APP_MODES, a as useCreateChatMutation, C as ChatSidebar } from './router-v613AfRH.mjs';
+import { u as useGetChatsQuery, A as APP_MODES, a as useCreateChatMutation, C as ChatSidebar } from './router-BFIaxj42.mjs';
 import { Loader2, Sparkles } from 'lucide-react';
 import 'react-redux';
 import '@reduxjs/toolkit';
@@ -196,4 +196,4 @@ function ModelCard({
 }
 
 export { MediaIndexPage as component };
-//# sourceMappingURL=index-5faP4AHq.mjs.map
+//# sourceMappingURL=index-D71kh9tS.mjs.map

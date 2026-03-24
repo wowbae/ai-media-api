@@ -1603,11 +1603,11 @@ const $$splitComponentImporter$4 = () => import('./index-DtKfhDc_.mjs');
 const Route$4 = createFileRoute("/")({
   component: lazyRouteComponent($$splitComponentImporter$4, "component")
 });
-const $$splitComponentImporter$3 = () => import('./index-5faP4AHq.mjs');
+const $$splitComponentImporter$3 = () => import('./index-D71kh9tS.mjs');
 const Route$3 = createFileRoute("/media/")({
   component: lazyRouteComponent($$splitComponentImporter$3, "component")
 });
-const $$splitComponentImporter$2 = () => import('./index-DxGv9ofl.mjs');
+const $$splitComponentImporter$2 = () => import('./index-BnOJ7G5g.mjs');
 const Route$2 = createFileRoute("/ai-model/")({
   component: lazyRouteComponent($$splitComponentImporter$2, "component")
 });
@@ -3235,6 +3235,7 @@ const MODEL_ICONS = {
   ELEVENLABS_MULTILINGUAL_V2_KIEAI: "\u{1F3A4}",
   KLING_VIDEO_O1_WAVESPEED: "\u{1F3A5}",
   Z_IMAGE_TURBO_LORA_WAVESPEED: "\u{1F5BC}\uFE0F",
+  Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED: "\u{1F5BC}\uFE0F",
   KLING_2_6_MOTION_CONTROL_KIEAI: "\u{1F504}"
 };
 const DEFAULT_ICON = "\u2728";
@@ -4250,6 +4251,36 @@ const MODEL_CONFIGS = {
     supportsMode: false,
     supportsMultiShots: false
   },
+  Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED: {
+    isNanoBanana: false,
+    isNanoBananaPro: false,
+    isNanoBananaProKieai: false,
+    isVeo: false,
+    isKling: false,
+    isKling25: false,
+    isKling3: false,
+    isKlingMotionControl: false,
+    isImagen4: false,
+    isImagen4Ultra: false,
+    isSeedream4_5: false,
+    isSeedream4_5_Edit: false,
+    isElevenLabs: false,
+    isSeedream5: false,
+    isSeedream5_Edit: false,
+    supportsFormat: true,
+    supportsQuality: false,
+    supportsDuration: false,
+    supportsSound: false,
+    supportsVeoGenerationType: false,
+    supportsNegativePrompt: false,
+    supportsSeed: true,
+    supportsCfgScale: false,
+    supportsTailImageUrl: false,
+    supportsElevenLabsParams: false,
+    supportsMode: false,
+    supportsMultiShots: false,
+    maxInputFiles: 1
+  },
   SEEDANCE_1_5_PRO_KIEAI: {
     isNanoBanana: false,
     isNanoBananaPro: false,
@@ -4780,21 +4811,21 @@ function useChatInputSubmit({
         if (imageCount === 0) {
           submitInProgressRef.current = false;
           setIsSubmitting(false);
+          const message = "Grok Imagine \u0442\u0440\u0435\u0431\u0443\u0435\u0442 1 \u0432\u0445\u043E\u0434\u043D\u043E\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435";
           if (onSendError) {
-            onSendError(
-              "Grok Imagine \u0442\u0440\u0435\u0431\u0443\u0435\u0442 1 \u0432\u0445\u043E\u0434\u043D\u043E\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435"
-            );
+            onSendError(message);
           }
+          alert(message);
           return;
         }
         if (imageCount > 1) {
           submitInProgressRef.current = false;
           setIsSubmitting(false);
+          const message = "Grok Imagine \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E 1 \u0432\u0445\u043E\u0434\u043D\u043E\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435";
           if (onSendError) {
-            onSendError(
-              "Grok Imagine \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E 1 \u0432\u0445\u043E\u0434\u043D\u043E\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435"
-            );
+            onSendError(message);
           }
+          alert(message);
           return;
         }
       }
@@ -5363,6 +5394,12 @@ const MODEL_SETTINGS_CONFIG = {
     }
   },
   Z_IMAGE_TURBO_LORA_WAVESPEED: {
+    format: {
+      options: FORMAT_OPTIONS_SEEDREAM,
+      defaultValue: "1:1"
+    }
+  },
+  Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED: {
     format: {
       options: FORMAT_OPTIONS_SEEDREAM,
       defaultValue: "1:1"
@@ -10886,7 +10923,7 @@ function MediaGallery({
     columnNumber: 9
   }, this);
 }
-const $$splitComponentImporter$1 = () => import('./_chatId-D3263aBU.mjs');
+const $$splitComponentImporter$1 = () => import('./_chatId-Bt50hU7H.mjs');
 const Route$1 = createFileRoute("/media/$chatId")({
   component: lazyRouteComponent($$splitComponentImporter$1, "component")
 });
@@ -11291,7 +11328,7 @@ function ChatHeader({
     columnNumber: 10
   }, this);
 }
-const $$splitComponentImporter = () => import('./_chatId-DRSZWqa9.mjs');
+const $$splitComponentImporter = () => import('./_chatId-DgqqQVbi.mjs');
 const Route = createFileRoute("/ai-model/$chatId")({
   component: lazyRouteComponent($$splitComponentImporter, "component")
 });
@@ -11354,4 +11391,4 @@ const router = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProper
 }, Symbol.toStringTag, { value: "Module" }));
 
 export { APP_MODES as A, ChatSidebar as C, MessageList as M, PANEL_HEADER_CLASSES as P, useCreateChatMutation as a, useGetChatQuery as b, useUpdateChatMutation as c, useGenerateMediaMutation as d, useLazyGetRequestQuery as e, useTestMode as f, useGetModelsQuery as g, API_BASE_URL as h, cn as i, ChatInput as j, MediaGallery as k, getModelIcon as l, MediaChatPage as m, router as r, useGetChatsQuery as u };
-//# sourceMappingURL=router-v613AfRH.mjs.map
+//# sourceMappingURL=router-BFIaxj42.mjs.map

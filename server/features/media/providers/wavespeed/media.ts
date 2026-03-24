@@ -11,7 +11,11 @@ import { resolveWavespeedBaseUrl } from "./shared";
 import { createWavespeedVideoHandlers } from "./video";
 
 function isImageModel(model: string): boolean {
-    return model === "Z_IMAGE_TURBO_LORA_WAVESPEED";
+    return (
+        model === "Z_IMAGE_TURBO_LORA_WAVESPEED" ||
+        model === "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED" ||
+        model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED"
+    );
 }
 
 export function createWavespeedProvider(

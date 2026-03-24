@@ -1,5 +1,5 @@
 import { jsxDEV } from 'react/jsx-dev-runtime';
-import { m as MediaChatPage, A as APP_MODES } from './router-v613AfRH.mjs';
+import { m as MediaChatPage, A as APP_MODES } from './router-BFIaxj42.mjs';
 import '@tanstack/react-router';
 import 'react-redux';
 import '@reduxjs/toolkit';
@@ -25,4 +25,4 @@ function AiModelChatPage() {
 }
 
 export { AiModelChatPage as component };
-//# sourceMappingURL=_chatId-DRSZWqa9.mjs.map
+//# sourceMappingURL=_chatId-DgqqQVbi.mjs.map

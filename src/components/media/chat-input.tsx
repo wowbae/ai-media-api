@@ -577,8 +577,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             ],
         );
 
-        const isZImageTurboLoraModel =
-            currentModel === "Z_IMAGE_TURBO_LORA_WAVESPEED";
+        const isLoraEnabledWavespeedModel =
+            currentModel === "Z_IMAGE_TURBO_LORA_WAVESPEED" ||
+            currentModel === "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED" ||
+            currentModel === "WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED";
 
         const handleEnhancePrompt = useCallback(async () => {
             if (!isAiModelMode || !prompt.trim()) return;
@@ -777,7 +779,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 )}
 
                 {/* Поля для Wavespeed Z-Image Turbo LoRA */}
-                {isZImageTurboLoraModel && (
+                {isLoraEnabledWavespeedModel && (
                     <div className='mb-2 space-y-2'>
                         <input
                             ref={loraFileInputRef}

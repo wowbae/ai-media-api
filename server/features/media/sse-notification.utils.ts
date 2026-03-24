@@ -48,9 +48,10 @@ export async function sendSSENotification(
             ? sseService.sendToUser(request.chat.userId, event)
             : sseService.sendToChat(request.chatId, event);
         if (!sent) {
-            console.warn(
-                `[SSE] ⚠️ Не удалось отправить уведомление пользователю ${userId}`,
-            );
+            const target = request.chat.userId
+                ? `пользователю ${request.chat.userId}`
+                : `чату ${request.chatId}`;
+            console.warn(`[SSE] ⚠️ Не удалось отправить уведомление ${target}`);
         }
     } catch (error) {
         console.error(`[SSE] ❌ Ошибка отправки уведомления:`, error);

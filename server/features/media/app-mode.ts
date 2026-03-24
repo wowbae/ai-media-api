@@ -10,8 +10,11 @@ export type AppMode = (typeof APP_MODES)[keyof typeof APP_MODES];
 export const AI_MODEL_ALLOWED_MODELS: readonly MediaModel[] = [
     "NANO_BANANA_2_KIEAI",
     "Z_IMAGE_TURBO_LORA_WAVESPEED",
-    "GROK_IMAGINE_IMAGE_TO_IMAGE_KIEAI",
     "GROK_IMAGINE_IMAGE_TO_VIDEO_KIEAI",
+    "SEEDREAM_4_5_EDIT_KIEAI",
+    "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED",
+    "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED",
+    "WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED",
 ] as const;
 
 export function parseAppMode(value: unknown): AppMode {

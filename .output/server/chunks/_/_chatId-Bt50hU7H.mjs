@@ -2,7 +2,7 @@ import { jsxDEV } from 'react/jsx-dev-runtime';
 import { useParams } from '@tanstack/react-router';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
-import { b as useGetChatQuery, c as useUpdateChatMutation, d as useGenerateMediaMutation, e as useLazyGetRequestQuery, f as useTestMode, g as useGetModelsQuery, A as APP_MODES, h as API_BASE_URL, C as ChatSidebar, i as cn, M as MessageList, j as ChatInput, k as MediaGallery, l as getModelIcon, P as PANEL_HEADER_CLASSES } from './router-v613AfRH.mjs';
+import { b as useGetChatQuery, c as useUpdateChatMutation, d as useGenerateMediaMutation, e as useLazyGetRequestQuery, f as useTestMode, g as useGetModelsQuery, A as APP_MODES, h as API_BASE_URL, C as ChatSidebar, i as cn, M as MessageList, j as ChatInput, k as MediaGallery, l as getModelIcon, P as PANEL_HEADER_CLASSES } from './router-BFIaxj42.mjs';
 import 'react-redux';
 import '@reduxjs/toolkit';
 import '@reduxjs/toolkit/query/react';
@@ -424,4 +424,4 @@ const SplitComponent = () => /* @__PURE__ */ jsxDEV(MediaChatPage, { appMode: AP
 }, void 0);
 
 export { MediaChatPage, SplitComponent as component };
-//# sourceMappingURL=_chatId-D3263aBU.mjs.map
+//# sourceMappingURL=_chatId-Bt50hU7H.mjs.map

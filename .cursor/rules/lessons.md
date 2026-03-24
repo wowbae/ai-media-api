@@ -149,3 +149,75 @@
 - Root cause: отсутствие явного контракта "сколько файлов допускается" в submit-flow для новой модели.
 - Prevention rule: при подключении новой модели сразу фиксировать cardinality guard в `use-chat-input-submit` (min/max input files) и дублировать hard-check в provider mapping.
 - Checklist item: "Для новой модели проверено: ограничение входных файлов валидируется и на фронте, и на backend до отправки задачи".
+
+## 2026-03-24 - Parse resultJson in Kie task detail
+
+- Context: Grok Imagine задачи доходили до `success`, но завершение падало с `Нет результатов задачи` в `getTaskResult`.
+- Mistake: extractor искал только `resultUrls`/`result.url` в верхнем уровне ответа и не обрабатывал `data.resultJson` (JSON-строка).
+- Root cause: перенос общего extractor-а на новую модель без проверки фактического payload `recordInfo` для этого family.
+- Prevention rule: для каждой новой модели Kie проверять `recordInfo` на живом taskId и добавлять parser для `resultJson` как fallback path.
+- Checklist item: "После интеграции модели: вручную проверить минимум 1 success payload и убедиться, что extractor возвращает URL без доп. API вызовов".
+
+## 2026-03-24 - Dual whitelist sync for app mode
+
+- Context: добавление моделей в `/ai-model` делается через отдельные whitelist-файлы на backend и frontend.
+- Mistake: легко обновить только одну сторону (server или client) и получить "модель есть в API, но не в UI" или наоборот.
+- Root cause: дублирование констант режима (`AI_MODEL_ALLOWED_MODELS`) в двух местах без единой точки истины.
+- Prevention rule: при каждом изменении набора ai-mode моделей синхронно править `server/features/media/app-mode.ts` и `src/lib/app-mode.ts` в одном changelist.
+- Checklist item: "После изменения whitelist: проверить `/media/models?appMode=ai-model` и отображение модели в селекторе на фронте".
+
+## 2026-03-24 - Same-provider model family branching
+
+- Context: у Wavespeed в одном провайдере появились две image-модели (`turbo-lora` и `turbo/image-to-image`) с разными payload полями.
+- Mistake: обрабатывать всю image-ветку одним request builder-ом приводит к неверному телу запроса для второй модели.
+- Root cause: предположение, что "один provider = один payload shape" для всех моделей family.
+- Prevention rule: внутри provider делать явное ветвление по model key и отдельные request builder-функции на каждый shape.
+- Checklist item: "При добавлении модели в существующий provider: проверить endpoint + required поля payload отдельно для каждой model key".
+
+## 2026-03-24 - Keep endpoint suffix exact
+
+- Context: для `ai-model` нужно было использовать точный endpoint Wavespeed `wavespeed-ai/z-image-turbo/image-to-image-lora`.
+- Mistake: оставить близкий, но другой endpoint (`.../image-to-image`) из предыдущей интеграции и считать его эквивалентным.
+- Root cause: отсутствие явной сверки model id из требований с server config и provider constants одновременно.
+- Prevention rule: при обновлении конкретной external model id менять и проверять оба слоя в одном PR: `server/features/media/config.ts` + provider endpoint constants.
+- Checklist item: "После правки model id: `rg` по старому id не возвращает совпадений, а новый id встречается в config и provider".
+
+## 2026-03-24 - LoRA support must be model-family wide
+
+- Context: после перехода на `Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED` endpoint с `image-to-image-lora` UI и submit-flow продолжали передавать LoRA только для `Z_IMAGE_TURBO_LORA_WAVESPEED`.
+- Mistake: ограничить фичу LoRA одним model key, хотя у второй модели того же family контракт тоже поддерживает `loras`.
+- Root cause: локальная условная проверка по одному ключу в `chat-input`/`use-chat-input-submit` без сверки с provider-level contract.
+- Prevention rule: для shared provider feature (например, LoRA) вводить capability-проверку на весь family моделей и синхронно обновлять UI gate + request payload + provider request builder.
+- Checklist item: "Если feature общая для family: проверено 3 уровня — UI видимость, фронтовый payload include, backend mapping поля".
+
+## 2026-03-24 - Ai-mode model addition requires dual sync
+
+- Context: добавление новой модели `wavespeed-ai/wan-2.2/image-to-video-lora` в `/ai-model` route.
+- Mistake: легко обновить только `MEDIA_MODELS` и забыть синхронно обновить allowlist и типы модели на frontend/backend.
+- Root cause: модель хранится в нескольких слоях (server config, mode whitelist, shared API types), но нет compile-time единой точки истины.
+- Prevention rule: при добавлении модели фиксировать change-set минимум из 4 точек: `server/features/media/config.ts`, `server/features/media/app-mode.ts`, `src/lib/app-mode.ts`, типы `MediaModel` на client/server.
+- Checklist item: "После добавления модели: проверить, что она видна в `/models?appMode=ai-model` и не дает TS-ошибок в payload типах".
+
+## 2026-03-24 - Lora-capable model requires UI+submit sync
+
+- Context: пользователь просит "добавить LoRA на фронте" для новой модели `WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED`.
+- Mistake: включить модель только в список/селекторах и забыть два критичных условия: показ LoRA-блока в UI и прокидку `loras` в `generateMedia` payload.
+- Root cause: LoRA flow завязан на model-specific guards в двух разных местах (`chat-input.tsx` и `use-chat-input-submit.ts`).
+- Prevention rule: при подключении каждой LoRA-модели проверять парой: `isLoraEnabled...` для рендера контролов + условие отправки `loras` в submit-flow.
+- Checklist item: "Для новой LoRA-модели: есть блок ввода LoRA в UI и поле `loras` реально уходит в network payload".
+
+## 2026-03-24 - New Wavespeed edit model must reuse image-to-image contract
+
+- Context: добавление `wavespeed-ai/qwen-image-2.0-pro/edit` в `ai-model` и существующий Wavespeed image-provider.
+- Mistake: если добавить модель только в список доступных, роут `/models` покажет ее, но `generate()` отправит запрос в неверный endpoint/payload.
+- Root cause: разрыв между model registry (`MEDIA_MODELS`) и runtime-ветвлением в `providers/wavespeed/image.ts`.
+- Prevention rule: для каждой новой модели внутри существующего provider-family синхронно обновлять 3 слоя: registry (config), mode whitelist, provider branching (endpoint + request builder).
+- Checklist item: "После добавления модели провайдера: проверить, что `isImageModel`/`isVideoModel` и выбор endpoint учитывают новый model key".
+
+## 2026-03-24 - Remove model from ai-mode in both whitelists
+
+- Context: удаление `grok image edit` из маршрута `/ai-model`.
+- Mistake: при удалении модели легко изменить только backend allowlist и оставить frontend allowlist прежним, из-за чего UI может показывать недоступную модель.
+- Root cause: whitelist режима хранится в двух отдельных файлах (`server/features/media/app-mode.ts` и `src/lib/app-mode.ts`) без compile-time связки.
+- Prevention rule: любое удаление/добавление модели для `/ai-model` делать единым change-set в backend + frontend allowlist с обязательной typecheck-проверкой.
+- Checklist item: "После правки ai-mode whitelist: модель отсутствует и в `/media/models?appMode=ai-model`, и в клиентском списке моделей".

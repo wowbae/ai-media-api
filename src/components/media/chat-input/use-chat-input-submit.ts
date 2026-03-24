@@ -188,22 +188,24 @@ export function useChatInputSubmit({
                 if (imageCount === 0) {
                     submitInProgressRef.current = false;
                     setIsSubmitting(false);
+                    const message =
+                        "Grok Imagine требует 1 входное изображение";
                     if (onSendError) {
-                        onSendError(
-                            "Grok Imagine требует 1 входное изображение",
-                        );
+                        onSendError(message);
                     }
+                    alert(message);
                     return;
                 }
 
                 if (imageCount > 1) {
                     submitInProgressRef.current = false;
                     setIsSubmitting(false);
+                    const message =
+                        "Grok Imagine поддерживает только 1 входное изображение";
                     if (onSendError) {
-                        onSendError(
-                            "Grok Imagine поддерживает только 1 входное изображение",
-                        );
+                        onSendError(message);
                     }
+                    alert(message);
                     return;
                 }
             }
@@ -548,8 +550,12 @@ export function useChatInputSubmit({
                                             ? "1080p"
                                             : "720p",
                                 }),
-                            ...(currentModel ===
-                                "Z_IMAGE_TURBO_LORA_WAVESPEED" &&
+                            ...((currentModel ===
+                                "Z_IMAGE_TURBO_LORA_WAVESPEED" ||
+                                currentModel ===
+                                    "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED" ||
+                                currentModel ===
+                                    "WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED") &&
                                 params.loras &&
                                 params.loras.length > 0 && {
                                     loras: params.loras,

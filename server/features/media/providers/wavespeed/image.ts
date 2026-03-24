@@ -21,6 +21,9 @@ import {
 import { getMediaPublicBaseUrl } from "../../config";
 
 const Z_IMAGE_TURBO_LORA_MODEL_ID = "wavespeed-ai/z-image/turbo-lora";
+const Z_IMAGE_TURBO_IMAGE_TO_IMAGE_MODEL_ID =
+    "wavespeed-ai/z-image-turbo/image-to-image-lora";
+const QWEN_IMAGE_2_0_PRO_EDIT_MODEL_ID = "wavespeed-ai/qwen-image-2.0-pro/edit";
 
 const ASPECT_RATIO_TO_SIZE: Record<string, string> = {
     "1:1": "1024*1024",
@@ -42,7 +45,9 @@ function parseSeed(seed?: string | number): number | undefined {
     return parsed;
 }
 
-function buildImageRequest(params: GenerateParams): WavespeedImageTaskRequest {
+function buildTurboLoraRequest(
+    params: GenerateParams,
+): WavespeedImageTaskRequest {
     const publicBaseUrl = getMediaPublicBaseUrl();
     const mappedSize = params.aspectRatio
         ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
@@ -61,6 +66,27 @@ function buildImageRequest(params: GenerateParams): WavespeedImageTaskRequest {
     };
 }
 
+function buildImageToImageRequest(
+    params: GenerateParams,
+): WavespeedImageTaskRequest {
+    const mappedSize = params.aspectRatio
+        ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
+        : undefined;
+    const firstInput = params.inputFiles?.[0];
+    if (!firstInput) {
+        throw new Error(
+            "Для Wavespeed Z-Image Turbo Image-to-Image нужно входное изображение",
+        );
+    }
+
+    return {
+        prompt: params.prompt,
+        image: firstInput,
+        size: mappedSize || ASPECT_RATIO_TO_SIZE["1:1"],
+        seed: parseSeed(params.seed),
+    };
+}
+
 export function createWavespeedImageHandlers(options: {
     apiKey: string;
     baseURL: string;
@@ -73,22 +99,28 @@ export function createWavespeedImageHandlers(options: {
         async generateImage(
             params: GenerateParams,
         ): Promise<TaskCreatedResult> {
-            const requestBody = buildImageRequest(params);
+            const isImageToImageModel =
+                params.model === "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED" ||
+                params.model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED";
+            const requestBody = isImageToImageModel
+                ? buildImageToImageRequest(params)
+                : buildTurboLoraRequest(params);
+            const endpoint =
+                params.model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED"
+                    ? QWEN_IMAGE_2_0_PRO_EDIT_MODEL_ID
+                    : isImageToImageModel
+                      ? Z_IMAGE_TURBO_IMAGE_TO_IMAGE_MODEL_ID
+                      : Z_IMAGE_TURBO_LORA_MODEL_ID;
 
             if (!requestBody.prompt?.trim()) {
-                throw new Error(
-                    "Для Wavespeed Z-Image Turbo LoRA требуется prompt",
-                );
+                throw new Error("Для Wavespeed Z-Image требуется prompt");
             }
 
-            const response = await fetch(
-                `${baseURL}/${Z_IMAGE_TURBO_LORA_MODEL_ID}`,
-                {
-                    method: "POST",
-                    headers: createWavespeedHeaders(apiKey),
-                    body: JSON.stringify(requestBody),
-                },
-            );
+            const response = await fetch(`${baseURL}/${endpoint}`, {
+                method: "POST",
+                headers: createWavespeedHeaders(apiKey),
+                body: JSON.stringify(requestBody),
+            });
 
             if (!response.ok) {
                 const details = await parseWavespeedError(response);

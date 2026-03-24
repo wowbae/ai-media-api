@@ -237,6 +237,42 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.01, // $0.01 за изображение
         },
     },
+    Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED: {
+        id: "wavespeed-ai/z-image-turbo/image-to-image-lora",
+        name: "Z-Image Turbo Image-to-Image",
+        types: ["IMAGE"] as const,
+        maxPromptLength: 8192,
+        promptLimit: 5000,
+        supportsImageInput: true,
+        provider: "wavespeed",
+        pricing: {
+            output: 0.005, // согласно публичной странице Wavespeed
+        },
+    },
+    QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED: {
+        id: "wavespeed-ai/qwen-image-2.0-pro/edit",
+        name: "Qwen Image 2.0 Pro Edit",
+        types: ["IMAGE"] as const,
+        maxPromptLength: 8192,
+        promptLimit: 5000,
+        supportsImageInput: true,
+        provider: "wavespeed",
+        pricing: {
+            output: 0.01, // TODO: уточнить цену
+        },
+    },
+    WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED: {
+        id: "wavespeed-ai/wan-2.2/image-to-video-lora",
+        name: "WAN 2.2 Image-to-Video LoRA",
+        types: ["VIDEO"] as const,
+        maxPromptLength: 4096,
+        promptLimit: 2500,
+        supportsImageInput: true,
+        provider: "wavespeed",
+        pricing: {
+            output: 0.1, // TODO: уточнить цену
+        },
+    },
     // Kie.ai провайдер - Kling 2.6 Motion Control (image + video → video)
     KLING_2_6_MOTION_CONTROL_KIEAI: {
         id: "kling-2.6/motion-control",

@@ -380,6 +380,28 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: "1:1",
         },
     },
+    Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED: {
+        format: {
+            options: FORMAT_OPTIONS_SEEDREAM,
+            defaultValue: "1:1",
+        },
+    },
+    QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED: {
+        format: {
+            options: FORMAT_OPTIONS_SEEDREAM,
+            defaultValue: "1:1",
+        },
+    },
+    WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED: {
+        format: {
+            options: FORMAT_OPTIONS_16_9_9_16,
+            defaultValue: "9:16",
+        },
+        duration: {
+            options: DURATION_OPTIONS_WAVESPEED,
+            defaultValue: 5,
+        },
+    },
     SEEDANCE_1_5_PRO_KIEAI: {
         format: {
             options: FORMAT_OPTIONS_16_9_9_16,

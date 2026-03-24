@@ -711,6 +711,23 @@ export function createUnifiedKieAiProvider(config: KieAiConfig): MediaProvider {
             return data.response.resultUrls;
         }
 
+        if (typeof data.resultJson === "string" && data.resultJson.trim()) {
+            try {
+                const parsed = JSON.parse(data.resultJson);
+                if (Array.isArray(parsed?.resultUrls)) {
+                    return parsed.resultUrls;
+                }
+                if (parsed?.result?.urls && Array.isArray(parsed.result.urls)) {
+                    return parsed.result.urls;
+                }
+                if (typeof parsed?.result?.url === "string") {
+                    return [parsed.result.url];
+                }
+            } catch {
+                // ignore malformed resultJson and continue with empty result
+            }
+        }
+
         return [];
     }
 
