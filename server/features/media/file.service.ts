@@ -1,20 +1,20 @@
 // Сервис для работы с файлами: сохранение, превью, удаление
-import { mkdir, writeFile, unlink, stat } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import type { MediaType } from './interfaces';
-import { mediaStorageConfig } from './config';
+import { mkdir, writeFile, unlink, readFile } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
+import type { MediaType } from "./interfaces";
+import { mediaStorageConfig } from "./config";
 
 const execAsync = promisify(exec);
 
 // Проверяем наличие sharp (опционально)
-let sharp: typeof import('sharp') | null = null;
+let sharp: typeof import("sharp") | null = null;
 try {
-    sharp = (await import('sharp')).default;
+    sharp = (await import("sharp")).default;
 } catch {
-    console.warn('Sharp не установлен - превью изображений будут недоступны');
+    console.warn("Sharp не установлен - превью изображений будут недоступны");
 }
 
 // Проверяем наличие ffmpeg (для превью видео)
@@ -24,14 +24,14 @@ async function checkFFmpeg(): Promise<boolean> {
     if (hasFFmpeg !== null) return hasFFmpeg;
 
     try {
-        await execAsync('ffmpeg -version');
+        await execAsync("ffmpeg -version");
         hasFFmpeg = true;
-        console.log('FFmpeg найден - превью видео будут доступны');
+        console.log("FFmpeg найден - превью видео будут доступны");
         return true;
     } catch {
         hasFFmpeg = false;
         console.warn(
-            'FFmpeg не найден - превью видео будут недоступны. Установите FFmpeg для создания превью видео.',
+            "FFmpeg не найден - превью видео будут недоступны. Установите FFmpeg для создания превью видео.",
         );
         return false;
     }
@@ -54,9 +54,9 @@ export async function initMediaStorage(): Promise<void> {
     const dirs = [
         mediaStorageConfig.basePath,
         mediaStorageConfig.previewsPath,
-        path.join(mediaStorageConfig.basePath, 'images'),
-        path.join(mediaStorageConfig.basePath, 'videos'),
-        path.join(mediaStorageConfig.basePath, 'audio'),
+        path.join(mediaStorageConfig.basePath, "images"),
+        path.join(mediaStorageConfig.basePath, "videos"),
+        path.join(mediaStorageConfig.basePath, "audio"),
     ];
 
     for (const dir of dirs) {
@@ -76,35 +76,83 @@ function generateFilename(extension: string): string {
 
 // Определение типа медиа по MIME типу
 function getMediaTypeFromMime(mimeType: string): MediaType {
-    if (mediaStorageConfig.allowedImageTypes.includes(mimeType)) return 'IMAGE';
-    if (mediaStorageConfig.allowedVideoTypes.includes(mimeType)) return 'VIDEO';
-    if (mediaStorageConfig.allowedAudioTypes.includes(mimeType)) return 'AUDIO';
-    return 'IMAGE'; // default
+    if (mediaStorageConfig.allowedImageTypes.includes(mimeType)) return "IMAGE";
+    if (mediaStorageConfig.allowedVideoTypes.includes(mimeType)) return "VIDEO";
+    if (mediaStorageConfig.allowedAudioTypes.includes(mimeType)) return "AUDIO";
+    return "IMAGE"; // default
 }
 
 // Получение расширения файла из MIME типа
 function getExtensionFromMime(mimeType: string): string {
     const mimeToExt: Record<string, string> = {
-        'image/jpeg': 'jpg',
-        'image/png': 'png',
-        'image/webp': 'webp',
-        'image/gif': 'gif',
-        'video/mp4': 'mp4',
-        'video/webm': 'webm',
-        'video/quicktime': 'mov',
-        'audio/mpeg': 'mp3',
-        'audio/wav': 'wav',
-        'audio/ogg': 'ogg',
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/gif": "gif",
+        "video/mp4": "mp4",
+        "video/webm": "webm",
+        "video/quicktime": "mov",
+        "audio/mpeg": "mp3",
+        "audio/wav": "wav",
+        "audio/ogg": "ogg",
     };
-    return mimeToExt[mimeType] || 'bin';
+    return mimeToExt[mimeType] || "bin";
+}
+
+function normalizeMimeType(mimeType: string): string {
+    return mimeType.toLowerCase().split(";")[0].trim();
+}
+
+async function cleanImageMetadataIfNeeded(
+    buffer: Buffer,
+    mimeType: string,
+): Promise<{ cleanedBuffer: Buffer; removedMetadata: boolean }> {
+    // Sharp по умолчанию при записи без `withMetadata()` strip-ит всю metadata.
+    // Нам важно re-encode'нуть именно JPEG/PNG, чтобы убрать EXIF/XMP/IPTC и PNG text chunks.
+    const normalizedMimeType = normalizeMimeType(mimeType);
+
+    const isJpeg =
+        normalizedMimeType === "image/jpeg" ||
+        normalizedMimeType === "image/jpg";
+    const isPng = normalizedMimeType === "image/png";
+
+    if (!isJpeg && !isPng) {
+        return { cleanedBuffer: buffer, removedMetadata: false };
+    }
+
+    if (!sharp) {
+        console.warn(
+            "[file.service] Sharp недоступен: пропускаем очистку метаданных изображений",
+        );
+        return { cleanedBuffer: buffer, removedMetadata: false };
+    }
+
+    try {
+        if (isPng) {
+            const cleanedBuffer = await sharp(buffer).png().toBuffer();
+            return { cleanedBuffer, removedMetadata: true };
+        }
+
+        const cleanedBuffer = await sharp(buffer)
+            .jpeg({ quality: 95 })
+            .toBuffer();
+        return { cleanedBuffer, removedMetadata: true };
+    } catch (error) {
+        console.error(
+            "[file.service] Ошибка очистки метаданных изображения (jpeg/png).",
+            error,
+        );
+        // Если очистка нужна по контракту, лучше упасть, чем отправить потенциально "грязные" данные в Telegram.
+        throw error;
+    }
 }
 
 // Получение директории для типа медиа
 function getMediaDirectory(type: MediaType): string {
     const typeToDir: Record<MediaType, string> = {
-        IMAGE: 'images',
-        VIDEO: 'videos',
-        AUDIO: 'audio',
+        IMAGE: "images",
+        VIDEO: "videos",
+        AUDIO: "audio",
     };
     return path.join(mediaStorageConfig.basePath, typeToDir[type]);
 }
@@ -120,14 +168,14 @@ async function createImagePreview(
         const { width, height } = mediaStorageConfig.previewSize;
         await sharp(sourcePath)
             .resize(width, height, {
-                fit: 'cover',
-                position: 'center',
+                fit: "cover",
+                position: "center",
             })
             .jpeg({ quality: 80 })
             .toFile(previewPath);
         return true;
     } catch (error) {
-        console.error('Ошибка создания превью изображения:', error);
+        console.error("Ошибка создания превью изображения:", error);
         return false;
     }
 }
@@ -142,7 +190,7 @@ async function createVideoPreview(
 
     if (!sharp) {
         console.warn(
-            'Sharp не доступен - не удастся обработать извлеченный кадр',
+            "Sharp не доступен - не удастся обработать извлеченный кадр",
         );
         return false;
     }
@@ -158,7 +206,7 @@ async function createVideoPreview(
 
         // Проверяем, что временный файл создан
         if (!existsSync(tempFramePath)) {
-            console.error('Не удалось извлечь кадр из видео');
+            console.error("Не удалось извлечь кадр из видео");
             return false;
         }
 
@@ -166,8 +214,8 @@ async function createVideoPreview(
         const { width, height } = mediaStorageConfig.previewSize;
         await sharp(tempFramePath)
             .resize(width, height, {
-                fit: 'cover',
-                position: 'center',
+                fit: "cover",
+                position: "center",
             })
             .jpeg({ quality: 80 })
             .toFile(previewPath);
@@ -181,7 +229,7 @@ async function createVideoPreview(
 
         return true;
     } catch (error) {
-        console.error('Ошибка создания превью видео:', error);
+        console.error("Ошибка создания превью видео:", error);
 
         // Удаляем временный файл если он был создан
         try {
@@ -203,7 +251,7 @@ async function createPreview(
     filename: string,
     mediaType: MediaType,
 ): Promise<string | null> {
-    const previewFilename = `preview-${filename.replace(/\.[^.]+$/, '.jpg')}`;
+    const previewFilename = `preview-${filename.replace(/\.[^.]+$/, ".jpg")}`;
     const fullPreviewPath = path.join(
         mediaStorageConfig.previewsPath,
         previewFilename,
@@ -211,9 +259,9 @@ async function createPreview(
 
     let isPreviewCreated = false;
 
-    if (mediaType === 'IMAGE' && sharp) {
+    if (mediaType === "IMAGE" && sharp) {
         isPreviewCreated = await createImagePreview(filePath, fullPreviewPath);
-    } else if (mediaType === 'VIDEO') {
+    } else if (mediaType === "VIDEO") {
         isPreviewCreated = await createVideoPreview(filePath, fullPreviewPath);
     }
 
@@ -227,22 +275,28 @@ async function saveBufferToFile(
 ): Promise<SavedFileInfo> {
     await initMediaStorage();
 
-    // Валидация размера
-    if (buffer.length > mediaStorageConfig.maxFileSize) {
+    const normalizedMimeType = normalizeMimeType(mimeType);
+    const { cleanedBuffer } = await cleanImageMetadataIfNeeded(
+        buffer,
+        normalizedMimeType,
+    );
+
+    // Валидация размера (после возможного re-encode)
+    if (cleanedBuffer.length > mediaStorageConfig.maxFileSize) {
         throw new Error(
             `Файл превышает максимальный размер ${mediaStorageConfig.maxFileSize / 1024 / 1024}MB`,
         );
     }
 
     // Определяем тип и путь
-    const mediaType = getMediaTypeFromMime(mimeType);
-    const extension = getExtensionFromMime(mimeType);
+    const mediaType = getMediaTypeFromMime(normalizedMimeType);
+    const extension = getExtensionFromMime(normalizedMimeType);
     const filename = generateFilename(extension);
     const directory = getMediaDirectory(mediaType);
     const filePath = path.join(directory, filename);
 
     // Сохраняем файл
-    await writeFile(filePath, buffer);
+    await writeFile(filePath, cleanedBuffer);
 
     // Создаем превью
     const previewPath = await createPreview(filePath, filename, mediaType);
@@ -262,7 +316,7 @@ async function saveBufferToFile(
         url: null, // URL будет загружен позже, если это изображение
         previewPath: relativePreviewPath,
         previewUrl: null, // Превью URL будет загружен асинхронно в фоне
-        size: buffer.length,
+        size: cleanedBuffer.length,
         type: mediaType,
         width: dimensions.width,
         height: dimensions.height,
@@ -278,8 +332,8 @@ export async function saveBase64File(
     mimeType: string,
     options?: { deferImgbb?: boolean; imgbbUrl?: string },
 ): Promise<SavedFileInfo> {
-    const buffer = Buffer.from(base64Data, 'base64');
-    const isImage = mimeType.startsWith('image/');
+    const buffer = Buffer.from(base64Data, "base64");
+    const isImage = mimeType.startsWith("image/");
 
     if (isImage) {
         // deferImgbb: для генерации — только локально, imgbb после Telegram
@@ -291,7 +345,7 @@ export async function saveBase64File(
             const savedFile = await saveBufferToFile(buffer, mimeType);
             savedFile.url = options.imgbbUrl;
             console.log(
-                '[file.service] ✅ Изображение сохранено локально, imgbbUrl передан (без повторной загрузки):',
+                "[file.service] ✅ Изображение сохранено локально, imgbbUrl передан (без повторной загрузки):",
                 {
                     filename: savedFile.filename,
                     path: savedFile.path,
@@ -314,10 +368,10 @@ export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
         throw new Error(`Не удалось скачать файл: ${response.statusText}`);
     }
 
-    const contentType = response.headers.get('content-type') || 'image/png';
+    const contentType = response.headers.get("content-type") || "image/png";
     const buffer = Buffer.from(await response.arrayBuffer());
-    const isImage = contentType.startsWith('image/');
-    const isVideo = contentType.startsWith('video/');
+    const isImage = contentType.startsWith("image/");
+    const isVideo = contentType.startsWith("video/");
 
     // Сохраняем локально
     const savedFile = await saveBufferToFile(buffer, contentType);
@@ -325,7 +379,7 @@ export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
     // Для изображений: url=null, imgbb загрузится после отправки в Telegram (uploadFilesToImgbbAndUpdateDatabase)
     if (isImage) {
         console.log(
-            '[file.service] ✅ Изображение сохранено локально (imgbb — после Telegram):',
+            "[file.service] ✅ Изображение сохранено локально (imgbb — после Telegram):",
             {
                 filename: savedFile.filename,
                 path: savedFile.path,
@@ -336,7 +390,7 @@ export async function saveFileFromUrl(url: string): Promise<SavedFileInfo> {
         // когда файл будет удален с сервера после отправки в Telegram
         savedFile.url = url;
         console.log(
-            '[file.service] ✅ Видео сохранено локально, URL провайдера сохранен:',
+            "[file.service] ✅ Видео сохранено локально, URL провайдера сохранен:",
             {
                 filename: savedFile.filename,
                 path: savedFile.path,
@@ -357,11 +411,23 @@ export async function saveImageWithImgbb(
     const savedFile = await saveBufferToFile(buffer, mimeType);
 
     try {
-        const { uploadToImgbb } = await import('./imgbb.service');
-        const imgbbUrl = await uploadToImgbb(buffer);
+        const { uploadToImgbb } = await import("./imgbb.service");
+        // Загружаем уже очищенный файл с диска, чтобы Telegram/URL-версия
+        // тоже не содержали EXIF/XMP/IPTC/PNG text chunks.
+        const imgbbInputBuffer = savedFile.path
+            ? await readFile(
+                  path.join(
+                      process.cwd(),
+                      mediaStorageConfig.basePath,
+                      savedFile.path,
+                  ),
+              )
+            : buffer;
+
+        const imgbbUrl = await uploadToImgbb(imgbbInputBuffer);
         savedFile.url = imgbbUrl;
         console.log(
-            '[file.service] ✅ Изображение сохранено локально и загружено на хостинг:',
+            "[file.service] ✅ Изображение сохранено локально и загружено на хостинг:",
             {
                 filename: savedFile.filename,
                 path: savedFile.path,
@@ -370,7 +436,7 @@ export async function saveImageWithImgbb(
         );
     } catch (error) {
         console.error(
-            '[file.service] ❌ Ошибка загрузки на хостинг (продолжаем с локальным сохранением):',
+            "[file.service] ❌ Ошибка загрузки на хостинг (продолжаем с локальным сохранением):",
             error,
         );
         // Не прерываем процесс, просто url останется null
@@ -385,7 +451,7 @@ async function getImageDimensions(
     type: MediaType,
 ): Promise<{ width?: number; height?: number }> {
     // Для изображений получаем размеры через sharp
-    if (type === 'IMAGE' && sharp) {
+    if (type === "IMAGE" && sharp) {
         try {
             const imageInfo = await sharp(filePath).metadata();
             return {
@@ -393,7 +459,7 @@ async function getImageDimensions(
                 height: imageInfo.height ?? undefined,
             };
         } catch (error) {
-            console.error('Ошибка получения размеров изображения:', error);
+            console.error("Ошибка получения размеров изображения:", error);
         }
     }
 
@@ -413,7 +479,7 @@ export async function deleteFile(
             await unlink(previewPath);
         }
     } catch (error) {
-        console.error('Ошибка удаления файла:', error);
+        console.error("Ошибка удаления файла:", error);
     }
 }
 
@@ -434,7 +500,7 @@ export async function copyFile(
 ): Promise<{ path: string; previewPath: string | null }> {
     await initMediaStorage();
 
-    const { readFile, copyFile: fsCopyFile } = await import('fs/promises');
+    const { readFile, copyFile: fsCopyFile } = await import("fs/promises");
 
     // Получаем абсолютный путь к исходному файлу
     const absoluteSourcePath = path.isAbsolute(sourcePath)

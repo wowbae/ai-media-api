@@ -349,3 +349,11 @@
 - Root cause: отсутствие model-specific нормализации `duration` в `wavespeed/video.ts` и слишком широкий список duration в UI для WAN.
 - Prevention rule: для каждого нового video endpoint проверять допустимые enum/диапазоны и делать отдельный mapper + UI options per model.
 - Checklist item: "Для модели с особыми лимитами значения параметров согласованы в 2 местах: backend mapper и frontend settings".
+
+## 2026-03-25 - Strip image metadata before save+Telegram
+
+- Context: сервис сохранял сгенерированные `image/jpeg`/`image/png` и затем отправлял/загружал их (imgbb -> Telegram), но очистка метаданных не была встроена в единый пайплайн сохранения.
+- Mistake: при гибридном сценарии загрузки в imgbb использовался исходный in-memory buffer, а не уже очищенный артефакт, из-за чего метаданные могли сохраниться.
+- Root cause: разрыв ответственности между "writeFile в хранилище" и последующей "upload/send" стадиями (downstream не гарантировал, что работает с очищенной версией).
+- Prevention rule: для любого генерируемого `IMAGE` делайте очистку метаданных _до_ сохранения в диск как point-of-truth, а все downstream-операции (imgbb/Telegram) должны брать данные из этого сохраненного артефакта.
+- Checklist item: "Очистка запускается в saveBufferToFile для jpeg/png, а upload в imgbb читает из сохраненного пути (savedFile.path), не из исходного буфера."
