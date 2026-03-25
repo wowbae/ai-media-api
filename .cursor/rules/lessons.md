@@ -341,3 +341,11 @@
 - Root cause: разнесенная ответственность между `config.ts` и `wavespeed/video.ts`.
 - Prevention rule: при смене vendor model id проверять и обновлять одновременно `MEDIA_MODELS[*].id` + provider endpoint constants.
 - Checklist item: "После смены id модели есть 2/2 совпадения: registry id == runtime endpoint".
+
+## 2026-03-24 - Учитывать model-specific ограничения duration
+
+- Context: Wavespeed WAN 2.2 вернул `invalid request body` с ошибкой по `duration`, потому что модель принимает только `[5,8]`, а общий video-mapper отправлял значения 3..10.
+- Mistake: использовать один generic validator/mapper для параметра, который имеет более строгие ограничения у конкретной модели.
+- Root cause: отсутствие model-specific нормализации `duration` в `wavespeed/video.ts` и слишком широкий список duration в UI для WAN.
+- Prevention rule: для каждого нового video endpoint проверять допустимые enum/диапазоны и делать отдельный mapper + UI options per model.
+- Checklist item: "Для модели с особыми лимитами значения параметров согласованы в 2 местах: backend mapper и frontend settings".

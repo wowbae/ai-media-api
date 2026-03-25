@@ -49,6 +49,20 @@ function mapDuration(duration?: number): number {
     return 5;
 }
 
+function mapDurationByModel(
+    model: GenerateParams["model"],
+    duration?: number,
+): number {
+    if (
+        model === "WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED" ||
+        model === "WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED"
+    ) {
+        return duration === 8 ? 8 : 5;
+    }
+
+    return mapDuration(duration);
+}
+
 async function uploadReferenceImages(
     uploader: Client,
     inputFiles: string[],
@@ -140,7 +154,7 @@ export function createWavespeedVideoHandlers(options: {
                 prompt: params.prompt,
                 image: imageUrls[0],
                 images: imageUrls,
-                duration: mapDuration(params.duration),
+                duration: mapDurationByModel(params.model, params.duration),
                 safety_checker: false,
             };
             const endpoint = resolveVideoModelEndpoint(params.model);

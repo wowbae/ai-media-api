@@ -190,6 +190,11 @@ const DURATION_OPTIONS_WAVESPEED: DurationOption[] = [
     { value: "10", label: "10 сек" },
 ];
 
+const DURATION_OPTIONS_WAN_2_2: DurationOption[] = [
+    { value: "5", label: "5 сек" },
+    { value: "8", label: "8 сек" },
+];
+
 // Опции для длительности Seedance 1.5 Pro (4, 8, 12 секунд)
 const DURATION_OPTIONS_SEEDANCE: DurationOption[] = [
     { value: "4", label: "4 сек" },
@@ -405,7 +410,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: "9:16",
         },
         duration: {
-            options: DURATION_OPTIONS_WAVESPEED,
+            options: DURATION_OPTIONS_WAN_2_2,
             defaultValue: 5,
         },
     },
@@ -415,7 +420,7 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
             defaultValue: "9:16",
         },
         duration: {
-            options: DURATION_OPTIONS_WAVESPEED,
+            options: DURATION_OPTIONS_WAN_2_2,
             defaultValue: 5,
         },
     },
