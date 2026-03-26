@@ -19,55 +19,30 @@ import {
     parseWavespeedError,
     fetchPredictionResultByUrl,
 } from "./shared";
-
-const KLING_VIDEO_MODEL_ID = "kwaivgi/kling-video-o1-std/reference-to-video";
-const WAN_2_2_IMAGE_TO_VIDEO_LORA_MODEL_ID =
-    "wavespeed-ai/wan-2.2/image-to-video-lora";
-const WAN_2_2_IMAGE_TO_VIDEO_MODEL_ID = "wavespeed-ai/wan-2.2/i2v-720p";
-
-function resolveVideoModelEndpoint(model: GenerateParams["model"]): string {
-    if (model === "WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED")
-        return WAN_2_2_IMAGE_TO_VIDEO_LORA_MODEL_ID;
-    if (model === "WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED")
-        return WAN_2_2_IMAGE_TO_VIDEO_MODEL_ID;
-    return KLING_VIDEO_MODEL_ID;
-}
-
-function mapDuration(duration?: number): number {
-    const numericDuration =
-        typeof duration === "string" ? Number.parseInt(duration, 10) : duration;
-
-    if (
-        typeof numericDuration === "number" &&
-        !Number.isNaN(numericDuration) &&
-        numericDuration >= 3 &&
-        numericDuration <= 10
-    ) {
-        return numericDuration;
-    }
-
-    return 5;
-}
-
-function mapDurationByModel(
-    model: GenerateParams["model"],
-    duration?: number,
-): number {
-    if (
-        model === "WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED" ||
-        model === "WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED"
-    ) {
-        return duration === 8 ? 8 : 5;
-    }
-
-    return mapDuration(duration);
-}
+import {
+    getWavespeedModelMapping,
+    resolveWavespeedEndpoint,
+    resolvePayloadFamily,
+} from "./payload-mapping";
+import {
+    buildWavespeedPayload,
+    type Wan2_2I2vPayload,
+    type Wan2_2I2vLoraPayload,
+    type KlingVideoO1Payload,
+} from "./payload-builders";
+import {
+    validatePayload,
+    createPreflightError,
+    logPreflightResult,
+    getInputCardinalityGuard,
+} from "./preflight-validation";
 
 async function uploadReferenceImages(
     uploader: Client,
     inputFiles: string[],
+    maxCount: number,
 ): Promise<string[]> {
-    const referenceImages = inputFiles.slice(0, 10);
+    const referenceImages = inputFiles.slice(0, maxCount);
     const tempFiles: string[] = [];
     const uploadedUrls: string[] = [];
 
@@ -134,35 +109,71 @@ export function createWavespeedVideoHandlers(options: {
         async generateVideo(
             params: GenerateParams,
         ): Promise<TaskCreatedResult> {
-            if (!params.inputFiles?.length) {
+            // Получаем mapping для модели
+            const mapping = getWavespeedModelMapping(params.model);
+            if (!mapping) {
                 throw new Error(
-                    "Wavespeed Kling Video O1 требует reference images",
+                    `Неизвестная модель Wavespeed: ${params.model}`,
                 );
             }
 
+            const { externalEndpoint, payloadFamily, inputCardinality } =
+                mapping;
+
+            // Input cardinality guard
+            if (inputCardinality.type === "image" && params.inputFiles) {
+                if (params.inputFiles.length < inputCardinality.min) {
+                    throw new Error(
+                        `Модель требует минимум ${inputCardinality.min} изображение(ий)`,
+                    );
+                }
+                if (params.inputFiles.length > inputCardinality.max) {
+                    throw new Error(
+                        `Модель поддерживает максимум ${inputCardinality.max} изображение(ий)`,
+                    );
+                }
+            }
+
+            // Загружаем reference images через uploader
             const imageUrls = await uploadReferenceImages(
                 uploader,
-                params.inputFiles,
+                params.inputFiles || [],
+                inputCardinality.max,
             );
-            if (!imageUrls.length) {
+            if (!imageUrls.length && inputCardinality.min > 0) {
                 throw new Error(
                     "Не удалось подготовить reference images для Wavespeed",
                 );
             }
 
-            const requestBody = {
-                prompt: params.prompt,
-                image: imageUrls[0],
-                images: imageUrls,
-                duration: mapDurationByModel(params.model, params.duration),
-                safety_checker: false,
-            };
-            const endpoint = resolveVideoModelEndpoint(params.model);
+            // Строим payload через typed builder
+            const payload = buildWavespeedPayload(params.model, {
+                ...params,
+                inputFiles: imageUrls,
+            });
 
-            const response = await fetch(`${baseURL}/${endpoint}`, {
+            // Preflight validation
+            const validation = validatePayload(params.model, payload);
+            logPreflightResult(
+                params.model,
+                externalEndpoint,
+                payloadFamily,
+                validation,
+            );
+
+            if (!validation.success) {
+                const error = createPreflightError(
+                    params.model,
+                    validation.errors,
+                );
+                throw new Error(`Payload validation failed: ${error.message}`);
+            }
+
+            // Отправляем запрос
+            const response = await fetch(`${baseURL}/${externalEndpoint}`, {
                 method: "POST",
                 headers: createWavespeedHeaders(apiKey),
-                body: JSON.stringify(requestBody),
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {

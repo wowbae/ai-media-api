@@ -9,14 +9,15 @@ import type { WavespeedConfig } from "./interfaces";
 import { createWavespeedImageHandlers } from "./image";
 import { resolveWavespeedBaseUrl } from "./shared";
 import { createWavespeedVideoHandlers } from "./video";
+import { WAVESPEED_MODEL_MAPPING } from "./payload-mapping";
 
 function isImageModel(model: string): boolean {
+    const mapping =
+        WAVESPEED_MODEL_MAPPING[model as keyof typeof WAVESPEED_MODEL_MAPPING];
     return (
-        model === "Z_IMAGE_TURBO_LORA_WAVESPEED" ||
-        model === "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED" ||
-        model === "Z_IMAGE_LORA_TRAINER_WAVESPEED" ||
-        model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED" ||
-        model === "SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED"
+        mapping?.payloadFamily.startsWith("z_image") === true ||
+        mapping?.payloadFamily.startsWith("qwen_image") === true ||
+        mapping?.payloadFamily.startsWith("seedream") === true
     );
 }
 

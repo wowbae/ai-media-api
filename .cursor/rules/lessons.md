@@ -357,3 +357,43 @@
 - Root cause: разрыв ответственности между "writeFile в хранилище" и последующей "upload/send" стадиями (downstream не гарантировал, что работает с очищенной версией).
 - Prevention rule: для любого генерируемого `IMAGE` делайте очистку метаданных _до_ сохранения в диск как point-of-truth, а все downstream-операции (imgbb/Telegram) должны брать данные из этого сохраненного артефакта.
 - Checklist item: "Очистка запускается в saveBufferToFile для jpeg/png, а upload в imgbb читает из сохраненного пути (savedFile.path), не из исходного буфера."
+
+## 2026-03-26 - Tailwind supports variant syntax
+
+- Context: линтер в `Header.tsx` предупреждал о Tailwind-классе с произвольным variant-синтаксисом `supports-[backdrop-filter]:...`.
+- Mistake: оставил класс в формате `supports-[backdrop-filter]:bg-...`, хотя линтер ожидает каноническую запись варианта.
+- Root cause: Tailwind v4 вариант `supports` имеет более короткую/каноническую форму без квадратных скобок.
+- Prevention rule: при подобных lint-предупреждениях предпочитать канонический вариант синтаксиса (без `[...]`) и сверяться с рекомендациями линтера/конфига.
+- Checklist item: "Перед завершением правок: прогон `ReadLints` и поправка Tailwind variant-синтаксиса по подсказкам".
+
+## 2026-03-26 - WAN 2.2 payload must match schema
+
+- Context: `WAN 2.2 Image-to-Video` в Wavespeed не ставил задачу в очередь; в итоге в логах нейронки задача не появлялась.
+- Mistake: в запрос для WAN 2.2 отправлялись лишние поля (`images`, `safety_checker`) и для LoRA-эндпоинта не передавались `loras`.
+- Root cause: request builder Wavespeed video-гейтил по model key не полностью и не сверялся со схемой конкретного endpoint-а (I2V 720p vs LoRA).
+- Prevention rule: для каждого external endpoint держать отдельный request builder (или явную ветку) с white-list полей ровно из документации; для LoRA-моделей обязательно прокидывать `loras[]`/`high_noise_loras`/`low_noise_loras` по контракту.
+- Checklist item: "Перед релизом WAN/LoRA: сравнить payload с таблицами docs (image/prompt/duration + endpoint-specific поля) и убедиться, что нет unknown keys".
+
+## 2026-03-26 - Systematic payload mapping by model->endpoint
+
+- Context: после исправления Wavespeed WAN 2.2 стало видно, что корневая проблема повторяема: общий `GenerateParams` и "manual" сборка payload в провайдере легко расходятся с контрактом конкретного endpoint-а.
+- Mistake: полагаться на capability-флаги/опциональные поля и собирать request body "вручную" без формального mapping'а (модель -> endpoint -> payload schema).
+- Root cause: отсутствовала единая контрактная прослойка, которая гарантирует соответствие keys/required fields именно тому внешнему endpoint-у, куда уходит `fetch`.
+- Prevention rule: внедрить системный механизм mapping'а:
+  `modelKey -> externalEndpoint -> payloadSchema -> typed payloadBuilder -> preflight validation before fetch`.
+  Любые payload keys должны быть white-list'ом схемы конкретного endpoint-а.
+- Checklist item: "Перед отправкой в провайдер: пройден preflight (required поля, duration/range, cardinality, отсутствие unknown keys) + логирование modelKey/externalEndpoint/validationPhase".
+
+## 2026-03-26 - Payload mapping mechanism implementation
+
+- Context: реализация плана перехода на системный Payload-Mapping механизм для устранения проблем "запрос уходит в неверный endpoint/с неверным request body".
+- Mistake: можно попытаться сделать partial implementation только для одного family моделей, но это создаст inconsistency в коде.
+- Root cause: отсутствие полной архитектурной прослойки для всех моделей провайдера ведет к смешению старого и нового подходов.
+- Prevention rule: при внедрении payload mapping mechanism создавать полную инфраструктуру сразу для всех моделей провайдера:
+    1. Registry (modelKey -> endpoint + payloadFamily + inputCardinality)
+    2. Payload schemas (required/optional fields + validations)
+    3. Typed builders (один builder на payload family)
+    4. Preflight validation (required check, type check, range/enum check, cardinality guard)
+    5. Unified error mapping (preflight vs submit phases)
+    6. Logging (modelKey, endpoint, payloadFamily, validation status)
+- Checklist item: "Payload mapping mechanism внедрен для всех моделей провайдера единовременно, старый код с manual payload сборкой удален".

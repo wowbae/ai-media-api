@@ -24,3 +24,7 @@
 - [x] Добавить модель `WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED` (`wavespeed-ai/wan-2.2/i2v-720p`) в backend/frontend конфиги и allowlist `ai-model`.
 - [x] Смягчить UX для отмененных запросов (`AbortError`/`aborted`) в `use-chat-input-submit`: не показывать generic alert, отдавать понятное сообщение и разрешать повторную отправку.
 - [x] Исправить `duration` для WAN 2.2 (Wavespeed): отправлять только допустимые значения `[5, 8]` на backend и ограничить UI-опции теми же значениями.
+
+## 2026-03-26
+
+- [x] Исправить request payload Wavespeed WAN 2.2: убрать лишние поля (`images`, `safety_checker`) и для LoRA эндпоинта добавить `loras`.

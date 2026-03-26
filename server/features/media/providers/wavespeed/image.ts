@@ -22,178 +22,29 @@ import {
     parseWavespeedError,
     fetchPredictionResultByUrl,
 } from "./shared";
+import {
+    getWavespeedModelMapping,
+    resolveWavespeedEndpoint,
+    resolvePayloadFamily,
+} from "./payload-mapping";
+import {
+    buildWavespeedPayload,
+    type ZImageTurboLoraPayload,
+    type ZImageI2iLoraPayload,
+    type ZImageLoraTrainerPayload,
+    type QwenImageEditPayload,
+    type SeedreamV4_5EditPayload,
+} from "./payload-builders";
+import {
+    validatePayload,
+    createPreflightError,
+    logPreflightResult,
+    getInputCardinalityGuard,
+    validateLoraInputs,
+} from "./preflight-validation";
 import { getMediaPublicBaseUrl } from "../../config";
 
-const Z_IMAGE_TURBO_LORA_MODEL_ID = "wavespeed-ai/z-image/turbo-lora";
-const Z_IMAGE_TURBO_IMAGE_TO_IMAGE_MODEL_ID =
-    "wavespeed-ai/z-image-turbo/image-to-image-lora";
-const Z_IMAGE_LORA_TRAINER_MODEL_ID = "wavespeed-ai/z-image-lora-trainer";
-const QWEN_IMAGE_2_0_PRO_EDIT_MODEL_ID = "wavespeed-ai/qwen-image-2.0-pro/edit";
-const SEEDREAM_V4_5_EDIT_SEQUENTIAL_MODEL_ID =
-    "bytedance/seedream-v4.5/edit-sequential";
 const MAX_TRAINER_ZIP_SIZE_BYTES = 50 * 1024 * 1024;
-
-const ASPECT_RATIO_TO_SIZE: Record<string, string> = {
-    "1:1": "1024*1024",
-    "16:9": "1280*720",
-    "9:16": "720*1280",
-    "4:3": "1024*768",
-    "3:4": "768*1024",
-    "3:2": "1152*768",
-    "2:3": "768*1152",
-};
-
-// Seedream v4.5 edit-sequential требует минимум 3,686,400 пикселей.
-// Подбираем размеры выше этого порога для всех поддерживаемых аспектов.
-const SEEDREAM_SEQUENTIAL_ASPECT_RATIO_TO_SIZE: Record<string, string> = {
-    "1:1": "2048*2048",
-    "16:9": "2560*1440",
-    "9:16": "1440*2560",
-    "4:3": "2304*1728",
-    "3:4": "1728*2304",
-    "3:2": "2496*1664",
-    "2:3": "1664*2496",
-    "21:9": "2940*1260",
-};
-
-function parseSeed(seed?: string | number): number | undefined {
-    if (seed === undefined || seed === null || String(seed).trim() === "") {
-        return undefined;
-    }
-
-    const parsed = typeof seed === "number" ? seed : Number.parseInt(seed, 10);
-    if (Number.isNaN(parsed)) return undefined;
-    return parsed;
-}
-
-function normalizePublicMediaFileUrl(rawPath: string): string {
-    const mediaPrefix = "/media-files/";
-    const publicBaseUrl = getMediaPublicBaseUrl();
-
-    if (rawPath.startsWith(mediaPrefix)) return `${publicBaseUrl}${rawPath}`;
-
-    try {
-        const parsed = new URL(rawPath);
-        if (parsed.pathname.startsWith(mediaPrefix)) {
-            return `${publicBaseUrl}${parsed.pathname}`;
-        }
-    } catch {
-        // not an absolute URL, keep as is
-    }
-
-    return rawPath;
-}
-
-function buildTurboLoraRequest(
-    params: GenerateParams,
-): WavespeedImageTaskRequest {
-    const mappedSize = params.aspectRatio
-        ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
-        : undefined;
-
-    return {
-        prompt: params.prompt,
-        size: mappedSize || ASPECT_RATIO_TO_SIZE["1:1"],
-        seed: parseSeed(params.seed),
-        safety_checker: false,
-        loras: params.loras?.slice(0, 3).map((lora) => ({
-            path: normalizePublicMediaFileUrl(lora.path),
-            scale: lora.scale,
-        })),
-    };
-}
-
-function buildImageToImageRequest(
-    params: GenerateParams,
-): WavespeedImageTaskRequest {
-    const mappedSize = params.aspectRatio
-        ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
-        : undefined;
-    const firstInput = params.inputFiles?.[0];
-    if (!firstInput) {
-        throw new Error(
-            "Для Wavespeed Z-Image Turbo Image-to-Image нужно входное изображение",
-        );
-    }
-    const normalizedInput = normalizePublicMediaFileUrl(firstInput);
-
-    return {
-        prompt: params.prompt,
-        image: normalizedInput,
-        images: [normalizedInput],
-        size: mappedSize || ASPECT_RATIO_TO_SIZE["1:1"],
-        seed: parseSeed(params.seed),
-        safety_checker: false,
-    };
-}
-
-function buildSeedreamSequentialEditRequest(
-    params: GenerateParams,
-): WavespeedImageTaskRequest {
-    const mappedSize = params.aspectRatio
-        ? SEEDREAM_SEQUENTIAL_ASPECT_RATIO_TO_SIZE[params.aspectRatio]
-        : undefined;
-    const normalizedInputs = (params.inputFiles || []).map((input) =>
-        normalizePublicMediaFileUrl(input),
-    );
-
-    if (!normalizedInputs.length) {
-        throw new Error(
-            "Для Seedream V4.5 Edit Sequential нужно минимум одно входное изображение",
-        );
-    }
-
-    return {
-        prompt: params.prompt,
-        image: normalizedInputs[0],
-        images: normalizedInputs,
-        size: mappedSize || SEEDREAM_SEQUENTIAL_ASPECT_RATIO_TO_SIZE["1:1"],
-        seed: parseSeed(params.seed),
-        safety_checker: false,
-    };
-}
-
-interface WavespeedLoraTrainerRequest {
-    data: string;
-    trigger_word?: string;
-    steps?: number;
-    learning_rate?: number;
-    lora_rank?: number;
-    safety_checker: boolean;
-}
-
-async function validateRemoteLoraUrl(url: string): Promise<void> {
-    const methods: Array<"HEAD" | "GET"> = ["HEAD", "GET"];
-
-    for (const method of methods) {
-        const response = await fetch(url, { method });
-        if (response.ok) return;
-        if (response.status !== 405) {
-            throw new Error(
-                `LoRA URL недоступен (${response.status} ${response.statusText}): ${url}`,
-            );
-        }
-    }
-
-    throw new Error(`LoRA URL не поддерживает HEAD/GET: ${url}`);
-}
-
-async function validateLoraInputs(
-    loras?: Array<{ path: string }>,
-): Promise<void> {
-    if (!loras?.length) return;
-
-    await Promise.all(
-        loras.map(async (lora) => {
-            if (
-                lora.path.startsWith("http://") ||
-                lora.path.startsWith("https://")
-            ) {
-                await validateRemoteLoraUrl(lora.path);
-            }
-        }),
-    );
-}
 
 function parseZipBase64(input: string): Buffer {
     const matches = input.match(/^data:application\/zip;base64,(.+)$/);
@@ -233,39 +84,6 @@ async function uploadTrainerArchive(
     }
 }
 
-async function buildLoraTrainerRequest(
-    params: GenerateParams,
-    uploader: Client,
-): Promise<WavespeedLoraTrainerRequest> {
-    const archiveInput = params.inputFiles?.[0];
-    if (!archiveInput) {
-        throw new Error(
-            "Для Z-Image LoRA Trainer требуется ZIP-архив датасета в inputFiles[0]",
-        );
-    }
-
-    const uploadedArchiveUrl = await uploadTrainerArchive(
-        uploader,
-        archiveInput,
-    );
-    const settings = params as GenerateParams & {
-        triggerWord?: string;
-        trainingSteps?: number;
-        learningRate?: number;
-        loraRank?: number;
-    };
-
-    return {
-        data: uploadedArchiveUrl,
-        trigger_word:
-            settings.triggerWord || params.prompt?.trim() || undefined,
-        steps: settings.trainingSteps,
-        learning_rate: settings.learningRate,
-        lora_rank: settings.loraRank,
-        safety_checker: false,
-    };
-}
-
 export function createWavespeedImageHandlers(options: {
     apiKey: string;
     baseURL: string;
@@ -279,47 +97,80 @@ export function createWavespeedImageHandlers(options: {
         async generateImage(
             params: GenerateParams,
         ): Promise<TaskCreatedResult> {
-            const isImageToImageModel =
-                params.model === "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED" ||
-                params.model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED";
-            const isSeedreamSequentialModel =
-                params.model === "SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED";
-            const isLoraTrainerModel =
-                params.model === "Z_IMAGE_LORA_TRAINER_WAVESPEED";
-            const requestBody:
-                | WavespeedImageTaskRequest
-                | WavespeedLoraTrainerRequest = isLoraTrainerModel
-                ? await buildLoraTrainerRequest(params, uploader)
-                : isSeedreamSequentialModel
-                  ? buildSeedreamSequentialEditRequest(params)
-                  : isImageToImageModel
-                    ? buildImageToImageRequest(params)
-                    : buildTurboLoraRequest(params);
-            if (!isLoraTrainerModel && "loras" in requestBody) {
-                await validateLoraInputs(requestBody.loras);
-            }
-            const endpoint =
-                params.model === "Z_IMAGE_LORA_TRAINER_WAVESPEED"
-                    ? Z_IMAGE_LORA_TRAINER_MODEL_ID
-                    : params.model === "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED"
-                      ? QWEN_IMAGE_2_0_PRO_EDIT_MODEL_ID
-                      : isSeedreamSequentialModel
-                        ? SEEDREAM_V4_5_EDIT_SEQUENTIAL_MODEL_ID
-                        : isImageToImageModel
-                          ? Z_IMAGE_TURBO_IMAGE_TO_IMAGE_MODEL_ID
-                          : Z_IMAGE_TURBO_LORA_MODEL_ID;
-
-            if (
-                !isLoraTrainerModel &&
-                (!("prompt" in requestBody) || !requestBody.prompt?.trim())
-            ) {
-                throw new Error("Для Wavespeed Z-Image требуется prompt");
+            // Получаем mapping для модели
+            const mapping = getWavespeedModelMapping(params.model);
+            if (!mapping) {
+                throw new Error(
+                    `Неизвестная модель Wavespeed: ${params.model}`,
+                );
             }
 
-            const response = await fetch(`${baseURL}/${endpoint}`, {
+            const { externalEndpoint, payloadFamily, inputCardinality } =
+                mapping;
+
+            // Input cardinality guard
+            if (inputCardinality.type === "image" && params.inputFiles) {
+                if (params.inputFiles.length < inputCardinality.min) {
+                    throw new Error(
+                        `Модель требует минимум ${inputCardinality.min} изображение(ий)`,
+                    );
+                }
+                if (params.inputFiles.length > inputCardinality.max) {
+                    throw new Error(
+                        `Модель поддерживает максимум ${inputCardinality.max} изображение(ий)`,
+                    );
+                }
+            }
+
+            // Для LoRA Trainer загружаем архив
+            let uploadedArchiveUrl: string | undefined;
+            if (inputCardinality.type === "zip") {
+                const archiveInput = params.inputFiles?.[0];
+                if (!archiveInput) {
+                    throw new Error(
+                        "Для Z-Image LoRA Trainer требуется ZIP-архив датасета в inputFiles[0]",
+                    );
+                }
+                uploadedArchiveUrl = await uploadTrainerArchive(
+                    uploader,
+                    archiveInput,
+                );
+            }
+
+            // Строим payload через typed builder
+            const payload = buildWavespeedPayload(
+                params.model,
+                params,
+                uploadedArchiveUrl,
+            );
+
+            // Preflight validation
+            const validation = validatePayload(params.model, payload);
+            logPreflightResult(
+                params.model,
+                externalEndpoint,
+                payloadFamily,
+                validation,
+            );
+
+            if (!validation.success) {
+                const error = createPreflightError(
+                    params.model,
+                    validation.errors,
+                );
+                throw new Error(`Payload validation failed: ${error.message}`);
+            }
+
+            // Валидация LoRA URL (preflight для remote assets)
+            if ("loras" in payload && Array.isArray(payload.loras)) {
+                await validateLoraInputs(payload.loras);
+            }
+
+            // Отправляем запрос
+            const response = await fetch(`${baseURL}/${externalEndpoint}`, {
                 method: "POST",
                 headers: createWavespeedHeaders(apiKey),
-                body: JSON.stringify(requestBody),
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {

@@ -32,6 +32,7 @@ export {
     useGetChatQuery,
     useGetPricingQuery,
     useGetKieCreditsQuery,
+    useGetWavespeedBalanceQuery,
     useCreateChatMutation,
     useUpdateChatMutation,
     useDeleteChatMutation,

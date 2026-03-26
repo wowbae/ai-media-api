@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from '@tanstack/react-router';
-import { useSelector, useDispatch } from 'react-redux';
-import { selectIsAuthenticated, selectCurrentUser, logout } from '@/redux/auth-slice';
-import { KieCredits } from './KieCredits';
-import { openTelegramBot } from '@/lib/telegram-utils';
-import { LinkIcon } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { Link, useLocation } from "@tanstack/react-router";
+import { useSelector, useDispatch } from "react-redux";
+import {
+    selectIsAuthenticated,
+    selectCurrentUser,
+    logout,
+} from "@/redux/auth-slice";
+import { KieCredits } from "./KieCredits";
+import { WavespeedBalance } from "./WavespeedBalance";
+import { openTelegramBot } from "@/lib/telegram-utils";
+import { LinkIcon } from "lucide-react";
 
 export const Header = () => {
     const [isMounted, setIsMounted] = useState(false);
@@ -19,31 +24,31 @@ export const Header = () => {
     }, []);
 
     // Проверяем, находимся ли мы на странице /media
-    const isOnMediaPage = location.pathname.startsWith('/media');
+    const isOnMediaPage = location.pathname.startsWith("/media");
 
     function handleTelegramLink(e: React.MouseEvent<HTMLButtonElement>) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('Telegram button clicked', { user, userId: user?.id });
+        console.log("Telegram button clicked", { user, userId: user?.id });
         if (!user) {
-            console.warn('User not found in Redux store');
+            console.warn("User not found in Redux store");
             return;
         }
         if (user.id) {
             openTelegramBot(user.id);
         } else {
-            console.warn('User ID not found in user object:', user);
+            console.warn("User ID not found in user object:", user);
         }
     }
 
     const handleLogout = () => {
         dispatch(logout());
         // Reload to clear potential cache issues or redirect
-        window.location.href = '/login';
+        window.location.href = "/login";
     };
 
     return (
-        <header className='fixed top-0 z-50 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur supports-[backdrop-filter]:bg-slate-950/60'>
+        <header className='fixed top-0 z-50 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur supports-backdrop-filter:bg-slate-950/60'>
             <div className='flex h-14 w-full items-center justify-between px-4'>
                 <div className='flex items-center gap-2'>
                     <img
@@ -75,6 +80,7 @@ export const Header = () => {
                     ) : isAuthenticated ? (
                         <>
                             <KieCredits />
+                            <WavespeedBalance />
                             {!isOnMediaPage && (
                                 <Link
                                     to='/media'

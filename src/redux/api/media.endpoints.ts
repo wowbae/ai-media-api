@@ -47,6 +47,16 @@ export const mediaEndpoints = baseApi.injectEndpoints({
             providesTags: [{ type: "Model", id: "KIE_CREDITS" }],
         }),
 
+        // Баланс Wavespeed (GET https://api.wavespeed.ai/api/v3/balance)
+        getWavespeedBalance: build.query<number | null, void>({
+            query: () => "/wavespeed-balance",
+            transformResponse: (response: {
+                success: boolean;
+                balance: number | null;
+            }) => (response.success ? response.balance : null),
+            providesTags: [{ type: "Model", id: "WAVESPEED_BALANCE" }],
+        }),
+
         // Получить все чаты
         getChats: build.query<
             MediaChat[],
@@ -593,6 +603,7 @@ export const {
     useGetChatQuery,
     useGetPricingQuery,
     useGetKieCreditsQuery,
+    useGetWavespeedBalanceQuery,
     useCreateChatMutation,
     useUpdateChatMutation,
     useDeleteChatMutation,
