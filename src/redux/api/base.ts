@@ -43,7 +43,7 @@ export type RequestStatus =
     | "COMPLETING"
     | "COMPLETED"
     | "FAILED";
-export type MediaProviderType = "gptunnel" | "laozhang" | "kieai" | "wavespeed";
+export type MediaProviderType = "laozhang" | "kieai" | "wavespeed";
 
 // ==================== Интерфейсы сущностей ====================
 

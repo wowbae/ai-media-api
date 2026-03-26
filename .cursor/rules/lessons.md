@@ -384,6 +384,14 @@
   Любые payload keys должны быть white-list'ом схемы конкретного endpoint-а.
 - Checklist item: "Перед отправкой в провайдер: пройден preflight (required поля, duration/range, cardinality, отсутствие unknown keys) + логирование modelKey/externalEndpoint/validationPhase".
 
+## 2026-03-26 - Apply mapping to every active provider
+
+- Context: payload-mapping был внедрён в Wavespeed, но остальные активные провайдеры (`kieai`, `laozhang`) продолжали собирать payload без схемы/white-list и без preflight, что сохраняло риск “лишних/недостающих полей”.
+- Mistake: считать задачу решённой после фикса одного провайдера, оставляя остальные провайдеры с прежним “manual payload” подходом.
+- Root cause: отсутствие инвентаризации “какие провайдеры реально используются в `MEDIA_MODELS`” перед завершением миграции.
+- Prevention rule: миграцию payload-mapping закрывать только после покрытия всех провайдеров, на которые реально ссылается `MEDIA_MODELS[*].provider`; провайдеры без моделей либо удалять, либо явно помечать как неактивные.
+- Checklist item: "Перед завершением: `rg \"provider: \\\"<provider>\\\"\" server/features/media/config.ts` подтверждает, что каждый активный provider имеет mapping+preflight слой".
+
 ## 2026-03-26 - Payload mapping mechanism implementation
 
 - Context: реализация плана перехода на системный Payload-Mapping механизм для устранения проблем "запрос уходит в неверный endpoint/с неверным request body".

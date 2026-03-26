@@ -6,26 +6,26 @@
 
 ### Шаг 1: Исследование документации API
 
-1. **Изучите документацию провайдера** (например, kie.ai, gptunnel.ru, и т.д.)
+1. **Изучите документацию провайдера** (например, kie.ai, wavespeed.ai, и т.д.)
 2. **Найдите точные названия моделей** для API запросов:
-   - Откройте playground провайдера
-   - Используйте DevTools (Network tab) для перехвата запросов
-   - Найдите поле `model` в JSON запросах
-   - Запишите точное значение (например, `"seedream/5.0-text-to-image"`)
+    - Откройте playground провайдера
+    - Используйте DevTools (Network tab) для перехвата запросов
+    - Найдите поле `model` в JSON запросах
+    - Запишите точное значение (например, `"seedream/5.0-text-to-image"`)
 3. **Определите параметры модели**:
-   - Тип: IMAGE / VIDEO / AUDIO
-   - Поддерживаемые форматы (aspect ratios)
-   - Настройки качества
-   - Длительность (для видео)
-   - Поддержка image-to-* (загрузка изображений)
-   - Специфичные параметры (sound, mode, multi_shots, и т.д.)
+    - Тип: IMAGE / VIDEO / AUDIO
+    - Поддерживаемые форматы (aspect ratios)
+    - Настройки качества
+    - Длительность (для видео)
+    - Поддержка image-to-\* (загрузка изображений)
+    - Специфичные параметры (sound, mode, multi_shots, и т.д.)
 4. **Запишите эндпоинты API**:
-   - Создание задачи: `POST /api/v1/jobs/createTask`
-   - Проверка статуса: `GET /api/v1/jobs/recordInfo?taskId={id}`
+    - Создание задачи: `POST /api/v1/jobs/createTask`
+    - Проверка статуса: `GET /api/v1/jobs/recordInfo?taskId={id}`
 5. **Формат ответа API**:
-   - Структура ответа при создании задачи
-   - Структура ответа при проверке статуса
-   - Маппинг статусов (waiting/queuing/generating/success/fail)
+    - Структура ответа при создании задачи
+    - Структура ответа при проверке статуса
+    - Маппинг статусов (waiting/queuing/generating/success/fail)
 
 ---
 
@@ -53,26 +53,26 @@ export type KieAiNewModelDuration = 3 | 5 | 10 | 15;
 
 // Запрос Text-to-Image/Video
 export interface KieAiNewModelTextToXRequest {
-  model: "new-model/text-to-x";  // ← ТОЧНОЕ название из API
-  callBackUrl?: string;
-  input: {
-    prompt: string;
-    aspect_ratio?: KieAiNewModelAspectRatio;
-    quality?: KieAiNewModelQuality;
-    duration?: KieAiNewModelDuration;
-    // другие параметры
-  };
+    model: "new-model/text-to-x"; // ← ТОЧНОЕ название из API
+    callBackUrl?: string;
+    input: {
+        prompt: string;
+        aspect_ratio?: KieAiNewModelAspectRatio;
+        quality?: KieAiNewModelQuality;
+        duration?: KieAiNewModelDuration;
+        // другие параметры
+    };
 }
 
 // Запрос Image-to-Image/Video
 export interface KieAiNewModelImageToXRequest {
-  model: "new-model/image-to-x";  // ← ТОЧНОЕ название из API
-  callBackUrl?: string;
-  input: {
-    prompt: string;
-    image_urls: string[];
-    // другие параметры
-  };
+    model: "new-model/image-to-x"; // ← ТОЧНОЕ название из API
+    callBackUrl?: string;
+    input: {
+        prompt: string;
+        image_urls: string[];
+        // другие параметры
+    };
 }
 ```
 
@@ -122,7 +122,7 @@ export function createKieAiNewModelProvider(config: KieAiConfig): MediaProvider 
   async function createTask(params: GenerateParams): Promise<{ taskId: string }> {
     // 1. Определить режим (text-to-x или image-to-x)
     const isImageToX = params.inputFiles && params.inputFiles.length > 0;
-    
+
     // 2. Подготовить параметры
     // 3. Загрузить изображения на imgbb если нужно
     // 4. Сформировать requestBody с ТОЧНЫМ названием модели
@@ -130,7 +130,7 @@ export function createKieAiNewModelProvider(config: KieAiConfig): MediaProvider 
       model: "new-model/text-to-x",  // ← ВСТАВИТЬ ТОЧНОЕ НАЗВАНИЕ
       input: { ... }
     };
-    
+
     // 5. Отправить запрос
     const response = await fetch(`${baseURL}/api/v1/jobs/createTask`, {
       method: "POST",
@@ -140,13 +140,13 @@ export function createKieAiNewModelProvider(config: KieAiConfig): MediaProvider 
       },
       body: JSON.stringify(requestBody),
     });
-    
+
     // 6. Обработать ответ
     const responseData = await response.json();
     if (responseData.code !== 200) {
       throw new Error(`Kie.ai API error: ${responseData.code} - ${responseData.msg}`);
     }
-    
+
     return { taskId: responseData.data.taskId };
   }
 
@@ -160,11 +160,11 @@ export function createKieAiNewModelProvider(config: KieAiConfig): MediaProvider 
       `${baseURL}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
       { method: "GET", headers: { Authorization: `Bearer ${apiKey}` } }
     );
-    
+
     // 2. Распарсить resultJson для получения URL
     const taskData = response.data;
     const resultUrls = JSON.parse(taskData.resultJson).resultUrls || [];
-    
+
     return {
       status: taskData.state,
       resultUrls,
@@ -184,7 +184,7 @@ export function createKieAiNewModelProvider(config: KieAiConfig): MediaProvider 
     async checkTaskStatus(taskId: string): Promise<TaskStatusResult> {
       const result = await getTaskResultFromAPI(taskId);
       const mappedStatus = KIEAI_STATUS_MAP[result.status] || "pending";
-      
+
       return {
         status: mappedStatus,
         url: result.resultUrls?.[0],
@@ -194,17 +194,17 @@ export function createKieAiNewModelProvider(config: KieAiConfig): MediaProvider 
 
     async getTaskResult(taskId: string): Promise<SavedFileInfo[]> {
       const result = await getTaskResultFromAPI(taskId);
-      
+
       if (result.status !== "success" || !result.resultUrls?.length) {
         throw new Error(`Task not completed: status=${result.status}`);
       }
-      
+
       const files: SavedFileInfo[] = [];
       for (const url of result.resultUrls) {
         const savedFile = await saveFileFromUrl(url);
         files.push(savedFile);
       }
-      
+
       return files;
     },
   };
@@ -260,13 +260,16 @@ NEW_MODEL_KIEAI: {
 import {
     // ... другие импорты
     createKieAiNewModelProvider,
-} from './kieai';
+} from "./kieai";
 ```
 
 2. **Добавьте в `KIEAI_MODEL_FACTORIES`**:
 
 ```typescript
-const KIEAI_MODEL_FACTORIES: Record<string, (config: KieAiConfig) => MediaProvider> = {
+const KIEAI_MODEL_FACTORIES: Record<
+    string,
+    (config: KieAiConfig) => MediaProvider
+> = {
     // ... другие модели
     NEW_MODEL_KIEAI: createKieAiNewModelProvider,
 };
@@ -282,19 +285,19 @@ const KIEAI_MODEL_FACTORIES: Record<string, (config: KieAiConfig) => MediaProvid
 
 ```typescript
 export type MediaModel =
-    | 'MIDJOURNEY'
-    | 'KLING_2_6_KIEAI'
-    | 'NEW_MODEL_KIEAI'  // ← ДОБАВИТЬ
-    | 'SEEDREAM_4_5_KIEAI'
-    // ... другие
+    | "MIDJOURNEY"
+    | "KLING_2_6_KIEAI"
+    | "NEW_MODEL_KIEAI" // ← ДОБАВИТЬ
+    | "SEEDREAM_4_5_KIEAI";
+// ... другие
 ```
 
 Добавьте параметры в `GenerateMediaRequest` (если нужны новые):
 
 ```typescript
 export interface GenerateMediaRequest {
-  // ... существующие параметры
-  newModelParam?: string;  // ← Специфичные параметры модели
+    // ... существующие параметры
+    newModelParam?: string; // ← Специфичные параметры модели
 }
 ```
 
@@ -308,10 +311,10 @@ export interface GenerateMediaRequest {
 
 ```typescript
 export type MediaModel =
-    | 'MIDJOURNEY'
-    | 'NEW_MODEL_KIEAI'  // ← ДОБАВИТЬ
-    | 'SEEDREAM_4_5_KIEAI'
-    // ... другие
+    | "MIDJOURNEY"
+    | "NEW_MODEL_KIEAI" // ← ДОБАВИТЬ
+    | "SEEDREAM_4_5_KIEAI";
+// ... другие
 ```
 
 ---
@@ -325,7 +328,7 @@ export type MediaModel =
 ```typescript
 export interface ModelConfig {
     // ... существующие флаги
-    isNewModel: boolean;  // ← Новый флаг
+    isNewModel: boolean; // ← Новый флаг
     // ...
 }
 ```
@@ -380,12 +383,12 @@ const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
     // ... другие модели
     NEW_MODEL_KIEAI: {
         format: {
-            options: FORMAT_OPTIONS_SEEDREAM,  // или свои
-            defaultValue: '9:16',
+            options: FORMAT_OPTIONS_SEEDREAM, // или свои
+            defaultValue: "9:16",
         },
         quality: {
-            options: QUALITY_OPTIONS_SEEDREAM,  // или свои
-            defaultValue: '4k',
+            options: QUALITY_OPTIONS_SEEDREAM, // или свои
+            defaultValue: "4k",
         },
         // другие настройки
     },
@@ -403,7 +406,7 @@ const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
 ```typescript
 const MODEL_ICONS: Record<string, string> = {
     // ... другие
-    NEW_MODEL_KIEAI: '🆕',  // ← Свой эмодзи
+    NEW_MODEL_KIEAI: "🆕", // ← Свой эмодзи
 };
 ```
 
@@ -417,11 +420,16 @@ const MODEL_ICONS: Record<string, string> = {
 
 ```typescript
 // Валидация для New Model Edit: максимум N файлов
-if (params.modelType.isNewModel && params.attachedFiles.length > (params.modelType.maxInputFiles || 0)) {
+if (
+    params.modelType.isNewModel &&
+    params.attachedFiles.length > (params.modelType.maxInputFiles || 0)
+) {
     submitInProgressRef.current = false;
     setIsSubmitting(false);
     if (onSendError) {
-        onSendError(`New Model поддерживает максимум ${params.modelType.maxInputFiles} файлов`);
+        onSendError(
+            `New Model поддерживает максимум ${params.modelType.maxInputFiles} файлов`,
+        );
     }
     return;
 }
@@ -436,12 +444,16 @@ if (params.modelType.isNewModel && params.attachedFiles.length > (params.modelTy
 Добавьте подсказку:
 
 ```tsx
-{/* Подсказка для New Model Edit */}
-{modelType.isNewModel && modelType.maxInputFiles && (
-    <p className='mb-2 text-xs text-muted-foreground'>
-        New Model поддерживает до {modelType.maxInputFiles} изображений
-    </p>
-)}
+{
+    /* Подсказка для New Model Edit */
+}
+{
+    modelType.isNewModel && modelType.maxInputFiles && (
+        <p className='mb-2 text-xs text-muted-foreground'>
+            New Model поддерживает до {modelType.maxInputFiles} изображений
+        </p>
+    );
+}
 ```
 
 ---
@@ -449,26 +461,29 @@ if (params.modelType.isNewModel && params.attachedFiles.length > (params.modelTy
 ### Шаг 14: Проверка и тестирование
 
 1. **TypeScript компиляция**:
-   ```bash
-   npx tsc --noEmit
-   ```
-   Убедитесь, что нет ошибок!
+
+    ```bash
+    npx tsc --noEmit
+    ```
+
+    Убедитесь, что нет ошибок!
 
 2. **Сборка проекта**:
-   ```bash
-   npm run build
-   ```
+
+    ```bash
+    npm run build
+    ```
 
 3. **Тестирование генерации**:
-   - Запустите проект: `npm run dev`
-   - Выберите новую модель в UI
-   - Отправьте запрос на генерацию
-   - Проверьте логи на ошибки
+    - Запустите проект: `npm run dev`
+    - Выберите новую модель в UI
+    - Отправьте запрос на генерацию
+    - Проверьте логи на ошибки
 
 4. **Проверка логов**:
-   - Смотрите логи создания задачи
-   - Проверьте маппинг статусов
-   - Убедитесь, что файлы скачиваются
+    - Смотрите логи создания задачи
+    - Проверьте маппинг статусов
+    - Убедитесь, что файлы скачиваются
 
 ---
 
@@ -479,6 +494,7 @@ if (params.modelType.isNewModel && params.attachedFiles.length > (params.modelTy
 **Проблема**: Неверное название модели в поле `model:` запроса.
 
 **Решение**:
+
 1. Откройте playground провайдера
 2. Откройте DevTools → Network
 3. Отправьте тестовый запрос
@@ -486,12 +502,14 @@ if (params.modelType.isNewModel && params.attachedFiles.length > (params.modelTy
 5. Используйте ТОЧНО ЭТО значение
 
 **Примеры правильных названий для Kie.ai**:
+
 - Kling 3.0: `"kling-3.0/video"` (единый для text и image)
 - Seedream 5.0: `"seedream/5-lite-text-to-image"`, `"seedream/5-lite-image-to-image"`
 - Seedream 4.5: `"seedream/4.5-text-to-image"`, `"seedream/4.5-edit"`
 - Kling 2.6: `"kling-2.6/text-to-video"`, `"kling-2.6/image-to-video"`
 
-**Важно**: 
+**Важно**:
+
 - duration для Kling 3.0 передается как строка `"5"`, а не число `5`
 - Kling 3.0 использует единый model для всех типов: `"kling-3.0/video"`
 
@@ -512,6 +530,7 @@ if (params.modelType.isNewModel && params.attachedFiles.length > (params.modelTy
 **Проблема**: Неверная структура запроса или параметры.
 
 **Решение**:
+
 1. Проверьте названия полей (aspect_ratio vs aspectRatio)
 2. Проверьте типы данных (строки vs числа)
 3. Сравните с рабочими моделями

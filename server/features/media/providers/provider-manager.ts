@@ -1,7 +1,6 @@
 // Менеджер провайдеров - фабрика и маппинг моделей на провайдеры
 import type { MediaModel } from "../config";
 import type { MediaProvider } from "./interfaces";
-import { createGPTunnelMediaProvider } from "./gptunnel";
 import { createLaoZhangProvider } from "./laozhang";
 import { createUnifiedKieAiProvider } from "./kieai/unified-provider";
 import type { KieAiConfig } from "./kieai/interfaces";
@@ -29,18 +28,6 @@ export interface ProviderManager {
 export function createProviderManager(): ProviderManager {
     // Создаём провайдеры
     const providers: Record<string, MediaProvider> = {};
-
-    // GPTunnel провайдеры
-    const gptunnelApiKey = process.env.GPTUNNEL_API_KEY || "";
-    if (gptunnelApiKey) {
-        const gptunnelConfig = {
-            apiKey: gptunnelApiKey,
-            baseURL: "https://gptunnel.ru",
-        };
-
-        // Media провайдер (для Veo 3.1 Fast и других моделей /v1/media API)
-        providers.gptunnel = createGPTunnelMediaProvider(gptunnelConfig);
-    }
 
     // Единый Kie.ai провайдер для всех kieai-моделей
     const kieaiApiKey = process.env.KIEAI_API_KEY || "";

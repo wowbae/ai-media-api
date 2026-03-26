@@ -523,8 +523,6 @@ server/features/media/
 │   │   ├── unified-provider.ts    # ← НОВЫЙ: 1 провайдер вместо 14
 │   │   ├── interfaces.ts          # ← УПРОЩЁННЫЙ: 50 строк вместо 400
 │   │   └── mappers.ts             # Helper функции маппинга
-│   ├── gptunnel/
-│   │   └── ...
 │   └── laozhang/
 │       └── ...
 ├── media-processor.ts             # ← НОВЫЙ: единый процессор

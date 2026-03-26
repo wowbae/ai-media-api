@@ -2,7 +2,7 @@
 // Единственный источник истины для всех провайдеров
 import "dotenv/config";
 
-export type MediaProviderType = "gptunnel" | "laozhang" | "kieai" | "wavespeed";
+export type MediaProviderType = "laozhang" | "kieai" | "wavespeed";
 
 export interface MediaModelConfig {
     id: string;

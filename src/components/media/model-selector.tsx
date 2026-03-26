@@ -32,10 +32,6 @@ const PROVIDER_BADGE_CONFIG: Record<
     MediaProviderType,
     { label: string; className: string }
 > = {
-    gptunnel: {
-        label: "GPTunnel",
-        className: "bg-emerald-900/50 text-emerald-400 border-emerald-700/50",
-    },
     laozhang: {
         label: "LaoZhang",
         className: "bg-orange-900/50 text-orange-400 border-orange-700/50",

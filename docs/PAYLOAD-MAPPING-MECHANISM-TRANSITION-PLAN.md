@@ -122,7 +122,6 @@
 Последовательно переносить:
 
 - `laozhang` (если есть endpoint-specific поля)
-- `gptunnel`
 - `kieai` (если есть разные контракты по mode/model type)
 
 ### Этап 4. Удалить старые “ручные” payload builders

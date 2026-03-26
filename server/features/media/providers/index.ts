@@ -3,9 +3,6 @@
 // Общие интерфейсы
 export * from "./interfaces";
 
-// GPTunnel провайдеры (Media API)
-export { createGPTunnelMediaProvider, type GPTunnelConfig } from "./gptunnel";
-
 // LaoZhang провайдер (Nano Banana Pro, Sora 2, Veo 3.1)
 export {
     createLaoZhangProvider,

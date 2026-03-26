@@ -13,6 +13,8 @@ import { MEDIA_MODELS } from "../../config";
 import type { KieAiConfig } from "./interfaces";
 import { prisma } from "prisma/client";
 import { kieAiMappers } from "./mappers";
+import { getKieAiModelMapping } from "./payload-mapping";
+import { validateKieAiPayload } from "./preflight-validation";
 
 // Маппинг статусов Kie.ai на внутренние статусы
 const DEFAULT_STATUS_MAP: Record<string, TaskStatusResult["status"]> = {
@@ -578,6 +580,22 @@ export function createUnifiedKieAiProvider(config: KieAiConfig): MediaProvider {
 
         // Маппинг параметров
         const requestBody = modelConfig.mapParams(processedParams);
+        const mapping = getKieAiModelMapping(params.model);
+        const endpoint = mapping?.endpoint || modelConfig.endpoint;
+        const payloadFamily = mapping?.payloadFamily || "unknown";
+        const preflight = validateKieAiPayload(
+            params.model,
+            endpoint,
+            payloadFamily,
+            requestBody,
+        );
+        if (!preflight.success) {
+            throw new Error(
+                `[Kie.ai preflight] ${preflight.modelKey} ${preflight.endpoint} payload invalid: ${preflight.errors
+                    .map((e) => `${e.field}: ${e.message}`)
+                    .join("; ")}`,
+            );
+        }
         const callbackUrl = getWebhookUrl();
         const requestBodyWithWebhook = callbackUrl
             ? { ...requestBody, callBackUrl: callbackUrl }
@@ -585,7 +603,7 @@ export function createUnifiedKieAiProvider(config: KieAiConfig): MediaProvider {
 
         // API вызов
         const responseData: any = await apiCall(
-            modelConfig.endpoint,
+            endpoint,
             requestBodyWithWebhook,
         );
 

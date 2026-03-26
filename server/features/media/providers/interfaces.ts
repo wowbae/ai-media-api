@@ -72,7 +72,7 @@ export interface TaskStatusResult {
     error?: string;
 }
 
-// Маппинг статусов провайдеров на внутренние (общий для gptunnel и midjourney)
+// Маппинг статусов провайдеров на внутренние
 export const PROVIDER_STATUS_MAP: Record<string, TaskStatusResult["status"]> = {
     idle: "pending",
     processing: "processing",

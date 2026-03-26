@@ -25,6 +25,8 @@ import type {
   LaoZhangGoogleNativeResponse,
   GoogleNativePart,
 } from "./interfaces";
+import { getLaoZhangModelMapping } from "./payload-mapping";
+import { validateLaoZhangPayload } from "./preflight-validation";
 
 // Создание сообщения в формате LaoZhang (OpenAI-совместимый)
 function createLaoZhangMessage(
@@ -406,6 +408,20 @@ export function createLaoZhangImageProvider(
           aspectRatio,
           quality,
         );
+        const mapping = getLaoZhangModelMapping(params.model);
+        const payloadFamily = mapping?.payloadFamily || "google_native_image";
+        const preflight = validateLaoZhangPayload(
+          params.model,
+          payloadFamily,
+          requestBody as unknown,
+        );
+        if (!preflight.success) {
+          throw new Error(
+            `[LaoZhang preflight] ${params.model} payload invalid: ${preflight.errors
+              .map((e) => `${e.field}: ${e.message}`)
+              .join("; ")}`,
+          );
+        }
 
         console.log("[LaoZhang Image] Отправка Google Native Format запроса:", {
           model: modelConfig.id,
@@ -465,6 +481,22 @@ export function createLaoZhangImageProvider(
         messages,
         modalities: ["image", "text"],
       };
+      {
+        const mapping = getLaoZhangModelMapping(params.model);
+        const payloadFamily = mapping?.payloadFamily || "openai_compatible_chat";
+        const preflight = validateLaoZhangPayload(
+          params.model,
+          payloadFamily,
+          requestBody,
+        );
+        if (!preflight.success) {
+          throw new Error(
+            `[LaoZhang preflight] ${params.model} payload invalid: ${preflight.errors
+              .map((e) => `${e.field}: ${e.message}`)
+              .join("; ")}`,
+          );
+        }
+      }
 
       if (params.aspectRatio) {
         requestBody.aspect_ratio = params.aspectRatio;

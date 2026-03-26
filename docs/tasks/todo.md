@@ -28,3 +28,6 @@
 ## 2026-03-26
 
 - [x] Исправить request payload Wavespeed WAN 2.2: убрать лишние поля (`images`, `safety_checker`) и для LoRA эндпоинта добавить `loras`.
+- [x] Внедрить payload-mapping + preflight validation для провайдера `kieai` (unified-provider): schema/white-list ключей + required поля перед отправкой запроса.
+- [x] Внедрить payload-mapping + preflight validation для провайдера `laozhang`: Nano Banana Pro (Google Native) + базовый OpenAI-compatible чатовый payload.
+- [x] `gptunnel`: удалить неиспользуемый media-провайдер (в `MEDIA_MODELS` нет моделей с `provider: "gptunnel"`).
