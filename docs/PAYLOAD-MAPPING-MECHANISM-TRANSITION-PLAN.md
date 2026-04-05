@@ -11,11 +11,11 @@
 ## Контекст: как это устроено сейчас
 
 1. **Фронт** собирает payload через capability-ветки:
-    - `src/components/media/chat-input/use-chat-input-submit.ts` добавляет поля в body `generateMedia` по флагам модели (например `supportsNegativePrompt`, duration options) и отдельным спец-веткам (WAN/LoRA).
+    - `frontend/components/media/chat-input/use-chat-input-submit.ts` добавляет поля в body `generateMedia` по флагам модели (например `supportsNegativePrompt`, duration options) и отдельным спец-веткам (WAN/LoRA).
 2. **Бэкенд** принимает широкий контракт:
-    - `server/features/media/interfaces.ts` (`GenerateParams`/`GenerateMediaRequest`) содержит много опциональных полей.
+    - `backend/features/media/interfaces.ts` (`GenerateParams`/`GenerateMediaRequest`) содержит много опциональных полей.
 3. **Провайдер** выбирает endpoint и вручную собирает requestBody:
-    - `server/features/media/providers/provider-manager.ts` выбирает провайдера по `MEDIA_MODELS[*].provider`.
+    - `backend/features/media/providers/provider-manager.ts` выбирает провайдера по `MEDIA_MODELS[*].provider`.
     - внутри провайдера (например Wavespeed) payload собирается вручную по model key.
 4. Из-за этого легко возникает разрыв “модель → конкретный внешний endpoint → поля request body”.
     - Симптомы: `invalid request body`, 4xx на submit, затем пользователь видит эффекты вроде “aborted”/не создаётся task.
@@ -40,7 +40,7 @@
 
 Где хранить:
 
-- можно в `server/features/media/providers/<provider>/model-mapping.ts`, либо в общем каталоге `server/features/media/payload/`.
+- можно в `backend/features/media/providers/<provider>/model-mapping.ts`, либо в общем каталоге `backend/features/media/payload/`.
 - `MEDIA_MODELS` оставить “для UI/каталога”, а mapping-механизм сделать “для внешнего контракта”.
 
 ### 2) Payload Builder: payloadFamily → typed builder
@@ -101,7 +101,7 @@
 
 ### Этап 1. Ввести базовую архитектурную прослойку (каркас)
 
-1. Добавить слой “payload mapping” внутри `server/features/media/providers/<provider>`:
+1. Добавить слой “payload mapping” внутри `backend/features/media/providers/<provider>`:
     - mapping registry
     - typed builders (пока 1-2 payload family)
     - preflight validation

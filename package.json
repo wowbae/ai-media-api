@@ -3,11 +3,11 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "dev": "concurrently \"vite dev --port 3000\" \"bun --watch server/init.ts\"",
+        "dev": "concurrently \"vite dev --port 3000\" \"bun --watch backend/init.ts\"",
         "build": "vite build",
         "serve": "vite preview",
-        "start": "tsx server/init.ts",
-        "start:prod": "tsx server/init.ts",
+        "start": "tsx backend/init.ts",
+        "start:prod": "tsx backend/init.ts",
         "test": "vitest run",
         "install:server": "npm install --production",
         "install:all": "npm install"

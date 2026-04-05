@@ -29,14 +29,14 @@
 
 ```
 ai-media-api/
-├── src/                    # Frontend React application
+├── frontend/               # Frontend React application
 │   ├── components/         # UI components (custom, media, ui)
 │   ├── hooks/              # React hooks
 │   ├── redux/              # Redux state management
 │   ├── routes/             # TanStack Router routes
 │   ├── lib/                # Utilities
 │   └── data/               # Data layer
-├── server/                 # Backend Express application
+├── backend/                # Backend Express application
 │   ├── features/           # Feature modules
 │   │   ├── ai/             # AI assistant config
 │   │   ├── auth/           # Authentication
@@ -46,6 +46,7 @@ ai-media-api/
 │   ├── routes.ts           # Route registration
 │   ├── config.ts           # Server configuration
 │   └── init.ts             # Server entry point
+├── shared/                 # Shared constants/types (import @shared/…)
 ├── prisma/
 │   ├── schema.prisma       # Database schema
 │   ├── migrations/         # Database migrations
@@ -87,7 +88,7 @@ bun run dev
 bunx vite dev
 
 # Backend only (Express on port 4000)
-bun --watch server/init.ts
+bun --watch backend/init.ts
 ```
 
 ### Production Build
@@ -239,7 +240,7 @@ Supported providers and model types:
 - **LaoZhang**: Google Native image generation
 - **OpenRouter**: Multi-provider routing
 
-Model configurations and payload mappings are in `server/features/media/providers/`.
+Model configurations and payload mappings are in `backend/features/media/providers/`.
 
 ## Important Notes
 

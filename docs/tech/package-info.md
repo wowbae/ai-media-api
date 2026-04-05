@@ -14,7 +14,7 @@
 - **dotenv** - загрузка переменных окружения
 - **express** - веб-сервер
 - **grammy** - Telegram Bot API
-- **luxon** - работа с датами (используется в server/)
+- **luxon** - работа с датами (используется в backend/)
 - **node-cron** - планировщик задач (cron jobs)
 - **pg** - PostgreSQL клиент
 - **prisma** - Prisma CLI (для миграций и generate)
@@ -51,7 +51,7 @@ npm install -g tsx
 **Вариант 2:** Использовать через npx (PM2 настроен так)
 ```bash
 # npx автоматически найдет tsx даже в devDependencies
-npx tsx server/init.ts
+npx tsx backend/init.ts
 ```
 
 ## Процесс деплоя

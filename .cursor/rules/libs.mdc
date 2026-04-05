@@ -3,3 +3,5 @@ alwaysApply: true
 ---
 
 # Стек проекта - bun, shadcn ui, tailwind, tanstack, redux rtk query для запросов, prisma (дополнительно смотри файл package.json)
+
+Каталоги: `frontend/` — React/TanStack UI, `backend/` — Express API и фичи, `shared/` — общие константы и типы для обоих слоёв (импорт `@shared/...`).

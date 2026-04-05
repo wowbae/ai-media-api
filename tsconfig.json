@@ -23,7 +23,9 @@
     "noImplicitAny": false,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
+      "@/*": ["./frontend/*"],
+      "@shared/*": ["./shared/*"],
+      "backend/*": ["./backend/*"]
     }
   }
 }

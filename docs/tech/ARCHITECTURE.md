@@ -11,7 +11,7 @@
 
 ## Актуальная структура
 
-`server/features/media`:
+`backend/features/media`:
 
 - `routes/generate.ts` — прием запроса, валидация, создание `mediaRequest`.
 - `generation.service.ts` — thin entrypoint, делегирует в `media-processor`.

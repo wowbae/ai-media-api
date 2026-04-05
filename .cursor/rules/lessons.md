@@ -163,7 +163,7 @@
 - Context: добавление моделей в `/ai-model` делается через отдельные whitelist-файлы на backend и frontend.
 - Mistake: легко обновить только одну сторону (server или client) и получить "модель есть в API, но не в UI" или наоборот.
 - Root cause: дублирование констант режима (`AI_MODEL_ALLOWED_MODELS`) в двух местах без единой точки истины.
-- Prevention rule: при каждом изменении набора ai-mode моделей синхронно править `server/features/media/app-mode.ts` и `src/lib/app-mode.ts` в одном changelist.
+- Prevention rule: при каждом изменении набора ai-mode моделей синхронно править `backend/features/media/app-mode.ts` и `frontend/lib/app-mode.ts` в одном changelist.
 - Checklist item: "После изменения whitelist: проверить `/media/models?appMode=ai-model` и отображение модели в селекторе на фронте".
 
 ## 2026-03-24 - Same-provider model family branching
@@ -179,7 +179,7 @@
 - Context: для `ai-model` нужно было использовать точный endpoint Wavespeed `wavespeed-ai/z-image-turbo/image-to-image-lora`.
 - Mistake: оставить близкий, но другой endpoint (`.../image-to-image`) из предыдущей интеграции и считать его эквивалентным.
 - Root cause: отсутствие явной сверки model id из требований с server config и provider constants одновременно.
-- Prevention rule: при обновлении конкретной external model id менять и проверять оба слоя в одном PR: `server/features/media/config.ts` + provider endpoint constants.
+- Prevention rule: при обновлении конкретной external model id менять и проверять оба слоя в одном PR: `backend/features/media/config.ts` + provider endpoint constants.
 - Checklist item: "После правки model id: `rg` по старому id не возвращает совпадений, а новый id встречается в config и provider".
 
 ## 2026-03-24 - LoRA support must be model-family wide
@@ -195,7 +195,7 @@
 - Context: добавление новой модели `wavespeed-ai/wan-2.2/image-to-video-lora` в `/ai-model` route.
 - Mistake: легко обновить только `MEDIA_MODELS` и забыть синхронно обновить allowlist и типы модели на frontend/backend.
 - Root cause: модель хранится в нескольких слоях (server config, mode whitelist, shared API types), но нет compile-time единой точки истины.
-- Prevention rule: при добавлении модели фиксировать change-set минимум из 4 точек: `server/features/media/config.ts`, `server/features/media/app-mode.ts`, `src/lib/app-mode.ts`, типы `MediaModel` на client/server.
+- Prevention rule: при добавлении модели фиксировать change-set минимум из 4 точек: `backend/features/media/config.ts`, `backend/features/media/app-mode.ts`, `frontend/lib/app-mode.ts`, типы `MediaModel` на client/server.
 - Checklist item: "После добавления модели: проверить, что она видна в `/models?appMode=ai-model` и не дает TS-ошибок в payload типах".
 
 ## 2026-03-24 - Lora-capable model requires UI+submit sync
@@ -218,7 +218,7 @@
 
 - Context: удаление `grok image edit` из маршрута `/ai-model`.
 - Mistake: при удалении модели легко изменить только backend allowlist и оставить frontend allowlist прежним, из-за чего UI может показывать недоступную модель.
-- Root cause: whitelist режима хранится в двух отдельных файлах (`server/features/media/app-mode.ts` и `src/lib/app-mode.ts`) без compile-time связки.
+- Root cause: whitelist режима хранится в двух отдельных файлах (`backend/features/media/app-mode.ts` и `frontend/lib/app-mode.ts`) без compile-time связки.
 - Prevention rule: любое удаление/добавление модели для `/ai-model` делать единым change-set в backend + frontend allowlist с обязательной typecheck-проверкой.
 - Checklist item: "После правки ai-mode whitelist: модель отсутствует и в `/media/models?appMode=ai-model`, и в клиентском списке моделей".
 
@@ -243,7 +243,7 @@
 - Context: замена модели в `/ai-model` с `SEEDREAM_4_5_EDIT_KIEAI` на `bytedance/seedream-v4.5/edit-sequential` (`SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED`).
 - Mistake: при простой замене allowlist можно забыть добавить новую модель в runtime-роутинг провайдера (`isImageModel`) и в model registry, из-за чего модель отображается в UI, но уходит в неверный handler.
 - Root cause: модель подключается в нескольких независимых слоях (типы, registry, mode whitelist, provider branching), а изменение в одном слое не гарантирует работоспособность всего потока.
-- Prevention rule: при замене модели в режиме (`instead of`) делать единый change-set из 5 точек: `server/interfaces` + `server/config` + backend/frontend allowlist + provider routing (`isImageModel`/endpoint branch).
+- Prevention rule: при замене модели в режиме (`instead of`) делать единый change-set из 5 точек: `backend/interfaces` + `backend/config` + backend/frontend allowlist + provider routing (`isImageModel`/endpoint branch).
 - Checklist item: "После замены модели в режиме: модель видна в `/media/models?appMode=ai-model`, отправляется в корректный provider endpoint и проходит локальные проверки без новых lint-ошибок".
 
 ## 2026-03-24 - Model-specific minimum pixel constraints
@@ -390,7 +390,7 @@
 - Mistake: считать задачу решённой после фикса одного провайдера, оставляя остальные провайдеры с прежним “manual payload” подходом.
 - Root cause: отсутствие инвентаризации “какие провайдеры реально используются в `MEDIA_MODELS`” перед завершением миграции.
 - Prevention rule: миграцию payload-mapping закрывать только после покрытия всех провайдеров, на которые реально ссылается `MEDIA_MODELS[*].provider`; провайдеры без моделей либо удалять, либо явно помечать как неактивные.
-- Checklist item: "Перед завершением: `rg \"provider: \\\"<provider>\\\"\" server/features/media/config.ts` подтверждает, что каждый активный provider имеет mapping+preflight слой".
+- Checklist item: "Перед завершением: `rg \"provider: \\\"<provider>\\\"\" backend/features/media/config.ts` подтверждает, что каждый активный provider имеет mapping+preflight слой".
 
 ## 2026-03-26 - Payload mapping mechanism implementation
 

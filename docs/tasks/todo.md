@@ -25,6 +25,11 @@
 - [x] Смягчить UX для отмененных запросов (`AbortError`/`aborted`) в `use-chat-input-submit`: не показывать generic alert, отдавать понятное сообщение и разрешать повторную отправку.
 - [x] Исправить `duration` для WAN 2.2 (Wavespeed): отправлять только допустимые значения `[5, 8]` на backend и ограничить UI-опции теми же значениями.
 
+## 2026-04-05
+
+- [x] LoRA на фронте: каталог URL в `shared/constants/loras.ts`, каскадные селекты (до 3), без локального сервера и загрузки с диска; проброс `loras` в payload Z-Image Turbo Image-to-Image LoRA (Wavespeed).
+- [x] Структура репозитория: `frontend/` (UI), `backend/` (Express), `shared/` (общие константы в корне).
+
 ## 2026-03-26
 
 - [x] Исправить request payload Wavespeed WAN 2.2: убрать лишние поля (`images`, `safety_checker`) и для LoRA эндпоинта добавить `loras`.
