@@ -4,6 +4,7 @@ import type {
     MediaProvider,
     GenerateParams,
     TaskCreatedResult,
+    TaskStatusCheckContext,
     TaskStatusResult,
 } from "../interfaces";
 import type { SavedFileInfo } from "../../file.service";
@@ -757,7 +758,10 @@ export function createUnifiedKieAiProvider(config: KieAiConfig): MediaProvider {
             return await createTask(params);
         },
 
-        async checkTaskStatus(taskId: string): Promise<TaskStatusResult> {
+        async checkTaskStatus(
+            taskId: string,
+            _context?: TaskStatusCheckContext,
+        ): Promise<TaskStatusResult> {
             const model = await getModelByTaskId(taskId);
             if (!model) {
                 throw new Error(
@@ -803,7 +807,10 @@ export function createUnifiedKieAiProvider(config: KieAiConfig): MediaProvider {
             };
         },
 
-        async getTaskResult(taskId: string): Promise<SavedFileInfo[]> {
+        async getTaskResult(
+            taskId: string,
+            _context?: TaskStatusCheckContext,
+        ): Promise<SavedFileInfo[]> {
             const model = await getModelByTaskId(taskId);
             if (!model) {
                 throw new Error(

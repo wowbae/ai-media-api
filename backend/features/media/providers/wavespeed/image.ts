@@ -226,10 +226,12 @@ export function createWavespeedImageHandlers(options: {
                 resultData.data.status === "completed" &&
                 resultData.data.outputs?.length
             ) {
-                taskResultsCache.set(
-                    taskId,
-                    await downloadOutputs(resultData.data.outputs),
-                );
+                // resultUrls в TaskStatusResult — скачивание один раз в handleTaskCompletion
+                // (кэш в памяти процесса недоступен на другом инстансе / после рестарта).
+                return {
+                    status: mapWavespeedStatus(resultData.data.status),
+                    resultUrls: resultData.data.outputs,
+                };
             }
 
             return { status: mapWavespeedStatus(resultData.data.status) };

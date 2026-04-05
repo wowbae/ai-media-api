@@ -156,6 +156,8 @@ export interface GenerateMediaRequest {
     seed?: string | number;
     cfgScale?: number;
     tailImageUrl?: string;
+    /** Image-to-image strength (Z-Image Turbo I2I LoRA, Wavespeed), 0–1; выше — сильнее отход от референса */
+    strength?: number;
     voice?: string;
     stability?: number;
     similarityBoost?: number;

@@ -1,3 +1,10 @@
+import {
+    buildCometPromptEnhanceUserText,
+    COMET_PROMPT_ENHANCE_CHAT_URL,
+    COMET_PROMPT_ENHANCE_MODEL,
+    COMET_PROMPT_ENHANCE_TEMPERATURE,
+} from "@shared/constants/prompt-enhance-comet";
+
 interface EnhancePromptParams {
     prompt: string;
     attachments?: string[];
@@ -7,9 +14,6 @@ export interface EnhancedPromptResult {
     enhancedPrompt: string;
     negativePrompt: string;
 }
-
-const GROK_MODEL = "grok-4.20-0309-reasoning";
-const XAI_COMPLETIONS_URL = "https://api.x.ai/v1/chat/completions";
 
 function extractJsonObject(raw: string): EnhancedPromptResult | null {
     try {
@@ -38,12 +42,12 @@ function extractJsonObject(raw: string): EnhancedPromptResult | null {
     }
 }
 
-export async function enhancePromptWithGrok(
+export async function enhanceMediaPrompt(
     params: EnhancePromptParams,
 ): Promise<EnhancedPromptResult> {
-    const apiKey = process.env.XAI_API_KEY;
+    const apiKey = process.env.COMET_API_KEY;
     if (!apiKey) {
-        throw new Error("XAI_API_KEY не задан");
+        throw new Error("COMET_API_KEY не задан");
     }
 
     const controller = new AbortController();
@@ -57,15 +61,7 @@ export async function enhancePromptWithGrok(
         const content: Array<Record<string, unknown>> = [
             {
                 type: "text",
-                text: [
-                    "Ты prompt-optimizer для image generation.",
-                    "Верни ТОЛЬКО JSON объект вида:",
-                    '{"enhancedPrompt":"...", "negativePrompt":"..."}',
-                    "Никакого markdown, комментариев и пояснений.",
-                    "Если в исходном запросе явно есть слово 'карусель' (или 'carousel'), верни enhancedPrompt как 5 отдельных промптов, разделенных символом '*'.",
-                    "Формат для карусели: prompt1 * prompt2 * prompt3 * prompt4 * prompt5",
-                    `Исходный prompt: ${params.prompt}`,
-                ].join("\n"),
+                text: buildCometPromptEnhanceUserText(params.prompt),
             },
         ];
 
@@ -83,15 +79,15 @@ export async function enhancePromptWithGrok(
             }
         }
 
-        const response = await fetch(XAI_COMPLETIONS_URL, {
+        const response = await fetch(COMET_PROMPT_ENHANCE_CHAT_URL, {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${apiKey}`,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: GROK_MODEL,
-                temperature: 0.2,
+                model: COMET_PROMPT_ENHANCE_MODEL,
+                temperature: COMET_PROMPT_ENHANCE_TEMPERATURE,
                 messages: [
                     {
                         role: "user",
@@ -104,7 +100,7 @@ export async function enhancePromptWithGrok(
 
         const rawText = await response.text();
         if (!response.ok) {
-            throw new Error(`Grok API ${response.status}: ${rawText}`);
+            throw new Error(`Comet API ${response.status}: ${rawText}`);
         }
 
         const parsedResponse = JSON.parse(rawText) as {
@@ -112,12 +108,12 @@ export async function enhancePromptWithGrok(
         };
         const answer = parsedResponse.choices?.[0]?.message?.content?.trim();
         if (!answer) {
-            throw new Error("Grok вернул пустой ответ");
+            throw new Error("Модель вернула пустой ответ");
         }
 
         const parsed = extractJsonObject(answer);
         if (!parsed) {
-            throw new Error("Grok вернул ответ в неожиданном формате");
+            throw new Error("Модель вернула ответ в неожиданном формате");
         }
 
         return parsed;

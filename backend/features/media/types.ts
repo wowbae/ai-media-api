@@ -32,6 +32,7 @@ export interface GenerateMediaOptions {
     seed?: string | number;
     cfgScale?: number;
     tailImageUrl?: string;
+    strength?: number;
     loras?: GenerationLoraInput[];
     voice?: string;
     stability?: number;

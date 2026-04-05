@@ -78,7 +78,9 @@ export function createCompletionRouter(): Router {
                 }
 
                 // Проверяем статус задачи
-                const status = await provider.checkTaskStatus(request.taskId);
+                const status = await provider.checkTaskStatus(request.taskId, {
+                    model,
+                });
 
                 console.log("[Completion] Статус задачи:", {
                     requestId,

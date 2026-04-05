@@ -2,6 +2,7 @@ import type {
     GenerateParams,
     MediaProvider,
     TaskCreatedResult,
+    TaskStatusCheckContext,
     TaskStatusResult,
 } from "../interfaces";
 import type { SavedFileInfo } from "../../file.service";
@@ -60,8 +61,14 @@ export function createWavespeedProvider(
             return created;
         },
 
-        async checkTaskStatus(taskId: string): Promise<TaskStatusResult> {
-            const taskType = taskTypeById.get(taskId);
+        async checkTaskStatus(
+            taskId: string,
+            context?: TaskStatusCheckContext,
+        ): Promise<TaskStatusResult> {
+            let taskType = taskTypeById.get(taskId);
+            if (!taskType && context?.model) {
+                taskType = isImageModel(context.model) ? "image" : "video";
+            }
             if (taskType === "image") {
                 return imageHandlers.checkImageTaskStatus(taskId);
             }
@@ -69,7 +76,10 @@ export function createWavespeedProvider(
             return videoHandlers.checkVideoTaskStatus(taskId);
         },
 
-        async getTaskResult(taskId: string): Promise<SavedFileInfo[]> {
+        async getTaskResult(
+            taskId: string,
+            context?: TaskStatusCheckContext,
+        ): Promise<SavedFileInfo[]> {
             const cached = taskResultsCache.get(taskId);
             if (cached) {
                 taskResultsCache.delete(taskId);
@@ -78,7 +88,10 @@ export function createWavespeedProvider(
                 return cached;
             }
 
-            const taskType = taskTypeById.get(taskId);
+            let taskType = taskTypeById.get(taskId);
+            if (!taskType && context?.model) {
+                taskType = isImageModel(context.model) ? "image" : "video";
+            }
             if (taskType === "image") {
                 const result = await imageHandlers.getImageTaskResult(taskId);
                 taskTypeById.delete(taskId);

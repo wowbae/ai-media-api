@@ -229,10 +229,10 @@ export function createWavespeedVideoHandlers(options: {
                 resultData.data.status === "completed" &&
                 resultData.data.outputs?.length
             ) {
-                taskResultsCache.set(
-                    taskId,
-                    await downloadOutputs(resultData.data.outputs),
-                );
+                return {
+                    status: mapWavespeedStatus(resultData.data.status),
+                    resultUrls: resultData.data.outputs,
+                };
             }
 
             return { status: mapWavespeedStatus(resultData.data.status) };

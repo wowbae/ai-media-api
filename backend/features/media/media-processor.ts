@@ -36,6 +36,7 @@ export async function processGeneration(
         seed,
         cfgScale,
         tailImageUrl,
+        strength,
         loras,
         voice,
         stability,
@@ -83,6 +84,7 @@ export async function processGeneration(
                     : undefined,
             cfgScale,
             tailImageUrl,
+            strength,
             loras,
             voice,
             stability,
@@ -214,7 +216,7 @@ export async function handleTaskCompletion(
         if (status?.resultUrls && status.resultUrls.length > 0) {
             savedFiles = await downloadFilesFromUrls(status.resultUrls);
         } else {
-            savedFiles = await provider.getTaskResult(taskId);
+            savedFiles = await provider.getTaskResult(taskId, { model });
         }
 
         if (!savedFiles.length) {

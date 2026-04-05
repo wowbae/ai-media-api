@@ -24,17 +24,13 @@ interface TrackedTask {
     createdAt: number;
     lastCheckedAt?: number;
     checkCount: number;
+    /** Подряд идущие 404 GET /predictions/:id (Wavespeed), до fail-fast */
+    wavespeedPredictionNotFoundStrikes?: number;
 }
 
-function isTaskNotFoundError(error: unknown): boolean {
+function isWavespeedPredictionNotFoundError(error: unknown): boolean {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
-    if (!message) return false;
-
-    return (
-        message.includes("не найдена в wavespeed api") ||
-        message.includes("task not found") ||
-        message.includes("not found")
-    );
+    return message.includes("не найдена в wavespeed api");
 }
 
 class TaskTrackingService {
@@ -284,7 +280,10 @@ class TaskTrackingService {
                 return;
             }
 
-            const status = await provider.checkTaskStatus(task.taskId);
+            const status = await provider.checkTaskStatus(task.taskId, {
+                model: task.model,
+            });
+            task.wavespeedPredictionNotFoundStrikes = 0;
 
             console.log(
                 `[TaskTracking] 📊 Статус задачи: requestId=${task.requestId}, status=${status.status}, checkCount=${task.checkCount}`,
@@ -342,10 +341,20 @@ class TaskTrackingService {
                 error instanceof Error ? error.message : error,
             );
 
-            if (isTaskNotFoundError(error)) {
+            if (isWavespeedPredictionNotFoundError(error)) {
+                const strikes =
+                    (task.wavespeedPredictionNotFoundStrikes ?? 0) + 1;
+                task.wavespeedPredictionNotFoundStrikes = strikes;
+                const maxStrikes = 4;
+                if (strikes < maxStrikes) {
+                    console.warn(
+                        `[TaskTracking] Wavespeed predictions 404 (${strikes}/${maxStrikes}), requestId=${task.requestId}, повтор опроса`,
+                    );
+                    return;
+                }
                 const errorMessage = `Задача ${task.taskId} не найдена у провайдера и помечена как FAILED`;
                 console.warn(
-                    `[TaskTracking] ❌ Fail-fast: requestId=${task.requestId}, taskId=${task.taskId}, причина: task not found`,
+                    `[TaskTracking] ❌ Fail-fast: requestId=${task.requestId}, taskId=${task.taskId}, причина: task not found (${strikes}× 404)`,
                 );
 
                 this.stopTracking(task.requestId);

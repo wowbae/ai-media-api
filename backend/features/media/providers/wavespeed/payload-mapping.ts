@@ -5,14 +5,14 @@ import type { MediaModel } from "../../config";
 
 // Типы payload family для Wavespeed
 export type WavespeedPayloadFamily =
-    | "wan2_2_i2v"           // WAN 2.2 Image-to-Video 720p
-    | "wan2_2_i2v_lora"      // WAN 2.2 Image-to-Video LoRA
-    | "kling_video_o1"       // Kling Video O1
-    | "z_image_turbo_lora"   // Z-Image Turbo LoRA
-    | "z_image_i2i_lora"     // Z-Image Turbo Image-to-Image LoRA
+    | "wan2_2_i2v" // WAN 2.2 Image-to-Video 720p
+    | "wan2_2_i2v_lora" // WAN 2.2 Image-to-Video LoRA
+    | "kling_video_o1" // Kling Video O1
+    | "z_image_turbo_lora" // Z-Image Turbo LoRA
+    | "z_image_i2i_lora" // Z-Image Turbo Image-to-Image LoRA
     | "z_image_lora_trainer" // Z-Image LoRA Trainer
-    | "qwen_image_edit"      // Qwen Image 2.0 Pro Edit
-    | "seedream_v4_5_edit";  // Seedream V4.5 Edit Sequential
+    | "qwen_image_edit" // Qwen Image 2.0 Pro Edit
+    | "seedream_v4_5_edit"; // Seedream V4.5 Edit Sequential
 
 // Базовая схема payload с белым списком полей
 export interface PayloadSchema {
@@ -45,90 +45,91 @@ export interface ModelEndpointMapping {
 }
 
 // Registry всех моделей Wavespeed
-export const WAVESPEED_MODEL_MAPPING: Record<MediaModel, ModelEndpointMapping> = {
-    // Video модели
-    WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED: {
-        modelKey: "WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED",
-        externalEndpoint: "wavespeed-ai/wan-2.2/i2v-720p",
-        payloadFamily: "wan2_2_i2v",
-        inputCardinality: {
-            min: 1,
-            max: 2,
-            type: "image",
+export const WAVESPEED_MODEL_MAPPING: Record<MediaModel, ModelEndpointMapping> =
+    {
+        // Video модели
+        WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED: {
+            modelKey: "WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED",
+            externalEndpoint: "wavespeed-ai/wan-2.2/i2v-720p",
+            payloadFamily: "wan2_2_i2v",
+            inputCardinality: {
+                min: 1,
+                max: 2,
+                type: "image",
+            },
         },
-    },
-    WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED: {
-        modelKey: "WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED",
-        externalEndpoint: "wavespeed-ai/wan-2.2/image-to-video-lora",
-        payloadFamily: "wan2_2_i2v_lora",
-        inputCardinality: {
-            min: 1,
-            max: 2,
-            type: "image",
+        WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED: {
+            modelKey: "WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED",
+            externalEndpoint: "wavespeed-ai/wan-2.2/image-to-video-lora",
+            payloadFamily: "wan2_2_i2v_lora",
+            inputCardinality: {
+                min: 1,
+                max: 2,
+                type: "image",
+            },
         },
-    },
-    KLING_VIDEO_O1_WAVESPEED: {
-        modelKey: "KLING_VIDEO_O1_WAVESPEED",
-        externalEndpoint: "kwaivgi/kling-video-o1-std/reference-to-video",
-        payloadFamily: "kling_video_o1",
-        inputCardinality: {
-            min: 1,
-            max: 10,
-            type: "image",
+        KLING_VIDEO_O1_WAVESPEED: {
+            modelKey: "KLING_VIDEO_O1_WAVESPEED",
+            externalEndpoint: "kwaivgi/kling-video-o1-std/reference-to-video",
+            payloadFamily: "kling_video_o1",
+            inputCardinality: {
+                min: 1,
+                max: 10,
+                type: "image",
+            },
         },
-    },
-    // Image модели
-    Z_IMAGE_TURBO_LORA_WAVESPEED: {
-        modelKey: "Z_IMAGE_TURBO_LORA_WAVESPEED",
-        externalEndpoint: "wavespeed-ai/z-image/turbo-lora",
-        payloadFamily: "z_image_turbo_lora",
-        inputCardinality: {
-            min: 0,
-            max: 0,
-            type: "none",
+        // Image модели
+        Z_IMAGE_TURBO_LORA_WAVESPEED: {
+            modelKey: "Z_IMAGE_TURBO_LORA_WAVESPEED",
+            externalEndpoint: "wavespeed-ai/z-image/turbo-lora",
+            payloadFamily: "z_image_turbo_lora",
+            inputCardinality: {
+                min: 0,
+                max: 0,
+                type: "none",
+            },
         },
-    },
-    Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED: {
-        modelKey: "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED",
-        externalEndpoint: "wavespeed-ai/z-image-turbo/image-to-image-lora",
-        payloadFamily: "z_image_i2i_lora",
-        inputCardinality: {
-            min: 1,
-            max: 1,
-            type: "image",
+        Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED: {
+            modelKey: "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED",
+            externalEndpoint: "wavespeed-ai/z-image-turbo/image-to-image-lora",
+            payloadFamily: "z_image_i2i_lora",
+            inputCardinality: {
+                min: 1,
+                max: 1,
+                type: "image",
+            },
         },
-    },
-    Z_IMAGE_LORA_TRAINER_WAVESPEED: {
-        modelKey: "Z_IMAGE_LORA_TRAINER_WAVESPEED",
-        externalEndpoint: "wavespeed-ai/z-image-lora-trainer",
-        payloadFamily: "z_image_lora_trainer",
-        inputCardinality: {
-            min: 1,
-            max: 1,
-            type: "zip",
+        Z_IMAGE_LORA_TRAINER_WAVESPEED: {
+            modelKey: "Z_IMAGE_LORA_TRAINER_WAVESPEED",
+            externalEndpoint: "wavespeed-ai/z-image-lora-trainer",
+            payloadFamily: "z_image_lora_trainer",
+            inputCardinality: {
+                min: 1,
+                max: 1,
+                type: "zip",
+            },
         },
-    },
-    QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED: {
-        modelKey: "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED",
-        externalEndpoint: "wavespeed-ai/qwen-image-2.0-pro/edit",
-        payloadFamily: "qwen_image_edit",
-        inputCardinality: {
-            min: 1,
-            max: 14,
-            type: "image",
+        QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED: {
+            modelKey: "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED",
+            externalEndpoint: "wavespeed-ai/qwen-image-2.0-pro/edit",
+            payloadFamily: "qwen_image_edit",
+            inputCardinality: {
+                min: 1,
+                max: 14,
+                type: "image",
+            },
         },
-    },
-    SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED: {
-        modelKey: "SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED",
-        externalEndpoint: "bytedance/seedream-v4.5/edit-sequential",
-        payloadFamily: "seedream_v4_5_edit",
-        inputCardinality: {
-            min: 1,
-            max: 14,
-            type: "image",
+        SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED: {
+            modelKey: "SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED",
+            externalEndpoint: "bytedance/seedream-v4.5/edit-sequential",
+            payloadFamily: "seedream_v4_5_edit",
+            inputCardinality: {
+                min: 1,
+                max: 14,
+                type: "image",
+            },
         },
-    },
-} as const;
+    } as const;
 
 // Схемы payload для каждого family
 export const PAYLOAD_SCHEMAS: Record<WavespeedPayloadFamily, PayloadSchema> = {
@@ -149,7 +150,13 @@ export const PAYLOAD_SCHEMAS: Record<WavespeedPayloadFamily, PayloadSchema> = {
     // WAN 2.2 I2V LoRA: то же + loras, resolution
     wan2_2_i2v_lora: {
         required: ["prompt", "image", "duration"],
-        optional: ["negative_prompt", "last_image", "seed", "loras", "resolution"],
+        optional: [
+            "negative_prompt",
+            "last_image",
+            "seed",
+            "loras",
+            "resolution",
+        ],
         validations: {
             duration: {
                 type: "integer",
@@ -207,13 +214,18 @@ export const PAYLOAD_SCHEMAS: Record<WavespeedPayloadFamily, PayloadSchema> = {
             },
         },
     },
-    // Z-Image Turbo Image-to-Image LoRA: prompt, image, images, size, seed, loras, safety_checker
+    // Z-Image Turbo Image-to-Image LoRA: prompt, image, images, size, seed, strength, loras, safety_checker
     z_image_i2i_lora: {
-        required: ["prompt", "image", "images"],
+        required: ["prompt", "image", "images", "strength"],
         optional: ["size", "seed", "loras", "safety_checker"],
         validations: {
             seed: {
                 type: "integer",
+            },
+            strength: {
+                type: "number",
+                min: 0,
+                max: 1,
             },
             images: {
                 type: "array",
@@ -232,7 +244,13 @@ export const PAYLOAD_SCHEMAS: Record<WavespeedPayloadFamily, PayloadSchema> = {
     // Z-Image LoRA Trainer: data, trigger_word, steps, learning_rate, lora_rank, safety_checker
     z_image_lora_trainer: {
         required: ["data"],
-        optional: ["trigger_word", "steps", "learning_rate", "lora_rank", "safety_checker"],
+        optional: [
+            "trigger_word",
+            "steps",
+            "learning_rate",
+            "lora_rank",
+            "safety_checker",
+        ],
         validations: {
             data: {
                 type: "string",

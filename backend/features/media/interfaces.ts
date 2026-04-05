@@ -59,10 +59,12 @@ export interface GenerateMediaRequest {
     sound?: boolean; // Звук для Kling 2.6 / generate_audio для Seedance 1.5 Pro
     fixedLens?: boolean; // Флаг fixed_lens для Seedance 1.5 Pro
     outputFormat?: "png" | "jpg"; // Формат выход ного файла для Nano Banana Pro (Kie.ai)
-    negativePrompt?: string; // Негативный промпт для Imagen4 и Kling 2.5 Turbo Pro
+    negativePrompt?: string; // Imagen4 (Kie), WAN 2.2 I2V (Wavespeed); опционально Kling 2.5
     seed?: string | number; // Seed для Imagen4
     cfgScale?: number; // CFG scale для Kling 2.5 Turbo Pro
     tailImageUrl?: string; // Tail frame image для Kling 2.5 Turbo Pro (image-to-video)
+    /** Image-to-image strength (Z-Image Turbo I2I LoRA, Wavespeed), 0–1; выше — сильнее отход от входного изображения */
+    strength?: number;
     loras?: GenerationLoraInput[]; // LoRA adapters для Wavespeed Z-Image Turbo LoRA (до 3)
     // Параметры для ElevenLabs Multilingual v2
     voice?: string; // Голос для TTS (по умолчанию "Rachel")

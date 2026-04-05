@@ -13,6 +13,7 @@ import { handleSessionTimeout } from "@/redux/api/utils";
 import { getMediaFileUrl } from "@/lib/constants";
 import type { AppMode } from "@/lib/app-mode";
 import { APP_MODES } from "@/lib/app-mode";
+import { Z_IMAGE_I2I_LORA_DEFAULT_STRENGTH } from "@shared/constants/wavespeed-z-image";
 
 interface UseChatInputSubmitParams {
     chatId: number;
@@ -627,6 +628,11 @@ export function useChatInputSubmit({
                                         "1080p"
                                             ? "1080p"
                                             : "720p",
+                                }),
+                            ...(currentModel ===
+                                "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED" &&
+                                inputFilesUrls.length > 0 && {
+                                    strength: Z_IMAGE_I2I_LORA_DEFAULT_STRENGTH,
                                 }),
                             ...((currentModel ===
                                 "Z_IMAGE_TURBO_LORA_WAVESPEED" ||

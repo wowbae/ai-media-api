@@ -892,25 +892,34 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 )}
 
                 {isAiModelMode && (
-                    <div className='flex gap-2 mb-2'>
+                    <div className='mb-2'>
                         <Input
                             type='text'
                             placeholder='Улучшенный промпт'
                             value={enhancedPrompt}
                             onChange={(e) => setEnhancedPrompt(e.target.value)}
                             disabled={isDisabled}
-                            className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 rounded-xl'
-                        />
-                        <Input
-                            type='text'
-                            placeholder='Негативный промпт'
-                            value={negativePrompt}
-                            onChange={(e) => setNegativePrompt(e.target.value)}
-                            disabled={isDisabled}
-                            className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 rounded-xl'
+                            className='w-full border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 rounded-xl'
                         />
                     </div>
                 )}
+
+                {modelType.supportsNegativePrompt &&
+                    !modelType.isImagen4 &&
+                    !modelType.isKling25 && (
+                        <div className='mb-2'>
+                            <Input
+                                type='text'
+                                placeholder='Негативный промпт (опционально)'
+                                value={negativePrompt}
+                                onChange={(e) =>
+                                    setNegativePrompt(e.target.value)
+                                }
+                                disabled={isDisabled}
+                                className='w-full border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl'
+                            />
+                        </div>
+                    )}
 
                 {/* Подсказка для Seedream 4.5 Edit */}
                 {modelType.isSeedream4_5_Edit && (
@@ -1086,17 +1095,21 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     </div>
                 )}
 
-                {/* Поля для Imagen4: negativePrompt и seed */}
+                {/* Поля для Imagen4: negativePrompt (если поддерживается) и seed */}
                 {modelType.isImagen4 && (
                     <div className='flex gap-2 mb-2'>
-                        <Input
-                            type='text'
-                            placeholder='Негативный промпт (опционально)'
-                            value={negativePrompt}
-                            onChange={(e) => setNegativePrompt(e.target.value)}
-                            disabled={isDisabled}
-                            className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl'
-                        />
+                        {modelType.supportsNegativePrompt ? (
+                            <Input
+                                type='text'
+                                placeholder='Негативный промпт (опционально)'
+                                value={negativePrompt}
+                                onChange={(e) =>
+                                    setNegativePrompt(e.target.value)
+                                }
+                                disabled={isDisabled}
+                                className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl'
+                            />
+                        ) : null}
                         <NumberInput
                             placeholder='Seed (опционально)'
                             value={seed}
@@ -1108,27 +1121,35 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 )}
 
                 {/* Поля для Kling 2.5 Turbo Pro: negativePrompt и cfgScale */}
-                {modelType.isKling25 && (
-                    <div className='flex gap-2 mb-2'>
-                        <Input
-                            type='text'
-                            placeholder='Негативный промпт (опционально)'
-                            value={negativePrompt}
-                            onChange={(e) => setNegativePrompt(e.target.value)}
-                            disabled={isDisabled}
-                            className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl'
-                        />
-                        <NumberInput
-                            placeholder='CFG Scale (опционально, 1-20)'
-                            value={cfgScale}
-                            onValueChange={setCfgScale}
-                            disabled={isDisabled}
-                            className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-40'
-                            min={1}
-                            max={20}
-                        />
-                    </div>
-                )}
+                {modelType.isKling25 &&
+                    (modelType.supportsNegativePrompt ||
+                        modelType.supportsCfgScale) && (
+                        <div className='flex gap-2 mb-2'>
+                            {modelType.supportsNegativePrompt ? (
+                                <Input
+                                    type='text'
+                                    placeholder='Негативный промпт (опционально)'
+                                    value={negativePrompt}
+                                    onChange={(e) =>
+                                        setNegativePrompt(e.target.value)
+                                    }
+                                    disabled={isDisabled}
+                                    className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl'
+                                />
+                            ) : null}
+                            {modelType.supportsCfgScale ? (
+                                <NumberInput
+                                    placeholder='CFG Scale (опционально, 1-20)'
+                                    value={cfgScale}
+                                    onValueChange={setCfgScale}
+                                    disabled={isDisabled}
+                                    className='border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary rounded-xl w-40'
+                                    min={1}
+                                    max={20}
+                                />
+                            ) : null}
+                        </div>
+                    )}
 
                 {/* Поля для ElevenLabs Multilingual v2 */}
                 {modelType.isElevenLabs && (
@@ -1357,7 +1378,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 !prompt.trim() ||
                                 isEnhancingPrompt
                             }
-                            title='Улучшить промпт через Grok'
+                            title='Улучшить промпт (Comet API)'
                         >
                             {isEnhancingPrompt ? (
                                 <Loader2 className='h-4 w-4 animate-spin' />

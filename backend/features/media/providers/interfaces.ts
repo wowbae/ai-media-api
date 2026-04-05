@@ -37,10 +37,12 @@ export interface GenerateParams {
     sound?: boolean; // Звук для Kling 2.6 / generate_audio для Seedance 1.5 Pro
     fixedLens?: boolean; // Фиксация камеры (fixed_lens) для Seedance 1.5 Pro
     outputFormat?: "png" | "jpg" | "jpeg"; // Формат выходного изображения для Nano Banana Pro
-    negativePrompt?: string; // Негативный промпт для Imagen4 и Kling 2.5 Turbo Pro
+    negativePrompt?: string; // Imagen4 (Kie), WAN 2.2 I2V (Wavespeed); опционально Kling 2.5
     seed?: string | number; // Seed для Imagen4
     cfgScale?: number; // CFG scale для Kling 2.5 Turbo Pro
     tailImageUrl?: string; // Tail frame image для Kling 2.5 Turbo Pro (image-to-video)
+    /** Сила image-to-image (Z-Image Turbo I2I LoRA у Wavespeed), 0–1; выше — сильнее отход от референса. */
+    strength?: number;
     loras?: GenerationLoraInput[]; // LoRA adapters для Wavespeed Z-Image Turbo LoRA
     // Параметры для ElevenLabs Multilingual v2
     voice?: string; // Голос для TTS (по умолчанию "Rachel")
@@ -72,6 +74,11 @@ export interface TaskStatusResult {
     error?: string;
 }
 
+/** Контекст для checkTaskStatus / getTaskResult (например, после рестарта процесса) */
+export interface TaskStatusCheckContext {
+    model?: MediaModel;
+}
+
 // Маппинг статусов провайдеров на внутренние
 export const PROVIDER_STATUS_MAP: Record<string, TaskStatusResult["status"]> = {
     idle: "pending",
@@ -92,10 +99,16 @@ export interface MediaProvider {
     ): Promise<TaskCreatedResult | SavedFileInfo[]>;
 
     // Проверить статус задачи (обязательно для async провайдеров)
-    checkTaskStatus?(taskId: string): Promise<TaskStatusResult>;
+    checkTaskStatus?(
+        taskId: string,
+        context?: TaskStatusCheckContext,
+    ): Promise<TaskStatusResult>;
 
     // Получить результат задачи (обязательно для async провайдеров)
-    getTaskResult?(taskId: string): Promise<SavedFileInfo[]>;
+    getTaskResult?(
+        taskId: string,
+        context?: TaskStatusCheckContext,
+    ): Promise<SavedFileInfo[]>;
 }
 
 // Конфигурация провайдера

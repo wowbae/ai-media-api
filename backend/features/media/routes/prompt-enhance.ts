@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { APP_MODES, parseAppMode } from "../app-mode";
-import { enhancePromptWithGrok } from "../prompt-enhancer.service";
+import { enhanceMediaPrompt } from "../prompt-enhancer.service";
 
 export function createPromptEnhanceRouter(): Router {
     const router = Router();
@@ -32,7 +32,7 @@ export function createPromptEnhanceRouter(): Router {
                 });
             }
 
-            const result = await enhancePromptWithGrok({ prompt, attachments });
+            const result = await enhanceMediaPrompt({ prompt, attachments });
 
             return res.json({
                 success: true,

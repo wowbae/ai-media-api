@@ -21,6 +21,7 @@ import {
     parseAppMode,
 } from "../app-mode";
 import { AuthService } from "../../auth/auth.service";
+import { Z_IMAGE_I2I_LORA_DEFAULT_STRENGTH } from "@shared/constants/wavespeed-z-image";
 
 function resolveUserFromAuthHeader(req: Request): { userId: number } | null {
     const authHeader = req.headers.authorization;
@@ -63,6 +64,7 @@ export function createGenerateRouter(): Router {
                 seed,
                 cfgScale,
                 tailImageUrl,
+                strength: strengthRaw,
                 loras,
                 voice,
                 stability,
@@ -220,6 +222,28 @@ export function createGenerateRouter(): Router {
             const { processedVideoFiles } =
                 await convertVideoFilesToUrls(inputVideoFiles);
 
+            let strength: number | undefined;
+            if (strengthRaw !== undefined && strengthRaw !== null) {
+                const n =
+                    typeof strengthRaw === "string"
+                        ? parseFloat(strengthRaw)
+                        : Number(strengthRaw);
+                if (!Number.isFinite(n) || n < 0 || n > 1) {
+                    return res.status(400).json({
+                        success: false,
+                        error: "Поле strength должно быть числом от 0 до 1",
+                    });
+                }
+                strength = n;
+            }
+            if (
+                selectedModel === "Z_IMAGE_TURBO_IMAGE_TO_IMAGE_WAVESPEED" &&
+                processedFiles.length > 0
+            ) {
+                if (strength === undefined)
+                    strength = Z_IMAGE_I2I_LORA_DEFAULT_STRENGTH;
+            }
+
             // Kling Motion Control: Kie.ai должен скачивать видео по URL — localhost им недоступен
             const isKlingMotionControl =
                 selectedModel === "KLING_2_6_MOTION_CONTROL_KIEAI";
@@ -303,6 +327,7 @@ export function createGenerateRouter(): Router {
             if (triggerWord !== undefined && triggerWord.trim() !== "") {
                 requestSettings.triggerWord = triggerWord.trim();
             }
+            if (strength !== undefined) requestSettings.strength = strength;
             requestSettings.appMode = appMode;
 
             // Создаём запрос в БД
@@ -370,6 +395,7 @@ export function createGenerateRouter(): Router {
                 seed,
                 cfgScale,
                 tailImageUrl,
+                strength,
                 loras,
                 voice,
                 stability,

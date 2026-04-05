@@ -3,7 +3,7 @@
 
 import type { MediaModel } from "../../config";
 import type { GenerateParams } from "../interfaces";
-import type { GenerationLoraInput } from "../../interfaces";
+import { Z_IMAGE_I2I_LORA_DEFAULT_STRENGTH } from "@shared/constants/wavespeed-z-image";
 import {
     type WavespeedPayloadFamily,
     getWavespeedModelMapping,
@@ -48,6 +48,8 @@ export interface ZImageI2iLoraPayload {
     images: string[];
     size: string;
     seed?: number;
+    /** Интенсивность трансформации, 0–1 (Wavespeed: выше — сильнее отход от входного изображения). */
+    strength: number;
     loras?: Array<{ path: string; scale?: number }>;
     safety_checker: false;
 }
@@ -145,10 +147,7 @@ function parseSeed(seed?: string | number): number | undefined {
 }
 
 // Маппинг duration для WAN 2.2
-function mapDurationForWan2_2(
-    model: MediaModel,
-    duration?: number,
-): number {
+function mapDurationForWan2_2(model: MediaModel, duration?: number): number {
     if (
         model === "WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED" ||
         model === "WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED"
@@ -182,7 +181,9 @@ export function buildWan2_2I2vPayload(
             params.negativePrompt.trim().length > 0 && {
                 negative_prompt: params.negativePrompt.trim(),
             }),
-        ...(imageUrls[1] && { last_image: normalizePublicMediaFileUrl(imageUrls[1]) }),
+        ...(imageUrls[1] && {
+            last_image: normalizePublicMediaFileUrl(imageUrls[1]),
+        }),
         ...(parseSeed(params.seed) !== undefined && {
             seed: parseSeed(params.seed),
         }),
@@ -195,7 +196,7 @@ export function buildWan2_2I2vLoraPayload(
 ): Wan2_2I2vLoraPayload {
     const imageUrls = params.inputFiles?.slice(0, 2) || [];
     const basePayload = buildWan2_2I2vPayload(params);
-    
+
     return {
         ...basePayload,
         resolution: "720p",
@@ -276,12 +277,21 @@ export function buildZImageI2iLoraPayload(
             scale: lora.scale,
         }));
 
+    const rawStrength = params.strength;
+    const strength =
+        typeof rawStrength === "number" &&
+        !Number.isNaN(rawStrength) &&
+        Number.isFinite(rawStrength)
+            ? Math.min(1, Math.max(0, rawStrength))
+            : Z_IMAGE_I2I_LORA_DEFAULT_STRENGTH;
+
     return {
         prompt: params.prompt,
         image: normalizedInput,
         images: [normalizedInput],
         size: mappedSize,
         seed: parseSeed(params.seed),
+        strength,
         safety_checker: false,
         ...(loras.length > 0 ? { loras } : {}),
     };
@@ -407,6 +417,8 @@ export function buildWavespeedPayload(
         case "seedream_v4_5_edit":
             return buildSeedreamV4_5EditPayload(params);
         default:
-            throw new Error(`Неподдерживаемый payload family: ${payloadFamily}`);
+            throw new Error(
+                `Неподдерживаемый payload family: ${payloadFamily}`,
+            );
     }
 }
