@@ -774,7 +774,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 {/* LoRA из каталога (до MAX_WAVESPEED_LORA_COUNT) — каскадные селекты */}
                 {isLoraEnabledWavespeedModel && (
                     <div className='mb-2 space-y-2'>
-                        <p className='text-xs text-muted-foreground'>
+                        <p className='mb-3 text-xs text-muted-foreground'>
                             LoRA (до {MAX_WAVESPEED_LORA_COUNT}): выберите из
                             списка; следующий ряд появляется после выбора
                         </p>
@@ -796,8 +796,20 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             return (
                                 <div
                                     key={`lora-slot-${index}`}
-                                    className='flex flex-col gap-1'
+                                    className='flex flex-col gap-0'
                                 >
+                                    {row.path && selectedMeta ? (
+                                        <div className='space-y-0.5 pl-0.5'>
+                                            {/* <p className='text-xs font-medium text-foreground'>
+                                                {selectedMeta.label}
+                                            </p> */}
+                                            {/* {selectedMeta.description ? (
+                                                <p className='text-[10px] text-muted-foreground leading-snug'>
+                                                    {selectedMeta.description}
+                                                </p>
+                                            ) : null} */}
+                                        </div>
+                                    ) : null}
                                     <div className='flex flex-row items-center gap-2'>
                                         <div className='min-w-0 flex-1'>
                                             <Select
@@ -857,11 +869,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                             />
                                         ) : null}
                                     </div>
-                                    {row.path && selectedMeta?.description ? (
-                                        <p className='text-[10px] text-muted-foreground leading-tight pl-0.5'>
-                                            {selectedMeta.description}
-                                        </p>
-                                    ) : null}
                                 </div>
                             );
                         })}
