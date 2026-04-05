@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "prisma/client";
 import type { MediaModel } from "./interfaces";
 import {
@@ -101,11 +102,28 @@ export async function processGeneration(
         const result = await provider.generate(generateParams);
 
         if (isTaskCreatedResult(result)) {
+            const prevRow = await prisma.mediaRequest.findUnique({
+                where: { id: requestId },
+                select: { settings: true },
+            });
+            const mergedSettings: Record<string, unknown> =
+                prevRow?.settings &&
+                typeof prevRow.settings === "object" &&
+                !Array.isArray(prevRow.settings)
+                    ? { ...(prevRow.settings as Record<string, unknown>) }
+                    : {};
+            if (result.wavespeedPollUrl) {
+                mergedSettings.wavespeedPollUrl = result.wavespeedPollUrl;
+            } else {
+                delete mergedSettings.wavespeedPollUrl;
+            }
+
             await prisma.mediaRequest.update({
                 where: { id: requestId },
                 data: {
                     taskId: result.taskId,
                     status: "PENDING",
+                    settings: mergedSettings as Prisma.InputJsonValue,
                 },
             });
 
@@ -128,6 +146,7 @@ export async function processGeneration(
                 chatId: request.chatId,
                 userId: request.userId || undefined,
                 appMode,
+                wavespeedPollUrl: result.wavespeedPollUrl,
             });
 
             return;
@@ -171,7 +190,12 @@ export async function handleTaskCompletion(
 ): Promise<void> {
     const existing = await prisma.mediaRequest.findUnique({
         where: { id: requestId },
-        select: { status: true, chatId: true, files: { select: { id: true } } },
+        select: {
+            status: true,
+            chatId: true,
+            settings: true,
+            files: { select: { id: true } },
+        },
     });
 
     if (
@@ -216,7 +240,13 @@ export async function handleTaskCompletion(
         if (status?.resultUrls && status.resultUrls.length > 0) {
             savedFiles = await downloadFilesFromUrls(status.resultUrls);
         } else {
-            savedFiles = await provider.getTaskResult(taskId, { model });
+            const pollUrl = (
+                existing?.settings as { wavespeedPollUrl?: string } | null
+            )?.wavespeedPollUrl;
+            savedFiles = await provider.getTaskResult(taskId, {
+                model,
+                wavespeedPollUrl: pollUrl,
+            });
         }
 
         if (!savedFiles.length) {

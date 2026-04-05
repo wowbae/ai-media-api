@@ -45,9 +45,9 @@ function extractJsonObject(raw: string): EnhancedPromptResult | null {
 export async function enhanceMediaPrompt(
     params: EnhancePromptParams,
 ): Promise<EnhancedPromptResult> {
-    const apiKey = process.env.COMET_API_KEY;
+    const apiKey = process.env.COMETAPI_KEY || process.env.COMET_API_KEY;
     if (!apiKey) {
-        throw new Error("COMET_API_KEY не задан");
+        throw new Error("COMETAPI_KEY или COMET_API_KEY не задан");
     }
 
     const controller = new AbortController();

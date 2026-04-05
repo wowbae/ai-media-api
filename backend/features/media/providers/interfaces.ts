@@ -19,6 +19,7 @@ export interface GenerateParams {
         | "1:1"
         | "4:3"
         | "3:4"
+        | "4:5"
         | "9:16"
         | "16:9"
         | "2:3"
@@ -63,6 +64,8 @@ export interface GenerateParams {
 export interface TaskCreatedResult {
     taskId: string;
     status: "pending" | "processing";
+    /** Wavespeed: `data.urls.get` из ответа submit (если есть) */
+    wavespeedPollUrl?: string;
 }
 
 // Результат проверки статуса задачи
@@ -77,6 +80,8 @@ export interface TaskStatusResult {
 /** Контекст для checkTaskStatus / getTaskResult (например, после рестарта процесса) */
 export interface TaskStatusCheckContext {
     model?: MediaModel;
+    /** Сохранённый Wavespeed `urls.get` из MediaRequest.settings */
+    wavespeedPollUrl?: string;
 }
 
 // Маппинг статусов провайдеров на внутренние

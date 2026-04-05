@@ -1,1 +1,0 @@
-import{j as e,t as a,A as o}from"./main-BMVoRJTq.js";function s(){return e.jsxDEV(a,{appMode:o.AI_MODEL,routeBase:"/ai-model"},void 0,!1,{fileName:"/Users/wowbae/Desktop/IT/JS/Проекты/ai-media-api/frontend/routes/ai-model/$chatId.tsx?tsr-split=component",lineNumber:4,columnNumber:10},this)}export{s as component};

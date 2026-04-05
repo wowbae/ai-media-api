@@ -9,6 +9,7 @@ export type AppMode = (typeof APP_MODES)[keyof typeof APP_MODES];
 
 export const AI_MODEL_ALLOWED_MODELS: readonly MediaModel[] = [
     "NANO_BANANA_2_KIEAI",
+    "FLUX_2_MAX_EDIT_WAVESPEED",
     "Z_IMAGE_TURBO_LORA_WAVESPEED",
     "GROK_IMAGINE_IMAGE_TO_VIDEO_KIEAI",
     "SEEDREAM_V4_5_EDIT_SEQUENTIAL_WAVESPEED",

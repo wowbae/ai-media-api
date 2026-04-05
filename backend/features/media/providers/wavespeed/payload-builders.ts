@@ -81,6 +81,16 @@ export interface SeedreamV4_5EditPayload {
     safety_checker: false;
 }
 
+/** https://api.wavespeed.ai/api/v3/wavespeed-ai/flux-2-max/edit */
+export interface Flux2MaxEditPayload {
+    enable_base64_output: false;
+    enable_sync_mode: false;
+    images: string[];
+    prompt: string;
+    seed: number;
+    size: string;
+}
+
 // Union тип для всех payload
 export type WavespeedPayload =
     | Wan2_2I2vPayload
@@ -90,7 +100,8 @@ export type WavespeedPayload =
     | ZImageI2iLoraPayload
     | ZImageLoraTrainerPayload
     | QwenImageEditPayload
-    | SeedreamV4_5EditPayload;
+    | SeedreamV4_5EditPayload
+    | Flux2MaxEditPayload;
 
 // Аспект-рейшио в размер для image моделей
 const ASPECT_RATIO_TO_SIZE: Record<string, string> = {
@@ -99,8 +110,15 @@ const ASPECT_RATIO_TO_SIZE: Record<string, string> = {
     "9:16": "720*1280",
     "4:3": "1024*768",
     "3:4": "768*1024",
+    "4:5": "1228*1535",
     "3:2": "1152*768",
     "2:3": "768*1152",
+};
+
+/** Z-Image (turbo LoRA / I2I / trainer): 3:4 → 1152×1536 */
+const Z_IMAGE_ASPECT_RATIO_TO_SIZE: Record<string, string> = {
+    ...ASPECT_RATIO_TO_SIZE,
+    "3:4": "1152*1536",
 };
 
 // Seedream v4.5 edit требует минимум 3,686,400 пикселей
@@ -110,6 +128,8 @@ const SEEDREAM_SEQUENTIAL_ASPECT_RATIO_TO_SIZE: Record<string, string> = {
     "9:16": "1440*2560",
     "4:3": "2304*1728",
     "3:4": "1728*2304",
+    // 4:5 с площадью ≥ 3_686_400 px (требование Seedream edit sequential)
+    "4:5": "1728*2160",
     "3:2": "2496*1664",
     "2:3": "1664*2496",
     "21:9": "2940*1260",
@@ -234,8 +254,8 @@ export function buildZImageTurboLoraPayload(
     params: GenerateParams,
 ): ZImageTurboLoraPayload {
     const mappedSize = params.aspectRatio
-        ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
-        : ASPECT_RATIO_TO_SIZE["1:1"];
+        ? Z_IMAGE_ASPECT_RATIO_TO_SIZE[params.aspectRatio]
+        : Z_IMAGE_ASPECT_RATIO_TO_SIZE["1:1"];
 
     return {
         prompt: params.prompt,
@@ -254,8 +274,8 @@ export function buildZImageI2iLoraPayload(
     params: GenerateParams,
 ): ZImageI2iLoraPayload {
     const mappedSize = params.aspectRatio
-        ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
-        : ASPECT_RATIO_TO_SIZE["1:1"];
+        ? Z_IMAGE_ASPECT_RATIO_TO_SIZE[params.aspectRatio]
+        : Z_IMAGE_ASPECT_RATIO_TO_SIZE["1:1"];
     const firstInput = params.inputFiles?.[0];
     if (!firstInput) {
         throw new Error(
@@ -347,6 +367,40 @@ export function buildQwenImageEditPayload(
     };
 }
 
+// Builder для FLUX 2 Max Edit (Wavespeed)
+export function buildFlux2MaxEditPayload(
+    params: GenerateParams,
+): Flux2MaxEditPayload {
+    const mappedSize = params.aspectRatio
+        ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
+        : ASPECT_RATIO_TO_SIZE["1:1"];
+    const normalizedInputs = (params.inputFiles || [])
+        .slice(0, 3)
+        .map((input) => normalizePublicMediaFileUrl(input));
+
+    if (!normalizedInputs.length) {
+        throw new Error(
+            "Для FLUX 2 Max Edit нужно минимум одно входное изображение (до 3)",
+        );
+    }
+
+    const text = (params.enhancedPrompt?.trim() || params.prompt || "").trim();
+    if (!text) {
+        throw new Error("Пустой промпт для FLUX 2 Max Edit");
+    }
+
+    const seedNum = parseSeed(params.seed);
+
+    return {
+        enable_base64_output: false,
+        enable_sync_mode: false,
+        images: normalizedInputs,
+        prompt: text,
+        seed: seedNum !== undefined ? seedNum : -1,
+        size: mappedSize,
+    };
+}
+
 // Builder для Seedream V4.5 Edit Sequential
 export function buildSeedreamV4_5EditPayload(
     params: GenerateParams,
@@ -416,6 +470,8 @@ export function buildWavespeedPayload(
             return buildQwenImageEditPayload(params);
         case "seedream_v4_5_edit":
             return buildSeedreamV4_5EditPayload(params);
+        case "flux_2_max_edit":
+            return buildFlux2MaxEditPayload(params);
         default:
             throw new Error(
                 `Неподдерживаемый payload family: ${payloadFamily}`,

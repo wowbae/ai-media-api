@@ -21,6 +21,8 @@ interface TrackedTask {
     chatId: number;
     userId?: number; // Опционально - только для SSE уведомлений
     appMode?: AppMode;
+    /** Сохранённый Wavespeed data.urls.get (MediaRequest.settings) */
+    wavespeedPollUrl?: string;
     createdAt: number;
     lastCheckedAt?: number;
     checkCount: number;
@@ -150,6 +152,9 @@ class TaskTrackingService {
                         (request.settings as { appMode?: string } | null)
                             ?.appMode,
                     ),
+                    wavespeedPollUrl: (
+                        request.settings as { wavespeedPollUrl?: string } | null
+                    )?.wavespeedPollUrl,
                 });
 
                 recovered++;
@@ -174,6 +179,7 @@ class TaskTrackingService {
         chatId: number;
         userId?: number; // Опционально - только для SSE уведомлений
         appMode?: AppMode;
+        wavespeedPollUrl?: string;
     }): Promise<void> {
         const key = this.getTaskKey(params.requestId);
 
@@ -282,6 +288,7 @@ class TaskTrackingService {
 
             const status = await provider.checkTaskStatus(task.taskId, {
                 model: task.model,
+                wavespeedPollUrl: task.wavespeedPollUrl,
             });
             task.wavespeedPredictionNotFoundStrikes = 0;
 

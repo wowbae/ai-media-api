@@ -5,6 +5,7 @@ import { join } from "path";
 import type {
     GenerateParams,
     TaskCreatedResult,
+    TaskStatusCheckContext,
     TaskStatusResult,
 } from "../interfaces";
 import type { SavedFileInfo } from "../../file.service";
@@ -18,6 +19,7 @@ import {
     mapWavespeedStatus,
     parseWavespeedError,
     fetchPredictionResultByUrl,
+    isWavespeedRawStatusTerminalSuccess,
 } from "./shared";
 import {
     getWavespeedModelMapping,
@@ -195,12 +197,14 @@ export function createWavespeedVideoHandlers(options: {
 
             const submit = (await response.json()) as WavespeedSubmitResponse;
             const taskId = ensureTaskId(submit);
-            if (submit.data?.urls?.get) {
-                taskResultUrlById.set(taskId, submit.data.urls.get);
+            const pollGetUrl = submit.data?.urls?.get;
+            if (pollGetUrl) {
+                taskResultUrlById.set(taskId, pollGetUrl);
             }
 
             return {
                 taskId,
+                wavespeedPollUrl: pollGetUrl,
                 status:
                     mapWavespeedStatus(submit.data?.status) === "processing"
                         ? "processing"
@@ -208,17 +212,22 @@ export function createWavespeedVideoHandlers(options: {
             };
         },
 
-        async checkVideoTaskStatus(taskId: string): Promise<TaskStatusResult> {
+        async checkVideoTaskStatus(
+            taskId: string,
+            context?: TaskStatusCheckContext,
+        ): Promise<TaskStatusResult> {
             assertTaskIdFormat(taskId);
 
-            const resultUrl = taskResultUrlById.get(taskId);
+            const resultUrl =
+                taskResultUrlById.get(taskId) ?? context?.wavespeedPollUrl;
             const resultData = resultUrl
                 ? await fetchPredictionResultByUrl(apiKey, resultUrl)
                 : await fetchPredictionResult(baseURL, apiKey, taskId);
             if (!resultData.data)
                 throw new Error("Wavespeed API не вернул data в ответе");
 
-            if (resultData.data.status === "failed") {
+            const rawStatus = resultData.data.status;
+            if (rawStatus && mapWavespeedStatus(rawStatus) === "failed") {
                 return {
                     status: "failed",
                     error: resultData.data.error || "Unknown error",
@@ -226,19 +235,22 @@ export function createWavespeedVideoHandlers(options: {
             }
 
             if (
-                resultData.data.status === "completed" &&
+                isWavespeedRawStatusTerminalSuccess(rawStatus) &&
                 resultData.data.outputs?.length
             ) {
                 return {
-                    status: mapWavespeedStatus(resultData.data.status),
+                    status: mapWavespeedStatus(rawStatus),
                     resultUrls: resultData.data.outputs,
                 };
             }
 
-            return { status: mapWavespeedStatus(resultData.data.status) };
+            return { status: mapWavespeedStatus(rawStatus) };
         },
 
-        async getVideoTaskResult(taskId: string): Promise<SavedFileInfo[]> {
+        async getVideoTaskResult(
+            taskId: string,
+            context?: TaskStatusCheckContext,
+        ): Promise<SavedFileInfo[]> {
             assertTaskIdFormat(taskId);
 
             const cached = taskResultsCache.get(taskId);
@@ -247,13 +259,14 @@ export function createWavespeedVideoHandlers(options: {
                 return cached;
             }
 
-            const resultUrl = taskResultUrlById.get(taskId);
+            const resultUrl =
+                taskResultUrlById.get(taskId) ?? context?.wavespeedPollUrl;
             const resultData = resultUrl
                 ? await fetchPredictionResultByUrl(apiKey, resultUrl)
                 : await fetchPredictionResult(baseURL, apiKey, taskId);
             if (!resultData.data)
                 throw new Error("Wavespeed API не вернул data в ответе");
-            if (resultData.data.status !== "completed") {
+            if (!isWavespeedRawStatusTerminalSuccess(resultData.data.status)) {
                 throw new Error(
                     `Задача еще не завершена. Текущий статус: ${resultData.data.status}`,
                 );

@@ -163,7 +163,7 @@ export function ChatSidebar({
     }
 
     return (
-        <div className='flex h-full w-64 flex-col border-r border-border bg-background'>
+        <div className='flex h-full min-h-0 w-64 shrink-0 flex-col border-r border-border bg-background'>
             {/* Header */}
             <div className={PANEL_HEADER_CLASSES}>
                 <h2 className={PANEL_HEADER_TITLE_CLASSES}>
@@ -200,7 +200,7 @@ export function ChatSidebar({
             </div>
 
             {/* Chat list */}
-            <ScrollArea className='flex-1'>
+            <ScrollArea className='min-h-0 flex-1'>
                 <div className='p-2 w-64 truncate'>
                     {isChatsLoading ? (
                         // Skeleton loader

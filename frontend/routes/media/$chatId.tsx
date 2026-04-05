@@ -261,9 +261,9 @@ export function MediaChatPage({
     // Показываем загрузку только если нет кешированных данных и идет первичная загрузка
     if (isChatLoading && !chat) {
         return (
-            <div className='flex h-screen bg-background'>
+            <div className='flex h-full min-h-0 min-w-0 w-full bg-background'>
                 <ChatSidebar appMode={appMode} routeBase={routeBase} />
-                <div className='flex flex-1 items-center justify-center'>
+                <div className='flex min-h-0 min-w-0 flex-1 items-center justify-center'>
                     <Loader2 className='h-8 w-8 animate-spin text-primary' />
                 </div>
             </div>
@@ -273,9 +273,9 @@ export function MediaChatPage({
     // Показываем ошибку только если нет кешированных данных
     if (chatError && !chat) {
         return (
-            <div className='flex h-screen bg-background'>
+            <div className='flex h-full min-h-0 min-w-0 w-full bg-background'>
                 <ChatSidebar appMode={appMode} routeBase={routeBase} />
-                <div className='flex flex-1 flex-col items-center justify-center text-center'>
+                <div className='flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center text-center'>
                     <p className='text-xl text-destructive'>
                         Ошибка загрузки чата
                     </p>
@@ -291,9 +291,9 @@ export function MediaChatPage({
     // Показываем "не найден" только если нет кешированных данных и нет ошибки
     if (!chat && !isChatLoading && !chatError) {
         return (
-            <div className='flex h-screen bg-background'>
+            <div className='flex h-full min-h-0 min-w-0 w-full bg-background'>
                 <ChatSidebar appMode={appMode} routeBase={routeBase} />
-                <div className='flex flex-1 flex-col items-center justify-center text-center'>
+                <div className='flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center text-center'>
                     <p className='text-xl text-muted-foreground'>
                         Чат не найден
                     </p>
@@ -314,9 +314,9 @@ export function MediaChatPage({
 
     if (!activeChat) {
         return (
-            <div className='flex h-screen bg-background'>
+            <div className='flex h-full min-h-0 min-w-0 w-full bg-background'>
                 <ChatSidebar appMode={appMode} routeBase={routeBase} />
-                <div className='flex flex-1 items-center justify-center'>
+                <div className='flex min-h-0 min-w-0 flex-1 items-center justify-center'>
                     <Loader2 className='h-8 w-8 animate-spin text-primary' />
                 </div>
             </div>
@@ -409,7 +409,11 @@ export function MediaChatPage({
             // Прокручиваем к полю ввода
             const inputElement = document.getElementById("chat-input");
             if (inputElement) {
-                inputElement.scrollIntoView({ behavior: "smooth" });
+                inputElement.scrollIntoView({
+                    behavior: "smooth",
+                    block: "nearest",
+                    inline: "nearest",
+                });
             }
         }
     }
@@ -437,7 +441,7 @@ export function MediaChatPage({
     return (
         <div
             className={cn(
-                "flex h-[calc(100vh-3.5rem)] bg-background",
+                "flex h-full min-h-0 min-w-0 w-full bg-background",
                 appMode === APP_MODES.AI_MODEL && "ai-model-theme",
             )}
         >
@@ -445,7 +449,10 @@ export function MediaChatPage({
             <ChatSidebar appMode={appMode} routeBase={routeBase} />
 
             {/* Основной чат — key для сброса состояния при смене чата */}
-            <div key={chatIdNum} className='relative flex flex-1 flex-col'>
+            <div
+                key={chatIdNum}
+                className='relative flex min-h-0 min-w-0 flex-1 flex-col'
+            >
                 {/* Заголовок чата */}
                 <ChatHeader
                     name={activeChat.name}

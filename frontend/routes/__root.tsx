@@ -1,31 +1,37 @@
-import { HeadContent, Scripts, createRootRoute, useLocation } from '@tanstack/react-router';
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
-import { TanStackDevtools } from '@tanstack/react-devtools';
+import {
+    HeadContent,
+    Scripts,
+    createRootRoute,
+    useLocation,
+} from "@tanstack/react-router";
+import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { TanStackDevtools } from "@tanstack/react-devtools";
 
-import appCss from '../styles.css?url';
-import { Provider } from 'react-redux';
-import { store } from '@/redux/store';
-import { Header } from '@/components/Header';
-import { AuthInitializer } from '@/components/AuthInitializer';
-import { useTheme } from '@/hooks/use-theme';
+import appCss from "../styles.css?url";
+import { Provider } from "react-redux";
+import { store } from "@/redux/store";
+import { Header } from "@/components/Header";
+import { AuthInitializer } from "@/components/AuthInitializer";
+import { useTheme } from "@/hooks/use-theme";
+import { cn } from "@/lib/utils";
 
 export const Route = createRootRoute({
     head: () => ({
         meta: [
             {
-                charSet: 'utf-8',
+                charSet: "utf-8",
             },
             {
-                name: 'viewport',
-                content: 'width=device-width, initial-scale=1',
+                name: "viewport",
+                content: "width=device-width, initial-scale=1",
             },
             {
-                title: 'AI Media Generator',
+                title: "AI Media Generator",
             },
         ],
         links: [
             {
-                rel: 'stylesheet',
+                rel: "stylesheet",
                 href: appCss,
             },
         ],
@@ -52,7 +58,9 @@ function NotFoundComponent() {
     return (
         <div className='flex flex-col items-center justify-center min-h-screen bg-background text-foreground'>
             <h1 className='text-6xl font-bold mb-4'>404</h1>
-            <p className='text-xl text-muted-foreground mb-8'>Страница не найдена</p>
+            <p className='text-xl text-muted-foreground mb-8'>
+                Страница не найдена
+            </p>
             <a
                 href='/'
                 className='px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg transition-colors'
@@ -69,20 +77,48 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     const location = useLocation();
 
     // Скрываем хедер на страницах логина и регистрации
-    const shouldShowHeader = !location.pathname.startsWith('/login') && !location.pathname.startsWith('/register');
+    const shouldShowHeader =
+        !location.pathname.startsWith("/login") &&
+        !location.pathname.startsWith("/register");
+    const isMediaAppShell =
+        location.pathname.startsWith("/media") ||
+        location.pathname.startsWith("/ai-model");
+
+    const mediaShellLocked = shouldShowHeader && isMediaAppShell;
 
     return (
         <Provider store={store}>
-            <html lang='en' suppressHydrationWarning>
+            <html
+                lang='en'
+                suppressHydrationWarning
+                className={cn("dark", mediaShellLocked && "app-media-shell")}
+            >
                 <head>
                     <HeadContent />
                 </head>
-                <body suppressHydrationWarning>
+                <body
+                    suppressHydrationWarning
+                    className={cn(
+                        mediaShellLocked &&
+                            "flex min-h-0 h-dvh max-h-dvh flex-col",
+                    )}
+                >
                     <AuthInitializer />
-                    {shouldShowHeader && <Header />}
-                    <div className={shouldShowHeader ? "pt-14" : ""}>
-                        {children}
-                    </div>
+                    {mediaShellLocked ? (
+                        <div className='flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden overflow-x-auto'>
+                            <Header variant='docked' />
+                            <div className='flex min-h-0 min-w-0 flex-1 flex-col'>
+                                {children}
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            {shouldShowHeader && <Header variant='fixed' />}
+                            <div className={cn(shouldShowHeader && "pt-14")}>
+                                {children}
+                            </div>
+                        </>
+                    )}
                     {/* <TanStackDevtools
                         config={{
                             position: 'bottom-right',

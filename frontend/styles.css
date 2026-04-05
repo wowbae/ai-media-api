@@ -11,6 +11,22 @@ html {
     overflow-y: auto;
 }
 
+/* /media и /ai-model: шапка docked (не fixed) — overflow-y на html не режет её; гасим скролл документа */
+html.app-media-shell {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow-x: visible;
+    overflow-y: hidden;
+}
+
+html.app-media-shell body {
+    min-height: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    /* глобальный body { overflow-x: hidden } иначе гасит горизонтальный скролл у вложенных overflow-x-auto */
+    overflow-x: visible;
+}
+
 body {
     @apply m-0;
     min-height: 100vh;

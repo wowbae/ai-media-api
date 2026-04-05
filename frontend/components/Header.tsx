@@ -10,8 +10,16 @@ import { KieCredits } from "./KieCredits";
 import { WavespeedBalance } from "./WavespeedBalance";
 import { openTelegramBot } from "@/lib/telegram-utils";
 import { LinkIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export const Header = () => {
+export type HeaderVariant = "fixed" | "docked";
+
+interface HeaderProps {
+    /** docked: внутри медиа-шелла — в потоке, без pt-14; fixed: главная и прочие страницы */
+    variant?: HeaderVariant;
+}
+
+export const Header = ({ variant = "fixed" }: HeaderProps) => {
     const [isMounted, setIsMounted] = useState(false);
     const isAuthenticated = useSelector(selectIsAuthenticated);
     const user = useSelector(selectCurrentUser);
@@ -48,7 +56,13 @@ export const Header = () => {
     };
 
     return (
-        <header className='fixed top-0 z-50 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur supports-backdrop-filter:bg-slate-950/60'>
+        <header
+            className={cn(
+                variant === "fixed" && "fixed top-0 left-0 right-0",
+                variant === "docked" && "relative shrink-0",
+                "z-100 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur supports-backdrop-filter:bg-slate-950/60",
+            )}
+        >
             <div className='flex h-14 w-full items-center justify-between px-4'>
                 <div className='flex items-center gap-2'>
                     <img

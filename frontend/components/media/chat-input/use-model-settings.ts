@@ -1,20 +1,49 @@
 // Хук для управления настройками модели генерации
-import { useState, useEffect, useRef } from 'react';
-import type { MediaModel } from '@/redux/api/base';
-import { loadMediaSettings, saveMediaSettings, type MediaSettings } from '@/lib/media-settings';
-import { getModelSettingsConfig } from './model-settings-config';
-import { useModelType } from '@/hooks/use-model-type';
+import { useState, useEffect, useRef } from "react";
+import type { MediaModel } from "@/redux/api/base";
+import {
+    loadMediaSettings,
+    saveMediaSettings,
+    type MediaSettings,
+} from "@/lib/media-settings";
+import { getModelSettingsConfig } from "./model-settings-config";
+import { useModelType } from "@/hooks/use-model-type";
 
 // Экспортируемые типы значений для использования снаружи
-export type FormatValue = '1:1' | '4:3' | '3:4' | '9:16' | '16:9' | '2:3' | '3:2' | '21:9' | undefined;
-export type QualityValue = '1k' | '2k' | '4k' | undefined;
+export type FormatValue =
+    | "1:1"
+    | "4:3"
+    | "3:4"
+    | "4:5"
+    | "9:16"
+    | "16:9"
+    | "2:3"
+    | "3:2"
+    | "21:9"
+    | undefined;
+export type QualityValue = "1k" | "2k" | "4k" | undefined;
 export type DurationValue = 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | undefined;
 
 export interface ModelSettingsState {
-    format: '1:1' | '4:3' | '3:4' | '9:16' | '16:9' | '2:3' | '3:2' | '21:9' | undefined;
-    quality: '1k' | '2k' | '4k' | undefined;
+    format:
+        | "1:1"
+        | "4:3"
+        | "3:4"
+        | "4:5"
+        | "9:16"
+        | "16:9"
+        | "2:3"
+        | "3:2"
+        | "21:9"
+        | undefined;
+    quality: "1k" | "2k" | "4k" | undefined;
     duration: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | undefined;
-    veoGenerationType: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' | 'EXTEND_VIDEO' | undefined;
+    veoGenerationType:
+        | "TEXT_2_VIDEO"
+        | "FIRST_AND_LAST_FRAMES_2_VIDEO"
+        | "REFERENCE_2_VIDEO"
+        | "EXTEND_VIDEO"
+        | undefined;
     sound: boolean | undefined;
     fixedLens: boolean | undefined;
     negativePrompt: string;
@@ -26,8 +55,8 @@ export interface ModelSettingsState {
     speed: number;
     languageCode: string;
     // Kling Motion Control
-    klingMotionCharacterOrientation?: 'image' | 'video';
-    klingMotionVideoQuality?: '720p' | '1080p';
+    klingMotionCharacterOrientation?: "image" | "video";
+    klingMotionVideoQuality?: "720p" | "1080p";
 }
 
 const DEFAULT_SETTINGS: ModelSettingsState = {
@@ -37,21 +66,22 @@ const DEFAULT_SETTINGS: ModelSettingsState = {
     veoGenerationType: undefined,
     sound: undefined,
     fixedLens: undefined,
-    negativePrompt: '',
+    negativePrompt: "",
     seed: undefined,
     cfgScale: undefined,
-    voice: 'Rachel',
+    voice: "Rachel",
     stability: 0.7,
     similarityBoost: 0.75,
     speed: 1,
-    languageCode: '',
+    languageCode: "",
 };
 
 export function useModelSettings(currentModel: MediaModel) {
     const modelType = useModelType(currentModel);
     const config = getModelSettingsConfig(currentModel);
 
-    const [settings, setSettings] = useState<ModelSettingsState>(DEFAULT_SETTINGS);
+    const [settings, setSettings] =
+        useState<ModelSettingsState>(DEFAULT_SETTINGS);
     const isInitialMount = useRef(true);
 
     // Загружаем настройки из localStorage при монтировании или смене модели
@@ -96,7 +126,7 @@ export function useModelSettings(currentModel: MediaModel) {
                 config.characterOrientation?.defaultValue;
             newSettings.klingMotionVideoQuality =
                 storedSettings.klingMotionVideoQuality ??
-                (config.mode?.defaultValue === 'pro' ? '1080p' : '720p');
+                (config.mode?.defaultValue === "pro" ? "1080p" : "720p");
         }
 
         // Загружаем duration: используем только значение из опций селектора текущей модели
@@ -104,7 +134,7 @@ export function useModelSettings(currentModel: MediaModel) {
             const candidate =
                 storedSettings.klingDuration ?? config.duration.defaultValue;
             const optionValues = config.duration.options.map((o) =>
-                Number(o.value)
+                Number(o.value),
             );
             const isValid =
                 candidate !== undefined && optionValues.includes(candidate);
@@ -136,8 +166,8 @@ export function useModelSettings(currentModel: MediaModel) {
             // Для Veo сохраняем в videoFormat
             saveMediaSettings({
                 videoFormat:
-                    settings.format && settings.format !== '1:1'
-                        ? (settings.format as '16:9' | '9:16')
+                    settings.format && settings.format !== "1:1"
+                        ? (settings.format as "16:9" | "9:16")
                         : undefined,
                 veoGenerationType: settings.veoGenerationType,
             } as MediaSettings);
@@ -145,21 +175,22 @@ export function useModelSettings(currentModel: MediaModel) {
             // Для Kling сохраняем в klingAspectRatio, klingDuration, klingSound
             saveMediaSettings({
                 klingAspectRatio:
-                    settings.format && settings.format !== '1:1'
-                        ? (settings.format as '16:9' | '9:16')
+                    settings.format && settings.format !== "1:1"
+                        ? (settings.format as "16:9" | "9:16")
                         : undefined,
                 klingDuration: settings.duration,
                 klingSound: modelType.isKling ? settings.sound : undefined,
             });
         } else if (modelType.isKlingMotionControl) {
             saveMediaSettings({
-                klingMotionCharacterOrientation: settings.klingMotionCharacterOrientation,
+                klingMotionCharacterOrientation:
+                    settings.klingMotionCharacterOrientation,
                 klingMotionVideoQuality: settings.klingMotionVideoQuality,
             });
         } else {
             // Для остальных моделей (Seedance, Wavespeed и т.д.) — format, quality, при supportsDuration ещё klingDuration
             const base: MediaSettings = {
-                format: settings.format as MediaSettings['format'],
+                format: settings.format as MediaSettings["format"],
                 quality: settings.quality,
             };
             if (config.duration && settings.duration !== undefined) {
@@ -174,27 +205,29 @@ export function useModelSettings(currentModel: MediaModel) {
         setSettings((prev) => ({ ...prev, ...updates }));
     };
 
-    const setFormat = (format: ModelSettingsState['format']) => {
+    const setFormat = (format: ModelSettingsState["format"]) => {
         updateSettings({ format });
     };
 
-    const setQuality = (quality: ModelSettingsState['quality']) => {
+    const setQuality = (quality: ModelSettingsState["quality"]) => {
         updateSettings({ quality });
     };
 
-    const setDuration = (duration: ModelSettingsState['duration']) => {
+    const setDuration = (duration: ModelSettingsState["duration"]) => {
         updateSettings({ duration });
     };
 
-    const setSound = (sound: ModelSettingsState['sound']) => {
+    const setSound = (sound: ModelSettingsState["sound"]) => {
         updateSettings({ sound });
     };
 
-    const setFixedLens = (fixedLens: ModelSettingsState['fixedLens']) => {
+    const setFixedLens = (fixedLens: ModelSettingsState["fixedLens"]) => {
         updateSettings({ fixedLens });
     };
 
-    const setVeoGenerationType = (veoGenerationType: ModelSettingsState['veoGenerationType']) => {
+    const setVeoGenerationType = (
+        veoGenerationType: ModelSettingsState["veoGenerationType"],
+    ) => {
         updateSettings({ veoGenerationType });
     };
 
@@ -202,11 +235,11 @@ export function useModelSettings(currentModel: MediaModel) {
         updateSettings({ negativePrompt });
     };
 
-    const setSeed = (seed: ModelSettingsState['seed']) => {
+    const setSeed = (seed: ModelSettingsState["seed"]) => {
         updateSettings({ seed });
     };
 
-    const setCfgScale = (cfgScale: ModelSettingsState['cfgScale']) => {
+    const setCfgScale = (cfgScale: ModelSettingsState["cfgScale"]) => {
         updateSettings({ cfgScale });
     };
 
@@ -230,13 +263,11 @@ export function useModelSettings(currentModel: MediaModel) {
         updateSettings({ languageCode });
     };
 
-    const setKlingMotionCharacterOrientation = (
-        value: 'image' | 'video'
-    ) => {
+    const setKlingMotionCharacterOrientation = (value: "image" | "video") => {
         updateSettings({ klingMotionCharacterOrientation: value });
     };
 
-    const setKlingMotionVideoQuality = (value: '720p' | '1080p') => {
+    const setKlingMotionVideoQuality = (value: "720p" | "1080p") => {
         updateSettings({ klingMotionVideoQuality: value });
     };
 
@@ -248,10 +279,10 @@ export function useModelSettings(currentModel: MediaModel) {
             updates.seed = undefined;
         }
         if (modelType.isImagen4) {
-            updates.negativePrompt = '';
+            updates.negativePrompt = "";
         }
         if (modelType.isKling25) {
-            updates.negativePrompt = '';
+            updates.negativePrompt = "";
             updates.cfgScale = undefined;
         }
 

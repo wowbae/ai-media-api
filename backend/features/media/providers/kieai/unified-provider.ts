@@ -461,6 +461,7 @@ export function createUnifiedKieAiProvider(config: KieAiConfig): MediaProvider {
                     "1:1": "1:1",
                     "4:3": "4:3",
                     "3:4": "3:4",
+                    "4:5": "4:5",
                     "9:16": "9:16",
                     "16:9": "16:9",
                     "2:3": "2:3",

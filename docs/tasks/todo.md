@@ -27,8 +27,11 @@
 
 ## 2026-04-05
 
+- [x] Режим `/ai-model`: **FLUX 2 Max Edit** (`FLUX_2_MAX_EDIT_WAVESPEED`, `wavespeed-ai/flux-2-max/edit`), allowlist backend+frontend.
+- [x] Режим `/ai-model`: при вводе улучшенного промпта (фокус или непустой текст) — поле улучшенного промпта разворачивается (textarea до 20vh), основной промпт сжимается до одной строки с прокруткой при переполнении.
 - [x] LoRA на фронте: каталог URL в `shared/constants/loras.ts`, каскадные селекты (до 3), без локального сервера и загрузки с диска; проброс `loras` в payload Z-Image Turbo Image-to-Image LoRA (Wavespeed).
 - [x] Структура репозитория: `frontend/` (UI), `backend/` (Express), `shared/` (общие константы в корне).
+- [x] Лейаут `/media` и `/ai-model`: убрать лишний скролл документа; хедер `docked` в flex-шелле; класс `app-media-shell` на `html` + сброс `min-height`/`overflow` у `body` (глобальные `html { overflow-y: auto }` и `body { min-height: 100vh }` иначе оставляли скролл документа); на `html` в шелле всегда `dark` в `className`, чтобы React не затирал тему при смене класса.
 
 ## 2026-03-26
 

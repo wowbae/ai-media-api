@@ -314,11 +314,11 @@ export function MediaGallery({
     // Показываем скелетоны во время загрузки
     if (isLoading) {
         return (
-            <div className='flex h-full w-[30%] flex-col border-l border-border bg-background'>
+            <div className='flex h-full min-h-0 w-[30%] shrink-0 flex-col border-l border-border bg-background'>
                 <div className={PANEL_HEADER_CLASSES}>
                     <h2 className={PANEL_HEADER_TITLE_CLASSES}>Медиафайлы</h2>
                 </div>
-                <ScrollArea className='flex-1'>
+                <ScrollArea className='min-h-0 flex-1'>
                     <div className='grid grid-cols-3 gap-2 p-4'>
                         {Array.from({ length: INITIAL_FILES_LIMIT }).map(
                             (_, index) => (
@@ -336,11 +336,11 @@ export function MediaGallery({
 
     if (accumulatedFiles.length === 0) {
         return (
-            <div className='flex h-full w-[30%] flex-col border-l border-border bg-background'>
+            <div className='flex h-full min-h-0 w-[30%] shrink-0 flex-col border-l border-border bg-background'>
                 <div className={PANEL_HEADER_CLASSES}>
                     <h2 className={PANEL_HEADER_TITLE_CLASSES}>Медиафайлы</h2>
                 </div>
-                <div className='flex flex-1 items-center justify-center'>
+                <div className='flex min-h-0 flex-1 items-center justify-center'>
                     <p className='text-sm text-muted-foreground'>
                         Нет медиафайлов
                     </p>
@@ -351,7 +351,7 @@ export function MediaGallery({
 
     return (
         <>
-            <div className='flex h-full w-[30%] flex-col border-l border-border bg-background'>
+            <div className='flex h-full min-h-0 w-[30%] shrink-0 flex-col border-l border-border bg-background'>
                 {/* Заголовок */}
                 <div
                     className={cn(
@@ -370,7 +370,7 @@ export function MediaGallery({
                 </div>
 
                 {/* Grid с файлами */}
-                <ScrollArea className='flex-1'>
+                <ScrollArea className='min-h-0 flex-1'>
                     <div className='p-4 space-y-4'>
                         {/* Секция закрепленных изображений */}
                         {pinnedImages.length > 0 && (

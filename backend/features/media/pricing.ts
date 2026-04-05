@@ -1,5 +1,5 @@
-import { MEDIA_MODELS, MEDIA_MODEL_KEYS, type MediaModel } from './config';
-import { convertUsdToTokens, DEFAULT_TARIFF_ID } from './tariff';
+import { MEDIA_MODELS, MEDIA_MODEL_KEYS, type MediaModel } from "./config";
+import { convertUsdToTokens, DEFAULT_TARIFF_ID } from "./tariff";
 
 const MARKUP = 1.4; // 40% прибыль
 
@@ -15,6 +15,7 @@ const BASE_COSTS: Partial<Record<MediaModel, number>> = {
     VEO_3_1_FAST_KIEAI: 0.3,
     ELEVENLABS_MULTILINGUAL_V2_KIEAI: 0.05,
     MIDJOURNEY: 0.5,
+    FLUX_2_MAX_EDIT_WAVESPEED: 0.05,
 };
 
 export type PricingEntry = {
@@ -23,22 +24,21 @@ export type PricingEntry = {
     tokens: number; // стоимость в токенах по тарифу
 };
 
-export const pricing: Record<MediaModel, PricingEntry> = MEDIA_MODEL_KEYS.reduce(
-    (acc, model) => {
-        const costPrice =
-            BASE_COSTS[model] ??
-            MEDIA_MODELS[model]?.pricing?.output ??
-            0;
-        const finalPrice = Number((costPrice * MARKUP).toFixed(4));
-        acc[model] = {
-            costPrice,
-            finalPrice,
-            tokens: convertUsdToTokens(finalPrice, DEFAULT_TARIFF_ID),
-        };
-        return acc;
-    },
-    {} as Record<MediaModel, PricingEntry>
-);
+export const pricing: Record<MediaModel, PricingEntry> =
+    MEDIA_MODEL_KEYS.reduce(
+        (acc, model) => {
+            const costPrice =
+                BASE_COSTS[model] ?? MEDIA_MODELS[model]?.pricing?.output ?? 0;
+            const finalPrice = Number((costPrice * MARKUP).toFixed(4));
+            acc[model] = {
+                costPrice,
+                finalPrice,
+                tokens: convertUsdToTokens(finalPrice, DEFAULT_TARIFF_ID),
+            };
+            return acc;
+        },
+        {} as Record<MediaModel, PricingEntry>,
+    );
 
 export function getModelPricing(model: MediaModel): PricingEntry | undefined {
     return pricing[model];

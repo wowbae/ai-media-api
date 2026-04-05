@@ -45,6 +45,7 @@ export interface FormatConfig {
         | "1:1"
         | "4:3"
         | "3:4"
+        | "4:5"
         | "16:9"
         | "9:16"
         | "2:3"
@@ -135,6 +136,7 @@ const FORMAT_OPTIONS_SEEDREAM: FormatOption[] = [
     { value: "1:1", label: "1:1 (Квадрат)" },
     { value: "4:3", label: "4:3 (Горизонтальный)" },
     { value: "3:4", label: "3:4 (Вертикальный)" },
+    { value: "4:5", label: "4:5 (Портрет)" },
     { value: "16:9", label: "16:9 (Широкий)" },
     { value: "9:16", label: "9:16 (Высокий)" },
     { value: "2:3", label: "2:3 (Портрет)" },
@@ -246,6 +248,12 @@ export const MODEL_SETTINGS_CONFIG: Record<MediaModel, ModelSettingConfig> = {
         quality: {
             options: QUALITY_OPTIONS_1K_2K_4K,
             defaultValue: "2k",
+        },
+    },
+    FLUX_2_MAX_EDIT_WAVESPEED: {
+        format: {
+            options: FORMAT_OPTIONS_1_1_16_9_9_16,
+            defaultValue: "1:1",
         },
     },
     GROK_IMAGINE_IMAGE_TO_IMAGE_KIEAI: {},

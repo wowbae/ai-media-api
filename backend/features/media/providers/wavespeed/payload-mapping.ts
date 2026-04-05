@@ -12,7 +12,8 @@ export type WavespeedPayloadFamily =
     | "z_image_i2i_lora" // Z-Image Turbo Image-to-Image LoRA
     | "z_image_lora_trainer" // Z-Image LoRA Trainer
     | "qwen_image_edit" // Qwen Image 2.0 Pro Edit
-    | "seedream_v4_5_edit"; // Seedream V4.5 Edit Sequential
+    | "seedream_v4_5_edit" // Seedream V4.5 Edit Sequential
+    | "flux_2_max_edit"; // FLUX 2 Max Edit (BFL)
 
 // Базовая схема payload с белым списком полей
 export interface PayloadSchema {
@@ -126,6 +127,16 @@ export const WAVESPEED_MODEL_MAPPING: Record<MediaModel, ModelEndpointMapping> =
             inputCardinality: {
                 min: 1,
                 max: 14,
+                type: "image",
+            },
+        },
+        FLUX_2_MAX_EDIT_WAVESPEED: {
+            modelKey: "FLUX_2_MAX_EDIT_WAVESPEED",
+            externalEndpoint: "wavespeed-ai/flux-2-max/edit",
+            payloadFamily: "flux_2_max_edit",
+            inputCardinality: {
+                min: 1,
+                max: 3,
                 type: "image",
             },
         },
@@ -305,6 +316,26 @@ export const PAYLOAD_SCHEMAS: Record<WavespeedPayloadFamily, PayloadSchema> = {
                 maxItems: 14,
             },
             safety_checker: {
+                type: "boolean",
+            },
+        },
+    },
+    flux_2_max_edit: {
+        required: ["prompt", "images"],
+        optional: ["enable_base64_output", "enable_sync_mode", "seed", "size"],
+        validations: {
+            seed: {
+                type: "integer",
+            },
+            images: {
+                type: "array",
+                minItems: 1,
+                maxItems: 3,
+            },
+            enable_base64_output: {
+                type: "boolean",
+            },
+            enable_sync_mode: {
                 type: "boolean",
             },
         },

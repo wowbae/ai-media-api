@@ -192,6 +192,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         const { isTestMode } = useTestMode();
         const fileInputRef = useRef<HTMLInputElement>(null);
         const textareaRef = useRef<HTMLTextAreaElement>(null);
+        const enhancedTextareaRef = useRef<HTMLTextAreaElement>(null);
+        const compactMainPromptRef = useRef(false);
+        const enhancedExpandedRef = useRef(false);
+
+        const [enhancedPromptFocused, setEnhancedPromptFocused] =
+            useState(false);
+        const [needsScrollbarEnhanced, setNeedsScrollbarEnhanced] =
+            useState(false);
 
         const [generateMedia] = useGenerateMediaMutation();
         const [generateMediaTest] = useGenerateMediaTestMutation();
@@ -203,6 +211,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         // Используем хук для получения всех флагов модели
         const modelType = useModelType(currentModel);
         const isAiModelMode = appMode === APP_MODES.AI_MODEL;
+
+        const isEnhancedPromptExpanded =
+            enhancedPrompt.trim().length > 0 || enhancedPromptFocused;
+        compactMainPromptRef.current =
+            isAiModelMode && isEnhancedPromptExpanded;
+        enhancedExpandedRef.current = isEnhancedPromptExpanded;
 
         // Деструктурируем настройки для удобства
         const {
@@ -271,27 +285,56 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         );
         const MAX_PROMPT_LENGTH = currentModelConfig?.promptLimit ?? 5000;
 
-        // Функция для обновления высоты textarea
+        const measureTextareaOneLineCap = (el: HTMLTextAreaElement) => {
+            const lineStyle = getComputedStyle(el);
+            const lineHeight = parseFloat(lineStyle.lineHeight) || 22;
+            const paddingTop = parseFloat(lineStyle.paddingTop) || 8;
+            const paddingBottom = parseFloat(lineStyle.paddingBottom) || 8;
+            return Math.ceil(lineHeight + paddingTop + paddingBottom);
+        };
+
+        // Функция для обновления высоты textarea (основной промпт)
         const adjustTextareaHeight = useCallback(() => {
             const textarea = textareaRef.current;
             if (!textarea) return;
 
-            // Сбрасываем высоту для корректного расчета scrollHeight
             textarea.style.height = "auto";
-
-            // Получаем реальную высоту контента
             const scrollHeight = textarea.scrollHeight;
-            const maxHeight = window.innerHeight * 0.2; // 20% от высоты экрана
 
-            // Устанавливаем высоту на основе содержимого, но не больше maxHeight
+            if (compactMainPromptRef.current) {
+                const oneLineCap = measureTextareaOneLineCap(textarea);
+                const newHeight = Math.min(scrollHeight, oneLineCap);
+                textarea.style.height = `${newHeight}px`;
+                setNeedsScrollbar(scrollHeight > newHeight + 1);
+                return;
+            }
+
+            const maxHeight = window.innerHeight * 0.2;
             const newHeight = Math.min(scrollHeight, maxHeight);
             textarea.style.height = `${newHeight}px`;
-
-            // Проверяем, нужен ли скроллбар
-            // Скроллбар нужен только если scrollHeight действительно больше установленной высоты
-            // Используем небольшую погрешность (1px) для избежания проблем с округлением
             const needsScroll = scrollHeight > newHeight + 1;
             setNeedsScrollbar(needsScroll);
+        }, []);
+
+        const adjustEnhancedTextareaHeight = useCallback(() => {
+            const el = enhancedTextareaRef.current;
+            if (!el) return;
+
+            el.style.height = "auto";
+            const scrollHeight = el.scrollHeight;
+
+            if (!enhancedExpandedRef.current) {
+                const oneLineCap = measureTextareaOneLineCap(el);
+                const newHeight = Math.min(scrollHeight, oneLineCap);
+                el.style.height = `${newHeight}px`;
+                setNeedsScrollbarEnhanced(scrollHeight > newHeight + 1);
+                return;
+            }
+
+            const maxHeight = window.innerHeight * 0.2;
+            const newHeight = Math.min(scrollHeight, maxHeight);
+            el.style.height = `${newHeight}px`;
+            setNeedsScrollbarEnhanced(scrollHeight > newHeight + 1);
         }, []);
 
         // Обработчик изменения размера textarea
@@ -313,19 +356,30 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             requestAnimationFrame(() => {
                 adjustTextareaHeight();
             });
-        }, [prompt, adjustTextareaHeight]);
+        }, [prompt, adjustTextareaHeight, isEnhancedPromptExpanded]);
+
+        useEffect(() => {
+            requestAnimationFrame(() => {
+                adjustEnhancedTextareaHeight();
+            });
+        }, [
+            enhancedPrompt,
+            adjustEnhancedTextareaHeight,
+            isEnhancedPromptExpanded,
+        ]);
 
         // Обновление высоты при изменении размера окна
         useEffect(() => {
             const handleResize = () => {
                 adjustTextareaHeight();
+                adjustEnhancedTextareaHeight();
             };
 
             window.addEventListener("resize", handleResize);
             return () => {
                 window.removeEventListener("resize", handleResize);
             };
-        }, [adjustTextareaHeight]);
+        }, [adjustTextareaHeight, adjustEnhancedTextareaHeight]);
 
         // Экспортируем методы для работы с промптом и файлами извне
         useImperativeHandle(ref, () => ({
@@ -513,6 +567,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         | "1:1"
                         | "4:3"
                         | "3:4"
+                        | "4:5"
                         | "9:16"
                         | "16:9"
                         | "2:3"
@@ -893,13 +948,35 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
                 {isAiModelMode && (
                     <div className='mb-2'>
-                        <Input
-                            type='text'
-                            placeholder='Улучшенный промпт'
+                        <Textarea
+                            ref={enhancedTextareaRef}
                             value={enhancedPrompt}
-                            onChange={(e) => setEnhancedPrompt(e.target.value)}
+                            onChange={(e) => {
+                                setEnhancedPrompt(
+                                    e.target.value.slice(0, MAX_PROMPT_LENGTH),
+                                );
+                                requestAnimationFrame(() =>
+                                    adjustEnhancedTextareaHeight(),
+                                );
+                            }}
+                            onFocus={() => setEnhancedPromptFocused(true)}
+                            onBlur={() => setEnhancedPromptFocused(false)}
                             disabled={isDisabled}
-                            className='w-full border-border bg-secondary text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 rounded-xl'
+                            placeholder='Улучшенный промпт'
+                            maxLength={MAX_PROMPT_LENGTH}
+                            className={cn(
+                                "w-full resize-none border-border bg-secondary text-foreground placeholder:text-muted-foreground rounded-xl transition-[min-height,max-height] focus-visible:ring-emerald-500 focus-visible:border-emerald-500/50",
+                                isEnhancedPromptExpanded
+                                    ? "min-h-[76px] max-h-[20vh] py-2 pl-3 pr-3"
+                                    : "min-h-9 max-h-9 py-2 pl-3 pr-3 overflow-y-hidden",
+                                isEnhancedPromptExpanded &&
+                                    needsScrollbarEnhanced &&
+                                    "overflow-y-auto custom-scrollbar",
+                                isEnhancedPromptExpanded &&
+                                    !needsScrollbarEnhanced &&
+                                    "overflow-y-hidden",
+                            )}
+                            style={{ height: "auto" }}
                         />
                     </div>
                 )}
@@ -1057,6 +1134,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                                 | "1:1"
                                 | "4:3"
                                 | "3:4"
+                                | "4:5"
                                 | "9:16"
                                 | "16:9"
                                 | "2:3"
@@ -1295,7 +1373,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         placeholder='Опишите, что хотите сгенерировать...'
                         maxLength={MAX_PROMPT_LENGTH}
                         className={cn(
-                            "min-h-[76px] max-h-[20vh] resize-none border-border bg-secondary pb-10 pl-4 pr-12 text-foreground placeholder:text-muted-foreground rounded-xl transition-all",
+                            "resize-none border-border bg-secondary pl-4 pr-12 text-foreground placeholder:text-muted-foreground rounded-xl transition-all",
+                            isAiModelMode && isEnhancedPromptExpanded
+                                ? "min-h-11 max-h-[20vh] py-2 pb-9"
+                                : "min-h-[76px] max-h-[20vh] pb-10",
                             "focus-visible:ring-primary focus-visible:border-primary",
                             needsScrollbar &&
                                 "overflow-y-auto custom-scrollbar",
@@ -1371,7 +1452,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                             type='button'
                             size='icon-sm'
                             variant='secondary'
-                            className='absolute bottom-10 right-1.5 h-8 w-8 text-emerald-300 hover:text-emerald-200'
+                            className={cn(
+                                "absolute right-1.5 h-8 w-8 text-emerald-300 hover:text-emerald-200",
+                                isEnhancedPromptExpanded
+                                    ? "bottom-2"
+                                    : "bottom-10",
+                            )}
                             onClick={handleEnhancePrompt}
                             disabled={
                                 isDisabled ||

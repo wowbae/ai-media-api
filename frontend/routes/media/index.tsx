@@ -43,12 +43,12 @@ function MediaIndexPage() {
     }
 
     return (
-        <div className='flex h-screen bg-background'>
+        <div className='flex h-full min-h-0 min-w-0 w-full bg-background'>
             {/* Сайдбар */}
             <ChatSidebar appMode={APP_MODES.DEFAULT} routeBase='/media' />
 
             {/* Основной контент */}
-            <div className='flex flex-1 flex-col items-center justify-center'>
+            <div className='flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center'>
                 {isChatsLoading ? (
                     <div className='flex flex-col items-center gap-4'>
                         <Loader2 className='h-8 w-8 animate-spin text-cyan-400' />

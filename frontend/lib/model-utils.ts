@@ -7,6 +7,7 @@ import type { ModelInfo } from "@/redux/api/base";
 const MODEL_ICONS: Record<string, string> = {
     NANO_BANANA_PRO_KIEAI: "🍌",
     NANO_BANANA_2_KIEAI: "🍌",
+    FLUX_2_MAX_EDIT_WAVESPEED: "✨",
     GROK_IMAGINE_IMAGE_TO_IMAGE_KIEAI: "🧠",
     GROK_IMAGINE_IMAGE_TO_VIDEO_KIEAI: "🧠",
     MIDJOURNEY: "🎨",

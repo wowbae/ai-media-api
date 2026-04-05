@@ -56,7 +56,11 @@ export function MessageList({
     // Экспортируем функцию прокрутки через callback ref
     const scrollToBottom = useCallback(() => {
         if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+            messagesEndRef.current.scrollIntoView({
+                behavior: "smooth",
+                block: "nearest",
+                inline: "nearest",
+            });
         }
     }, []);
 
@@ -112,14 +116,18 @@ export function MessageList({
     // Используем scrollIntoView на элементе-маркере в конце списка
     useEffect(() => {
         const timeoutId = setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            messagesEndRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "nearest",
+                inline: "nearest",
+            });
         }, 0);
         return () => clearTimeout(timeoutId);
     }, [requests.length, requestsStatusKey]);
 
     if (isLoading) {
         return (
-            <div className='flex-1 p-4'>
+            <div className='min-h-0 flex-1 p-4'>
                 <MessageSkeleton />
                 <MessageSkeleton />
                 <MessageSkeleton />
@@ -129,7 +137,7 @@ export function MessageList({
 
     if (requests.length === 0) {
         return (
-            <div className='flex flex-1 flex-col items-center justify-center p-8 text-center'>
+            <div className='flex min-h-0 flex-1 flex-col items-center justify-center p-8 text-center'>
                 <div className='mb-4 rounded-full bg-secondary p-6'>
                     <span className='text-4xl'>🎨</span>
                 </div>

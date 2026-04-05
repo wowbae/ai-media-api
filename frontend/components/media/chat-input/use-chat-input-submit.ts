@@ -38,6 +38,7 @@ export interface SubmitParams {
         | "1:1"
         | "4:3"
         | "3:4"
+        | "4:5"
         | "9:16"
         | "16:9"
         | "2:3"
@@ -245,6 +246,20 @@ export function useChatInputSubmit({
                     alert(message);
                     return;
                 }
+            }
+
+            const maxAttachments = params.modelType.maxInputFiles;
+            if (
+                maxAttachments != null &&
+                maxAttachments > 0 &&
+                params.attachedFiles.length > maxAttachments
+            ) {
+                submitInProgressRef.current = false;
+                setIsSubmitting(false);
+                const message = `Эта модель поддерживает не более ${maxAttachments} входных файлов. Выбрано: ${params.attachedFiles.length}`;
+                if (onSendError) onSendError(message);
+                alert(message);
+                return;
             }
 
             if (isZImageLoraTrainer) {

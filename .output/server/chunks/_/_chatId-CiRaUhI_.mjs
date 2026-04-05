@@ -2,7 +2,7 @@ import { jsxDEV } from 'react/jsx-dev-runtime';
 import { useParams } from '@tanstack/react-router';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
-import { b as useGetChatQuery, c as useUpdateChatMutation, d as useGenerateMediaMutation, e as useLazyGetRequestQuery, f as useTestMode, g as useGetModelsQuery, A as APP_MODES, h as API_BASE_URL, C as ChatSidebar, i as cn, M as MessageList, j as ChatInput, k as MediaGallery, l as getModelIcon, P as PANEL_HEADER_CLASSES } from './router-DFPuOg5f.mjs';
+import { b as useGetChatQuery, c as useUpdateChatMutation, d as useGenerateMediaMutation, e as useLazyGetRequestQuery, f as useTestMode, g as useGetModelsQuery, A as APP_MODES, h as API_BASE_URL, C as ChatSidebar, i as cn, M as MessageList, j as ChatInput, k as MediaGallery, l as getModelIcon, P as PANEL_HEADER_CLASSES } from './router-BDDdWGGd.mjs';
 import 'react-redux';
 import '@reduxjs/toolkit';
 import '@reduxjs/toolkit/query/react';
@@ -160,13 +160,13 @@ function MediaChatPage({
     }
   }, [activeRequests, pendingMessage]);
   if (isChatLoading && !chat) {
-    return /* @__PURE__ */ jsxDEV("div", { className: "flex h-screen bg-background", children: [
+    return /* @__PURE__ */ jsxDEV("div", { className: "flex h-full min-h-0 min-w-0 w-full bg-background", children: [
       /* @__PURE__ */ jsxDEV(ChatSidebar, { appMode, routeBase }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
         lineNumber: 222,
         columnNumber: 17
       }, this),
-      /* @__PURE__ */ jsxDEV("div", { className: "flex flex-1 items-center justify-center", children: /* @__PURE__ */ jsxDEV(Loader2, { className: "h-8 w-8 animate-spin text-primary" }, void 0, false, {
+      /* @__PURE__ */ jsxDEV("div", { className: "flex min-h-0 min-w-0 flex-1 items-center justify-center", children: /* @__PURE__ */ jsxDEV(Loader2, { className: "h-8 w-8 animate-spin text-primary" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
         lineNumber: 224,
         columnNumber: 21
@@ -182,13 +182,13 @@ function MediaChatPage({
     }, this);
   }
   if (chatError && !chat) {
-    return /* @__PURE__ */ jsxDEV("div", { className: "flex h-screen bg-background", children: [
+    return /* @__PURE__ */ jsxDEV("div", { className: "flex h-full min-h-0 min-w-0 w-full bg-background", children: [
       /* @__PURE__ */ jsxDEV(ChatSidebar, { appMode, routeBase }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
         lineNumber: 232,
         columnNumber: 17
       }, this),
-      /* @__PURE__ */ jsxDEV("div", { className: "flex flex-1 flex-col items-center justify-center text-center", children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center text-center", children: [
         /* @__PURE__ */ jsxDEV("p", { className: "text-xl text-destructive", children: "\u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0447\u0430\u0442\u0430" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
           lineNumber: 234,
@@ -211,13 +211,13 @@ function MediaChatPage({
     }, this);
   }
   if (!chat && !isChatLoading && !chatError) {
-    return /* @__PURE__ */ jsxDEV("div", { className: "flex h-screen bg-background", children: [
+    return /* @__PURE__ */ jsxDEV("div", { className: "flex h-full min-h-0 min-w-0 w-full bg-background", children: [
       /* @__PURE__ */ jsxDEV(ChatSidebar, { appMode, routeBase }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
         lineNumber: 248,
         columnNumber: 17
       }, this),
-      /* @__PURE__ */ jsxDEV("div", { className: "flex flex-1 flex-col items-center justify-center text-center", children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center text-center", children: [
         /* @__PURE__ */ jsxDEV("p", { className: "text-xl text-muted-foreground", children: "\u0427\u0430\u0442 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
           lineNumber: 250,
@@ -241,13 +241,13 @@ function MediaChatPage({
   }
   const activeChat = chat && chat.id === chatIdNum ? chat : null;
   if (!activeChat) {
-    return /* @__PURE__ */ jsxDEV("div", { className: "flex h-screen bg-background", children: [
+    return /* @__PURE__ */ jsxDEV("div", { className: "flex h-full min-h-0 min-w-0 w-full bg-background", children: [
       /* @__PURE__ */ jsxDEV(ChatSidebar, { appMode, routeBase }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
         lineNumber: 268,
         columnNumber: 17
       }, this),
-      /* @__PURE__ */ jsxDEV("div", { className: "flex flex-1 items-center justify-center", children: /* @__PURE__ */ jsxDEV(Loader2, { className: "h-8 w-8 animate-spin text-primary" }, void 0, false, {
+      /* @__PURE__ */ jsxDEV("div", { className: "flex min-h-0 min-w-0 flex-1 items-center justify-center", children: /* @__PURE__ */ jsxDEV(Loader2, { className: "h-8 w-8 animate-spin text-primary" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
         lineNumber: 270,
         columnNumber: 21
@@ -302,7 +302,9 @@ function MediaChatPage({
       const inputElement = document.getElementById("chat-input");
       if (inputElement) {
         inputElement.scrollIntoView({
-          behavior: "smooth"
+          behavior: "smooth",
+          block: "nearest",
+          inline: "nearest"
         });
       }
     }
@@ -322,43 +324,43 @@ function MediaChatPage({
     }
   }
   const showUpdatingIndicator = isChatFetching && !isChatLoading;
-  return /* @__PURE__ */ jsxDEV("div", { className: cn("flex h-[calc(100vh-3.5rem)] bg-background", appMode === APP_MODES.AI_MODEL && "ai-model-theme"), children: [
+  return /* @__PURE__ */ jsxDEV("div", { className: cn("flex h-full min-h-0 min-w-0 w-full bg-background", appMode === APP_MODES.AI_MODEL && "ai-model-theme"), children: [
     /* @__PURE__ */ jsxDEV(ChatSidebar, { appMode, routeBase }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 362,
+      lineNumber: 364,
       columnNumber: 13
     }, this),
-    /* @__PURE__ */ jsxDEV("div", { className: "relative flex flex-1 flex-col", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "relative flex min-h-0 min-w-0 flex-1 flex-col", children: [
       /* @__PURE__ */ jsxDEV(ChatHeader, { name: activeChat.name, model: currentModel, showUpdating: showUpdatingIndicator, appMode }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 367,
+        lineNumber: 369,
         columnNumber: 17
       }, this),
       /* @__PURE__ */ jsxDEV(MessageList, { requests: finalRequests, chatModel: currentModel, onEditPrompt: handleEditPrompt, onAttachFile: handleAttachFile, onRepeatRequest: handleRepeatRequest, onScrollStateChange: setShowScrollButton, onScrollToBottomRef: (scrollFn) => {
         scrollToBottomRef.current = scrollFn;
       }, appMode }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 370,
+        lineNumber: 372,
         columnNumber: 17
       }, this),
       /* @__PURE__ */ jsxDEV(ChatInput, { ref: chatInputRef, chatId: chatIdNum, currentModel, onModelChange: handleModelChange, onRequestCreated: handleRequestCreated, onPendingMessage: handleAddPendingMessage, onSendError: handleSendError, scrollToBottom: () => scrollToBottomRef.current?.(), showScrollButton, appMode }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 375,
+        lineNumber: 377,
         columnNumber: 17
       }, this)
     ] }, chatIdNum, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 365,
+      lineNumber: 367,
       columnNumber: 13
     }, this),
     /* @__PURE__ */ jsxDEV(MediaGallery, { chatId: chatIdNum, onAttachFile: handleAttachFile, onRepeatRequest: handleRepeatRequestById, appMode }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 379,
+      lineNumber: 381,
       columnNumber: 13
     }, this)
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-    lineNumber: 360,
+    lineNumber: 362,
     columnNumber: 10
   }, this);
 }
@@ -377,51 +379,51 @@ function ChatHeader({
   return /* @__PURE__ */ jsxDEV("div", { className: cn(PANEL_HEADER_CLASSES, "bg-background"), children: /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-3", children: [
     /* @__PURE__ */ jsxDEV("span", { className: "text-2xl", children: getModelIcon(model) }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 402,
+      lineNumber: 404,
       columnNumber: 17
     }, this),
     /* @__PURE__ */ jsxDEV("div", { className: "flex-1", children: [
       /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2", children: [
         /* @__PURE__ */ jsxDEV("h1", { className: "font-semibold text-foreground", children: name }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-          lineNumber: 405,
+          lineNumber: 407,
           columnNumber: 25
         }, this),
         showUpdating && /* @__PURE__ */ jsxDEV(Loader2, { className: "h-4 w-4 animate-spin text-muted-foreground" }, void 0, false, {
           fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-          lineNumber: 408,
+          lineNumber: 410,
           columnNumber: 42
         }, this)
       ] }, void 0, true, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 404,
+        lineNumber: 406,
         columnNumber: 21
       }, this),
       /* @__PURE__ */ jsxDEV("p", { className: "text-xs text-muted-foreground", children: modelInfo?.name || model }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-        lineNumber: 410,
+        lineNumber: 412,
         columnNumber: 21
       }, this)
     ] }, void 0, true, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-      lineNumber: 403,
+      lineNumber: 405,
       columnNumber: 17
     }, this)
   ] }, void 0, true, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-    lineNumber: 401,
+    lineNumber: 403,
     columnNumber: 13
   }, this) }, void 0, false, {
     fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-    lineNumber: 400,
+    lineNumber: 402,
     columnNumber: 10
   }, this);
 }
 const SplitComponent = () => /* @__PURE__ */ jsxDEV(MediaChatPage, { appMode: APP_MODES.DEFAULT, routeBase: "/media" }, void 0, false, {
   fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/$chatId.tsx?tsr-split=component",
-  lineNumber: 417,
+  lineNumber: 419,
   columnNumber: 30
 }, void 0);
 
 export { MediaChatPage, SplitComponent as component };
-//# sourceMappingURL=_chatId-CyDpColp.mjs.map
+//# sourceMappingURL=_chatId-CiRaUhI_.mjs.map

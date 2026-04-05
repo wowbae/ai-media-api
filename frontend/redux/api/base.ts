@@ -16,6 +16,7 @@ export type MediaModel =
     | "KLING_3_0_KIEAI"
     | "NANO_BANANA_PRO_KIEAI"
     | "NANO_BANANA_2_KIEAI"
+    | "FLUX_2_MAX_EDIT_WAVESPEED"
     | "GROK_IMAGINE_IMAGE_TO_IMAGE_KIEAI"
     | "GROK_IMAGINE_IMAGE_TO_VIDEO_KIEAI"
     | "IMAGEN4_KIEAI"
@@ -138,7 +139,16 @@ export interface GenerateMediaRequest {
     appMode?: "default" | "ai-model";
     model?: MediaModel;
     inputFiles?: string[];
-    format?: "1:1" | "4:3" | "3:4" | "9:16" | "16:9" | "2:3" | "3:2" | "21:9";
+    format?:
+        | "1:1"
+        | "4:3"
+        | "3:4"
+        | "4:5"
+        | "9:16"
+        | "16:9"
+        | "2:3"
+        | "3:2"
+        | "21:9";
     quality?: "1k" | "2k" | "4k";
     videoQuality?: "480p" | "720p" | "1080p";
     duration?: number;

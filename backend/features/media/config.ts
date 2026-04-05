@@ -309,6 +309,18 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.1, // TODO: уточнить цену
         },
     },
+    FLUX_2_MAX_EDIT_WAVESPEED: {
+        id: "wavespeed-ai/flux-2-max/edit",
+        name: "FLUX 2 Max Edit",
+        types: ["IMAGE"] as const,
+        maxPromptLength: 8192,
+        promptLimit: 5000,
+        supportsImageInput: true,
+        provider: "wavespeed",
+        pricing: {
+            output: 0.05,
+        },
+    },
     // Kie.ai провайдер - Kling 2.6 Motion Control (image + video → video)
     KLING_2_6_MOTION_CONTROL_KIEAI: {
         id: "kling-2.6/motion-control",

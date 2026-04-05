@@ -3,7 +3,16 @@ export interface KieAiModelMappers {
     mapKlingDuration: (duration?: number) => "5" | "10";
     mapSeedreamAspectRatio: (
         aspectRatio?: string,
-    ) => "1:1" | "4:3" | "3:4" | "16:9" | "9:16" | "2:3" | "3:2" | "21:9";
+    ) =>
+        | "1:1"
+        | "4:3"
+        | "3:4"
+        | "4:5"
+        | "16:9"
+        | "9:16"
+        | "2:3"
+        | "3:2"
+        | "21:9";
     mapSeedreamQuality: (quality?: string) => "basic" | "high";
 }
 
@@ -20,11 +29,21 @@ export const kieAiMappers: KieAiModelMappers = {
 
     mapSeedreamAspectRatio(
         aspectRatio?: string,
-    ): "1:1" | "4:3" | "3:4" | "16:9" | "9:16" | "2:3" | "3:2" | "21:9" {
+    ):
+        | "1:1"
+        | "4:3"
+        | "3:4"
+        | "4:5"
+        | "16:9"
+        | "9:16"
+        | "2:3"
+        | "3:2"
+        | "21:9" {
         const valid = [
             "1:1",
             "4:3",
             "3:4",
+            "4:5",
             "16:9",
             "9:16",
             "2:3",
@@ -36,6 +55,7 @@ export const kieAiMappers: KieAiModelMappers = {
                 | "1:1"
                 | "4:3"
                 | "3:4"
+                | "4:5"
                 | "16:9"
                 | "9:16"
                 | "2:3"

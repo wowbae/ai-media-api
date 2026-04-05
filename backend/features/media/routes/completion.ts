@@ -80,6 +80,9 @@ export function createCompletionRouter(): Router {
                 // Проверяем статус задачи
                 const status = await provider.checkTaskStatus(request.taskId, {
                     model,
+                    wavespeedPollUrl: (
+                        request.settings as { wavespeedPollUrl?: string }
+                    )?.wavespeedPollUrl,
                 });
 
                 console.log("[Completion] Статус задачи:", {

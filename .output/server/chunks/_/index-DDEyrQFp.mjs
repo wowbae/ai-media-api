@@ -1,7 +1,7 @@
 import { jsxDEV, Fragment } from 'react/jsx-dev-runtime';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { u as useGetChatsQuery, A as APP_MODES, a as useCreateChatMutation, C as ChatSidebar } from './router-DFPuOg5f.mjs';
+import { u as useGetChatsQuery, A as APP_MODES, a as useCreateChatMutation, C as ChatSidebar } from './router-BDDdWGGd.mjs';
 import { Loader2, Sparkles } from 'lucide-react';
 import 'react-redux';
 import '@reduxjs/toolkit';
@@ -53,13 +53,13 @@ function MediaIndexPage() {
       console.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u0447\u0430\u0442\u0430:", error);
     }
   }
-  return /* @__PURE__ */ jsxDEV("div", { className: "flex h-screen bg-background", children: [
+  return /* @__PURE__ */ jsxDEV("div", { className: "flex h-full min-h-0 min-w-0 w-full bg-background", children: [
     /* @__PURE__ */ jsxDEV(ChatSidebar, { appMode: APP_MODES.DEFAULT, routeBase: "/media" }, void 0, false, {
       fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/index.tsx?tsr-split=component",
       lineNumber: 49,
       columnNumber: 13
     }, this),
-    /* @__PURE__ */ jsxDEV("div", { className: "flex flex-1 flex-col items-center justify-center", children: isChatsLoading ? /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col items-center gap-4", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center", children: isChatsLoading ? /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col items-center gap-4", children: [
       /* @__PURE__ */ jsxDEV(Loader2, { className: "h-8 w-8 animate-spin text-cyan-400" }, void 0, false, {
         fileName: "/Users/wowbae/Desktop/IT/JS/\u041F\u0440\u043E\u0435\u043A\u0442\u044B/ai-media-api/frontend/routes/media/index.tsx?tsr-split=component",
         lineNumber: 54,
@@ -196,4 +196,4 @@ function ModelCard({
 }
 
 export { MediaIndexPage as component };
-//# sourceMappingURL=index-G84-4YYc.mjs.map
+//# sourceMappingURL=index-DDEyrQFp.mjs.map
