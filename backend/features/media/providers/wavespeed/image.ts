@@ -262,7 +262,7 @@ export function createWavespeedImageHandlers(options: {
                 taskResultUrlById.get(taskId) ?? context?.wavespeedPollUrl;
             const resultData = await loadWavespeedPredictionWithOptionalResult(
                 baseURL,
-                apiKey,
+                apiKey, 
                 taskId,
                 pollUrl,
             );
