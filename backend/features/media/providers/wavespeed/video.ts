@@ -1,4 +1,5 @@
-import { Client } from "wavespeed";
+import type { Client } from "wavespeed";
+import { createWavespeedSdkClient } from "./wavespeed-sdk-client";
 import { writeFile, unlink } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -105,7 +106,7 @@ export function createWavespeedVideoHandlers(options: {
     taskResultUrlById: Map<string, string>;
 }) {
     const { apiKey, baseURL, taskResultsCache, taskResultUrlById } = options;
-    const uploader = new Client(apiKey);
+    const uploader = createWavespeedSdkClient(apiKey);
 
     return {
         async generateVideo(

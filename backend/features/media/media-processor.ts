@@ -339,13 +339,20 @@ export async function handleTaskFailure(
     });
 }
 
+function resolveGenerationFailureMessage(error: unknown): string {
+    if (error instanceof DOMException && error.name === "AbortError") {
+        return "Операция прервана по таймауту (часто медленная загрузка файла в Wavespeed). Повторите попытку.";
+    }
+    if (error instanceof Error) return error.message;
+    return "Unknown error";
+}
+
 async function handleGenerationError(
     requestId: number,
     error: unknown,
     model: MediaModel,
 ): Promise<void> {
-    const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = resolveGenerationFailureMessage(error);
     const providerManager = getProviderManager();
     const provider = providerManager.getProvider(model);
     const formattedErrorMessage = formatErrorMessage(

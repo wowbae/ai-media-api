@@ -1,6 +1,8 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { AuthService } from './auth.service';
-import { z } from 'zod';
+import { Router, Request, Response, NextFunction } from "express";
+import { AuthService } from "./auth.service";
+import { z } from "zod";
+import { authConfig } from "../../config";
+import { UserRole } from "@prisma/client";
 
 const router = Router();
 
@@ -25,46 +27,74 @@ const resetSchema = z.object({
 });
 
 // Helper for async handlers
-const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-};
+const asyncHandler =
+    (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
+        Promise.resolve(fn(req, res, next)).catch(next);
+    };
 
 // Routes
-router.post('/register', asyncHandler(async (req: Request, res: Response) => {
-    const data = registerSchema.parse(req.body);
-    const result = await AuthService.register(data.email, data.password);
-    res.json(result);
-}));
+router.post(
+    "/register",
+    asyncHandler(async (req: Request, res: Response) => {
+        const data = registerSchema.parse(req.body);
+        const result = await AuthService.register(data.email, data.password);
+        res.json(result);
+    }),
+);
 
-router.post('/login', asyncHandler(async (req: Request, res: Response) => {
-    const data = loginSchema.parse(req.body);
-    const result = await AuthService.login(data.email, data.password);
-    res.json(result);
-}));
+router.post(
+    "/login",
+    asyncHandler(async (req: Request, res: Response) => {
+        const data = loginSchema.parse(req.body);
+        const result = await AuthService.login(data.email, data.password);
+        res.json(result);
+    }),
+);
 
-router.post('/forgot-password', asyncHandler(async (req: Request, res: Response) => {
-    const data = forgotSchema.parse(req.body);
-    await AuthService.requestPasswordReset(data.email);
-    // Always return success to prevent email enumeration
-    res.json({ message: 'If the email exists, a reset link has been sent' });
-}));
+router.post(
+    "/forgot-password",
+    asyncHandler(async (req: Request, res: Response) => {
+        const data = forgotSchema.parse(req.body);
+        await AuthService.requestPasswordReset(data.email);
+        // Always return success to prevent email enumeration
+        res.json({
+            message: "If the email exists, a reset link has been sent",
+        });
+    }),
+);
 
-router.post('/reset-password', asyncHandler(async (req: Request, res: Response) => {
-    const data = resetSchema.parse(req.body);
-    await AuthService.resetPassword(data.token, data.newPassword);
-    res.json({ message: 'Password reset successful' });
-}));
+router.post(
+    "/reset-password",
+    asyncHandler(async (req: Request, res: Response) => {
+        const data = resetSchema.parse(req.body);
+        await AuthService.resetPassword(data.token, data.newPassword);
+        res.json({ message: "Password reset successful" });
+    }),
+);
 
 // Middleware to protect routes (export for use in other features)
-export const authenticate = (req: Request, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-        return res.status(401).json({ error: 'No token provided' });
+export const authenticate = (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+) => {
+    if (authConfig.disableAuth) {
+        req.user = {
+            userId: authConfig.mockUserId,
+            email: authConfig.mockUserEmail,
+            role: UserRole.ADMIN,
+        };
+        return next();
     }
 
-    const token = authHeader.split(' ')[1];
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).json({ error: "No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
     if (!token) {
-        return res.status(401).json({ error: 'Invalid token format' });
+        return res.status(401).json({ error: "Invalid token format" });
     }
 
     try {
@@ -72,7 +102,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
         req.user = payload;
         next();
     } catch (error) {
-        return res.status(401).json({ error: 'Invalid token' });
+        return res.status(401).json({ error: "Invalid token" });
     }
 };
 
@@ -80,13 +110,25 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
  * Middleware для SSE: EventSource не поддерживает кастомные заголовки,
  * поэтому токен передаётся в query: ?token=xxx
  */
-export const authenticateSSE = (req: Request, res: Response, next: NextFunction) => {
+export const authenticateSSE = (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+) => {
+    if (authConfig.disableAuth) {
+        req.user = {
+            userId: authConfig.mockUserId,
+            email: authConfig.mockUserEmail,
+            role: UserRole.ADMIN,
+        };
+        return next();
+    }
+
     const token =
-        (req.query.token as string) ||
-        req.headers.authorization?.split(' ')[1];
+        (req.query.token as string) || req.headers.authorization?.split(" ")[1];
 
     if (!token) {
-        return res.status(401).json({ error: 'No token provided' });
+        return res.status(401).json({ error: "No token provided" });
     }
 
     try {
@@ -94,19 +136,23 @@ export const authenticateSSE = (req: Request, res: Response, next: NextFunction)
         req.user = payload;
         next();
     } catch (error) {
-        return res.status(401).json({ error: 'Invalid token' });
+        return res.status(401).json({ error: "Invalid token" });
     }
 };
 
-router.get('/me', authenticate, asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-    const user = await AuthService.getCurrentUser(req.user.userId);
-    if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-    }
-    res.json({ user });
-}));
+router.get(
+    "/me",
+    authenticate,
+    asyncHandler(async (req: Request, res: Response) => {
+        if (!req.user) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+        const user = await AuthService.getCurrentUser(req.user.userId);
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+        res.json({ user });
+    }),
+);
 
 export const authRouter = router;

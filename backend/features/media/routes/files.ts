@@ -5,38 +5,12 @@ import { prisma } from "prisma/client";
 import { deleteFile } from "../file.service";
 import { mediaStorageConfig } from "../config";
 import { invalidateChatCache } from "./cache";
-import { APP_MODES, parseAppMode } from "../app-mode";
-
-function buildRequestModeWhere(appMode: "default" | "ai-model") {
-    if (appMode === APP_MODES.AI_MODEL) {
-        return {
-            settings: {
-                path: ["appMode"],
-                equals: APP_MODES.AI_MODEL,
-            },
-        };
-    }
-    return {
-        OR: [
-            {
-                settings: {
-                    path: ["appMode"],
-                    equals: APP_MODES.DEFAULT,
-                },
-            },
-            {
-                settings: {
-                    path: ["appMode"],
-                    equals: null,
-                },
-            },
-        ],
-    };
-}
+import { parseAppMode } from "../app-mode";
+import { prismaWhereForRequestAppMode } from "../prisma-app-mode-where";
 import { writeFile, unlink, mkdtemp } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import { Client } from "wavespeed";
+import { createWavespeedSdkClient } from "../providers/wavespeed/wavespeed-sdk-client";
 
 export function createFilesRouter(): Router {
     const router = Router();
@@ -80,17 +54,17 @@ export function createFilesRouter(): Router {
             const limit = limitParam;
             const skip = (page - 1) * limit;
 
-            // Формируем условие where для фильтрации по chatId
+            const requestModeWhere = prismaWhereForRequestAppMode(appMode);
             const whereCondition = chatIdParam
                 ? {
                       request: {
                           chatId: chatIdParam,
-                          ...buildRequestModeWhere(appMode),
+                          ...requestModeWhere,
                       },
                   }
                 : {
                       request: {
-                          ...buildRequestModeWhere(appMode),
+                          ...requestModeWhere,
                       },
                   };
 
@@ -693,7 +667,7 @@ export function createFilesRouter(): Router {
 
             try {
                 await writeFile(tempFilePath, buffer);
-                const client = new Client(apiKey);
+                const client = createWavespeedSdkClient(apiKey);
                 const uploadedUrl = await client.upload(tempFilePath);
 
                 return res.json({

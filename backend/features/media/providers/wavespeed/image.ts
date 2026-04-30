@@ -5,7 +5,8 @@ import type {
     TaskStatusResult,
 } from "../interfaces";
 import type { SavedFileInfo } from "../../file.service";
-import { Client } from "wavespeed";
+import type { Client } from "wavespeed";
+import { createWavespeedSdkClient } from "./wavespeed-sdk-client";
 import { writeFile, unlink, mkdtemp } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -89,7 +90,7 @@ export function createWavespeedImageHandlers(options: {
     taskResultUrlById: Map<string, string>;
 }) {
     const { apiKey, baseURL, taskResultsCache, taskResultUrlById } = options;
-    const uploader = new Client(apiKey);
+    const uploader = createWavespeedSdkClient(apiKey);
 
     return {
         async generateImage(
@@ -262,7 +263,7 @@ export function createWavespeedImageHandlers(options: {
                 taskResultUrlById.get(taskId) ?? context?.wavespeedPollUrl;
             const resultData = await loadWavespeedPredictionWithOptionalResult(
                 baseURL,
-                apiKey, 
+                apiKey,
                 taskId,
                 pollUrl,
             );

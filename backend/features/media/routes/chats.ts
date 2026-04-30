@@ -7,37 +7,16 @@ import { deleteFile } from "../file.service";
 import { mediaStorageConfig } from "../config";
 import type { CreateChatRequest, UpdateChatRequest } from "../interfaces";
 import { APP_MODES, parseAppMode } from "../app-mode";
-
-function buildChatModeWhere(appMode: "default" | "ai-model") {
-    if (appMode === APP_MODES.AI_MODEL) {
-        return {
-            settings: {
-                path: ["appMode"],
-                equals: APP_MODES.AI_MODEL,
-            },
-        };
-    }
-    return {
-        OR: [
-            {
-                settings: {
-                    path: ["appMode"],
-                    equals: APP_MODES.DEFAULT,
-                },
-            },
-            {
-                settings: {
-                    path: ["appMode"],
-                    equals: null,
-                },
-            },
-        ],
-    };
-}
+import { prismaWhereForChatAppMode } from "../prisma-app-mode-where";
 import { getCachedChat, setCachedChat, invalidateChatCache } from "./cache";
 import { AuthService } from "../../auth/auth.service";
+import { authConfig } from "../../../config";
 
 function resolveUserFromAuthHeader(req: Request): { userId: number } | null {
+    if (authConfig.disableAuth) {
+        return { userId: authConfig.mockUserId };
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader) return null;
     const token = authHeader.split(" ")[1];
@@ -59,7 +38,7 @@ export function createChatsRouter(): Router {
             const appMode = parseAppMode(req.query.appMode);
             // Загружаем чаты только с подсчетом запросов (без загрузки самих requests)
             const chats = await prisma.mediaChat.findMany({
-                where: buildChatModeWhere(appMode),
+                where: prismaWhereForChatAppMode(appMode),
                 orderBy: { updatedAt: "desc" },
                 include: {
                     _count: {
@@ -302,8 +281,10 @@ export function createChatsRouter(): Router {
                     userId: user?.userId, // ← Сохраняем userId
                     name: name.trim(),
                     model: model || "NANO_BANANA_PRO_KIEAI",
-                    settings: ({ ...(settings || {}), appMode } ||
-                        {}) as Prisma.InputJsonValue,
+                    settings: {
+                        ...(settings || {}),
+                        appMode,
+                    } as Prisma.InputJsonValue,
                 },
             });
 

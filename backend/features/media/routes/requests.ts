@@ -2,33 +2,7 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "prisma/client";
 import { APP_MODES, parseAppMode } from "../app-mode";
-
-function buildRequestModeWhere(appMode: "default" | "ai-model") {
-    if (appMode === APP_MODES.AI_MODEL) {
-        return {
-            settings: {
-                path: ["appMode"],
-                equals: APP_MODES.AI_MODEL,
-            },
-        };
-    }
-    return {
-        OR: [
-            {
-                settings: {
-                    path: ["appMode"],
-                    equals: APP_MODES.DEFAULT,
-                },
-            },
-            {
-                settings: {
-                    path: ["appMode"],
-                    equals: null,
-                },
-            },
-        ],
-    };
-}
+import { prismaWhereForRequestAppMode } from "../prisma-app-mode-where";
 
 export function createRequestsRouter(): Router {
     const router = Router();
@@ -164,7 +138,7 @@ export function createRequestsRouter(): Router {
                     prisma.mediaRequest.findMany({
                         where: {
                             chatId,
-                            ...buildRequestModeWhere(appMode),
+                            ...prismaWhereForRequestAppMode(appMode),
                         },
                         orderBy: { createdAt: "desc" },
                         skip,
@@ -199,7 +173,7 @@ export function createRequestsRouter(): Router {
                     prisma.mediaRequest.count({
                         where: {
                             chatId,
-                            ...buildRequestModeWhere(appMode),
+                            ...prismaWhereForRequestAppMode(appMode),
                         },
                     }),
                 ]);

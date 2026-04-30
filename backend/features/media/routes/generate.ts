@@ -21,9 +21,14 @@ import {
     parseAppMode,
 } from "../app-mode";
 import { AuthService } from "../../auth/auth.service";
+import { authConfig } from "../../../config";
 import { Z_IMAGE_I2I_LORA_DEFAULT_STRENGTH } from "@shared/constants/wavespeed-z-image";
 
 function resolveUserFromAuthHeader(req: Request): { userId: number } | null {
+    if (authConfig.disableAuth) {
+        return { userId: authConfig.mockUserId };
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader) return null;
     const token = authHeader.split(" ")[1];

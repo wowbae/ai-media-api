@@ -5,6 +5,7 @@ import { useLocation } from "@tanstack/react-router";
 import { useGetMeQuery } from "@/redux/api/auth.endpoints";
 import { setCredentials, logout } from "@/redux/auth-slice";
 import { handleSessionTimeout } from "@/redux/api/utils";
+import { config } from "@/lib/config";
 
 export function AuthInitializer() {
     const dispatch = useDispatch();
@@ -12,6 +13,7 @@ export function AuthInitializer() {
     const hasCheckedRef = useRef(false);
     const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const isAuthBypassed = config.disableAuth;
 
     // SSE инициализируется в store.ts (глобальный singleton, не зависит от React)
 
@@ -27,8 +29,24 @@ export function AuthInitializer() {
         isSuccess,
         error,
     } = useGetMeQuery(undefined, {
-        skip: !token, // Пропускаем запрос если нет токена
+        skip: isAuthBypassed || !token, // В bypass режиме /me не нужен
     });
+
+    useEffect(() => {
+        if (!isAuthBypassed) return;
+
+        dispatch(
+            setCredentials({
+                token: token || "dev-bypass-token",
+                user: {
+                    id: 1,
+                    email: "dev@local",
+                    role: "ADMIN",
+                    balance: 0,
+                },
+            }),
+        );
+    }, [dispatch, isAuthBypassed, token]);
 
     // Проверка токена при загрузке страницы (выполняется один раз)
     useEffect(() => {
@@ -37,14 +55,22 @@ export function AuthInitializer() {
         hasCheckedRef.current = true;
 
         // Если нет токена и мы не на публичной странице - перенаправляем на логин сразу
+        if (isAuthBypassed) {
+            return;
+        }
+
         if (!token && !isPublicRoute) {
             handleSessionTimeout();
             return;
         }
-    }, [token, isPublicRoute]);
+    }, [token, isPublicRoute, isAuthBypassed]);
 
     // Обработка ошибок авторизации
     useEffect(() => {
+        if (isAuthBypassed) {
+            return;
+        }
+
         if (error && "status" in error && error.status === 401) {
             // Очищаем состояние Redux
             dispatch(logout());
@@ -53,7 +79,7 @@ export function AuthInitializer() {
                 handleSessionTimeout();
             }
         }
-    }, [error, dispatch, isPublicRoute]);
+    }, [error, dispatch, isPublicRoute, isAuthBypassed]);
 
     useEffect(() => {
         if (isSuccess && user && token) {
