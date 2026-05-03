@@ -13,7 +13,9 @@ export type WavespeedPayloadFamily =
     | "z_image_lora_trainer" // Z-Image LoRA Trainer
     | "qwen_image_edit" // Qwen Image 2.0 Pro Edit
     | "seedream_v4_5_edit" // Seedream V4.5 Edit Sequential
-    | "flux_2_max_edit"; // FLUX 2 Max Edit (BFL)
+    | "flux_2_max_edit" // FLUX 2 Max Edit (BFL)
+    | "seedance_2_0_t2v" // Seedance 2.0 Text-to-Video
+    | "gpt_image_2_edit"; // OpenAI GPT Image 2 Edit
 
 // Базовая схема payload с белым списком полей
 export interface PayloadSchema {
@@ -27,7 +29,7 @@ export interface PayloadFieldValidation {
     type?: "string" | "number" | "integer" | "boolean" | "array" | "object";
     min?: number;
     max?: number;
-    enum?: string[];
+    enum?: (string | number)[];
     pattern?: string;
     minItems?: number;
     maxItems?: number;
@@ -137,6 +139,26 @@ export const WAVESPEED_MODEL_MAPPING: Record<MediaModel, ModelEndpointMapping> =
             inputCardinality: {
                 min: 1,
                 max: 3,
+                type: "image",
+            },
+        },
+        SEEDANCE_2_0_TEXT_TO_VIDEO_WAVESPEED: {
+            modelKey: "SEEDANCE_2_0_TEXT_TO_VIDEO_WAVESPEED",
+            externalEndpoint: "bytedance/seedance-2.0/text-to-video",
+            payloadFamily: "seedance_2_0_t2v",
+            inputCardinality: {
+                min: 0,
+                max: 0,
+                type: "none",
+            },
+        },
+        GPT_IMAGE_2_EDIT_WAVESPEED: {
+            modelKey: "GPT_IMAGE_2_EDIT_WAVESPEED",
+            externalEndpoint: "openai/gpt-image-2/edit",
+            payloadFamily: "gpt_image_2_edit",
+            inputCardinality: {
+                min: 1,
+                max: 1,
                 type: "image",
             },
         },
@@ -336,6 +358,70 @@ export const PAYLOAD_SCHEMAS: Record<WavespeedPayloadFamily, PayloadSchema> = {
                 type: "boolean",
             },
             enable_sync_mode: {
+                type: "boolean",
+            },
+        },
+    },
+    seedance_2_0_t2v: {
+        required: ["prompt"],
+        optional: [
+            "duration",
+            "seed",
+            "aspect_ratio",
+            "resolution",
+            "enable_web_search",
+            "nsfw_checker",
+        ],
+        validations: {
+            prompt: {
+                type: "string",
+            },
+            duration: {
+                type: "integer",
+                enum: [5, 10],
+            },
+            seed: {
+                type: "integer",
+            },
+            aspect_ratio: {
+                type: "string",
+                enum: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+            },
+            resolution: {
+                type: "string",
+                enum: ["480p", "720p", "1080p"],
+            },
+            enable_web_search: {
+                type: "boolean",
+            },
+            nsfw_checker: {
+                type: "boolean",
+            },
+        },
+    },
+    gpt_image_2_edit: {
+        required: ["prompt", "image"],
+        optional: ["n", "size", "seed", "nsfw_checker"],
+        validations: {
+            prompt: {
+                type: "string",
+            },
+            image: {
+                type: "string",
+            },
+            n: {
+                type: "integer",
+                min: 1,
+                max: 10,
+            },
+            size: {
+                type: "string",
+                enum: ["1024x1024", "1024x1792", "1792x1024"],
+            },
+            seed: {
+                type: "integer",
+            },
+            nsfw_checker: {
                 type: "boolean",
             },
         },

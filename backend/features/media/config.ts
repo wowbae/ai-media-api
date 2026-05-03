@@ -321,6 +321,30 @@ export const MEDIA_MODELS: Record<string, MediaModelConfig> = {
             output: 0.05,
         },
     },
+    SEEDANCE_2_0_TEXT_TO_VIDEO_WAVESPEED: {
+        id: "bytedance/seedance-2.0/text-to-video",
+        name: "Seedance 2.0 Text-to-Video",
+        types: ["VIDEO"] as const,
+        maxPromptLength: 4096,
+        promptLimit: 2500,
+        supportsImageInput: false,
+        provider: "wavespeed",
+        pricing: {
+            output: 0.15,
+        },
+    },
+    GPT_IMAGE_2_EDIT_WAVESPEED: {
+        id: "openai/gpt-image-2/edit",
+        name: "GPT Image 2 Edit",
+        types: ["IMAGE"] as const,
+        maxPromptLength: 4000,
+        promptLimit: 4000,
+        supportsImageInput: true,
+        provider: "wavespeed",
+        pricing: {
+            output: 0.05,
+        },
+    },
     // Kie.ai провайдер - Kling 2.6 Motion Control (image + video → video)
     KLING_2_6_MOTION_CONTROL_KIEAI: {
         id: "kling-2.6/motion-control",

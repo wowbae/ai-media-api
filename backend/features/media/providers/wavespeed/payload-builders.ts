@@ -91,6 +91,29 @@ export interface Flux2MaxEditPayload {
     size: string;
 }
 
+export interface Seedance2_0T2VPayload {
+    prompt: string;
+    duration?: number;
+    seed?: number;
+    aspect_ratio?: string;
+    /** Док: 480p | 720p | 1080p */
+    resolution?: "480p" | "720p" | "1080p";
+    /** Док / Playground: отключить онлайн-поиск */
+    enable_web_search?: boolean;
+    /** Playground «NSFW checker» — меньше блокировок контента при false */
+    nsfw_checker?: boolean;
+}
+
+export interface GptImage2EditPayload {
+    prompt: string;
+    image: string;
+    n?: number;
+    size?: string;
+    seed?: number;
+    /** Playground «NSFW checker» — док явно не всегда совпадает с UI API */
+    nsfw_checker?: boolean;
+}
+
 // Union тип для всех payload
 export type WavespeedPayload =
     | Wan2_2I2vPayload
@@ -101,7 +124,9 @@ export type WavespeedPayload =
     | ZImageLoraTrainerPayload
     | QwenImageEditPayload
     | SeedreamV4_5EditPayload
-    | Flux2MaxEditPayload;
+    | Flux2MaxEditPayload
+    | Seedance2_0T2VPayload
+    | GptImage2EditPayload;
 
 // Аспект-рейшио в размер для image моделей
 const ASPECT_RATIO_TO_SIZE: Record<string, string> = {
@@ -428,6 +453,59 @@ export function buildSeedreamV4_5EditPayload(
     };
 }
 
+// Builder для Seedance 2.0 Text-to-Video
+export function buildSeedance2_0T2VPayload(
+    params: GenerateParams,
+): Seedance2_0T2VPayload {
+    const duration = mapDurationForSeedance2_0(params.duration);
+    const aspectRatio = params.aspectRatio || "16:9";
+    const resolution =
+        params.videoQuality === "480p" ||
+        params.videoQuality === "720p" ||
+        params.videoQuality === "1080p"
+            ? params.videoQuality
+            : "720p";
+
+    return {
+        prompt: params.prompt,
+        duration,
+        seed: parseSeed(params.seed),
+        aspect_ratio: aspectRatio,
+        resolution,
+        enable_web_search: false,
+        nsfw_checker: false,
+    };
+}
+
+function mapDurationForSeedance2_0(duration?: number): number {
+    if (duration === 10) return 10;
+    return 5;
+}
+
+// Builder для GPT Image 2 Edit
+export function buildGptImage2EditPayload(
+    params: GenerateParams,
+): GptImage2EditPayload {
+    const firstInput = params.inputFiles?.[0];
+    if (!firstInput) {
+        throw new Error("Для GPT Image 2 Edit нужно входное изображение");
+    }
+    const normalizedInput = normalizePublicMediaFileUrl(firstInput);
+
+    const size = params.aspectRatio
+        ? ASPECT_RATIO_TO_SIZE[params.aspectRatio]
+        : "1024x1024";
+
+    return {
+        prompt: params.prompt,
+        image: normalizedInput,
+        n: 1,
+        size,
+        seed: parseSeed(params.seed),
+        nsfw_checker: false,
+    };
+}
+
 // Главный builder: выбирает нужный builder по modelKey
 export function buildWavespeedPayload(
     model: MediaModel,
@@ -472,6 +550,10 @@ export function buildWavespeedPayload(
             return buildSeedreamV4_5EditPayload(params);
         case "flux_2_max_edit":
             return buildFlux2MaxEditPayload(params);
+        case "seedance_2_0_t2v":
+            return buildSeedance2_0T2VPayload(params);
+        case "gpt_image_2_edit":
+            return buildGptImage2EditPayload(params);
         default:
             throw new Error(
                 `Неподдерживаемый payload family: ${payloadFamily}`,

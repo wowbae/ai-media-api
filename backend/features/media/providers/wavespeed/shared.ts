@@ -158,6 +158,7 @@ export async function loadWavespeedPredictionWithOptionalResult(
 
         const secondaryRaw = await res.json();
         let secOutputs: unknown;
+        let sec: Record<string, unknown> | undefined;
         if (
             secondaryRaw &&
             typeof secondaryRaw === "object" &&
@@ -165,10 +166,11 @@ export async function loadWavespeedPredictionWithOptionalResult(
             (secondaryRaw as WavespeedResultResponse).data &&
             typeof (secondaryRaw as WavespeedResultResponse).data === "object"
         ) {
-            secOutputs = (secondaryRaw as WavespeedResultResponse).data!
-                .outputs;
+            sec = (secondaryRaw as WavespeedResultResponse).data!;
+            secOutputs = sec.outputs;
         } else if (secondaryRaw && typeof secondaryRaw === "object") {
-            secOutputs = (secondaryRaw as Record<string, unknown>).outputs;
+            sec = secondaryRaw as Record<string, unknown>;
+            secOutputs = sec.outputs;
         }
 
         const outArr = Array.isArray(secOutputs)

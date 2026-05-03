@@ -18,6 +18,8 @@ export const AI_MODEL_ALLOWED_MODELS: readonly MediaModel[] = [
     "QWEN_IMAGE_2_0_PRO_EDIT_WAVESPEED",
     "WAN_2_2_IMAGE_TO_VIDEO_LORA_WAVESPEED",
     "WAN_2_2_IMAGE_TO_VIDEO_WAVESPEED",
+    "SEEDANCE_2_0_TEXT_TO_VIDEO_WAVESPEED",
+    "GPT_IMAGE_2_EDIT_WAVESPEED",
 ] as const;
 
 export function parseAppMode(value: unknown): AppMode {
